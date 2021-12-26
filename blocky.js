@@ -1,14 +1,10 @@
 "use strict";
 
-var blocky_test = {
-
-};
-
-var bloky = {
+var blocky = {
     foo : () => {
         console.log('foo');
     }
 };
 
 
-export {bloky, blocky_test};
+export {blocky};

@@ -1,6 +1,10 @@
 "use strict";
 import {blocky} from "./blocky.js";
 
+document.addEventListener("DOMContentLoaded", function(event) {
+    onLoad();
+});
+
 function onLoad() {
     var canvas = document.getElementById('blocky');
     var ctx = canvas.getContext('2d');
