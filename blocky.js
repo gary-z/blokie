@@ -218,7 +218,7 @@ const PIECES = [
 function get_random_piece() {
     return PIECES[Math.floor(Math.random() * PIECES.length)];
 }
-function get_randome_piece_set() {
+function get_random_piece_set() {
     return [get_random_piece(), get_random_piece(), get_random_piece()];
 }
 for (let i = 0; i < 100; ++i) {
@@ -357,6 +357,31 @@ function get_eval(bb) {
     return result;
 }
 console.assert(get_eval(EMPTY) === 0);
+
+function ai_make_move(board, piece_set) {
+    let [p0, p1, p2] = piece_set;
+    let best_score = 999999999;
+    let best_next = FULL;
+    for (const after_p0 of get_next_boards(board, p0)) {
+        for (const after_p1 of get_next_boards(after_p0, p1)) {
+            for (const after_p2 of get_next_boards(after_p1, p2)) {
+                const score = get_eval(after_p2);
+                if (score < best_score) {
+                    best_score = score;
+                    best_next = after_p2;
+                }
+            }
+        }
+    }
+    return best_next;
+}
+
+let game = EMPTY;
+while (!equal(game, FULL)) {
+    console.log(str(game));
+    const piece_set = get_random_piece_set();
+    game = ai_make_move(game, piece_set);
+}
 
 var blocky = {
     foo: () => {
