@@ -246,7 +246,7 @@ function* get_piece_placements(p) {
 for (let p of PIECES) {
     let height = 0;
     let width = 0;
-    for (let i = 0; i<9;++i){
+    for (let i = 0; i < 9; ++i) {
         if (any(and(p, row(i)))) {
             height = i + 1;
         }
@@ -258,12 +258,23 @@ for (let p of PIECES) {
     for (let placement of get_piece_placements(p)) {
         num_placements++;
     }
-    console.assert(num_placements === (9-height+1)*(9-width+1));
+    console.assert(num_placements === (9 - height + 1) * (9 - width + 1));
+
+    let num_next_boards = 0;
+    for (let next_board of get_next_boards(EMPTY, p)) {
+        num_next_boards++;
+    }
+    console.assert(num_next_boards === num_placements);
+
+    for (let next_board of get_next_boards(FULL, p)) {
+        // Can't place the piece on a full board.
+        console.assert(false);
+    }
 }
 
 function perform_clears(board) {
     let to_remove = EMPTY;
-    for (let i = 0; i <9;++i) {
+    for (let i = 0; i < 9; ++i) {
         const c = column(i);
         if (equal(and(c, board), c)) {
             to_remove = or(to_remove, c);
@@ -274,8 +285,8 @@ function perform_clears(board) {
         }
     }
 
-    for (let r=0;r<3;++r) {
-        for (let c=0;c<3;++c){
+    for (let r = 0; r < 3; ++r) {
+        for (let c = 0; c < 3; ++c) {
             const cb = cube(r, c);
             if (equal(and(cb, board), cb)) {
                 to_remove = or(to_remove, cb);
@@ -291,9 +302,17 @@ for (let p of PIECES) {
         console.assert(equal(placement, perform_clears(placement)));
     }
 }
-for (let i=0;i<9;++i) {
+for (let i = 0; i < 9; ++i) {
     console.assert(is_empty(perform_clears(row(i))));
     console.assert(is_empty(perform_clears(column(i))));
+}
+
+function* get_next_boards(board, piece) {
+    for (const placement of get_piece_placements(piece)) {
+        if (is_empty(and(board, placement))) {
+            yield perform_clears(or(board, placement));
+        }
+    }
 }
 
 var blocky = {
