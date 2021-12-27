@@ -11,5 +11,4 @@ function onLoad() {
     console.log("hi");
     ctx.fillStyle = 'rgb(200, 0, 0)';
     ctx.fillRect(10, 10, 50, 50);
-    blocky.foo();
 }

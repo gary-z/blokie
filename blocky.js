@@ -406,20 +406,13 @@ function ai_make_move(board, piece_set) {
     return result;
 }
 
-let game = EMPTY;
-let moves = 0;
-while (!equal(game, FULL) && moves<100) {
-    moves ++;
-    console.log(str(game));
-    const piece_set = get_random_piece_set();
-    game = ai_make_move(game, piece_set).final_board;
-}
-console.log(moves);
-
 var blocky = {
-    foo: () => {
-        console.log('foo');
-    }
+    getNewBoard: () => {
+        return [...EMPTY];
+    },
+    getRandomPieceSet: get_random_piece_set,
+    getAIMove: ai_make_move,
+    at: at,
 };
 
 export { blocky };
