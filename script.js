@@ -65,22 +65,9 @@ function drawGame(canvas, board, placement) {
         }
     }
 
-    ctx.fillStyle = 'blue';
-    for (let r = 0; r < 9; ++r) {
-        for (let c = 0; c < 9; ++c) {
-            if (blocky.at(placement, r, c)) {
-                ctx.fillStyle = 'pink';
-                ctx.fillRect(c * grid_size, r * grid_size, grid_size, grid_size);
-            } else if (blocky.at(board, r, c)) {
-                ctx.fillStyle = 'rgb(54,112,232)';
-                ctx.fillRect(c * grid_size, r * grid_size, grid_size, grid_size);
-            }
-        }
-    }
-
     // Minor grid lines
     ctx.lineWidth = 0.5;
-    ctx.strokeStyle = 'black';
+    ctx.strokeStyle = 'grey';
     for (let i = 0; i < 9; ++i) {
         ctx.beginPath();
         ctx.moveTo(i * grid_size, 0);
@@ -94,6 +81,7 @@ function drawGame(canvas, board, placement) {
     }
 
     // Major grid lines.
+    ctx.strokeStyle = 'black';
     ctx.lineWidth = 1;
     for (let i = 0; i < 3; ++i) {
         ctx.beginPath();
@@ -106,6 +94,23 @@ function drawGame(canvas, board, placement) {
         ctx.lineTo(9 * grid_size, i * grid_size * 3,);
         ctx.stroke();
     }
+
+    // The pieces.
+    ctx.fillStyle = 'blue';
+    for (let r = 0; r < 9; ++r) {
+        for (let c = 0; c < 9; ++c) {
+            if (blocky.at(placement, r, c) || blocky.at(board, r, c)) {
+                const rect = [c * grid_size, r * grid_size, grid_size, grid_size];
+                ctx.fillStyle = blocky.at(placement, r, c) ? 'pink' : 'rgb(54,112,232)';
+                ctx.fillRect(...rect);
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(...rect);
+            }
+        }
+    }
+
+
 
     // Draw outer border
     ctx.strokeStyle = 'black';
