@@ -6,7 +6,6 @@ document.addEventListener("DOMContentLoaded", function (event) {
 });
 
 let game_ongoing = false;
-let delay = 1000;
 
 async function onLoad() {
     var canvas = document.getElementById('board');
@@ -15,7 +14,9 @@ async function onLoad() {
     await playGameLoop();
 }
 
-function sleep(ms) {
+function sleep() {
+    const slider = document.getElementById('speed');
+    const ms = 5000 / slider.value;
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -39,7 +40,7 @@ async function playGameLoop() {
         drawGame(canvas, game, [], centered_pieces);
         const [unused, ai_move] = await Promise.all(
             [
-                sleep(delay),
+                sleep(),
                 async function () {
                     return blocky.getAIMove(game, piece_set);
                 }(),
@@ -57,7 +58,7 @@ async function playGameLoop() {
             drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], centered_pieces);
             score += blocky.count(ai_move.pieces[i]);
             updateScore(score.toString());
-            await sleep(delay);
+            await sleep();
             if (num_cleared > 0) {
                 if (prev_move_was_clear) {
                     score += 8;
@@ -71,7 +72,7 @@ async function playGameLoop() {
                 }
                 updateScore(score.toString());
                 drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame(), centered_pieces);
-                await sleep(delay);
+                await sleep();
                 prev_move_was_clear = true;
             }
         }
