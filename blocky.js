@@ -215,6 +215,15 @@ const PIECES = [
     [1835521, 0, 0],
     [527874, 0, 0],
 ];
+function get_random_piece() {
+    return PIECES[Math.floor(Math.random() * PIECES.length)];
+}
+function get_randome_piece_set() {
+    return [get_random_piece(), get_random_piece(), get_random_piece()];
+}
+for (let i = 0; i < 100; ++i) {
+    console.assert(any(get_random_piece()));
+}
 
 for (let p of PIECES) {
     console.assert(count(p) >= 1);
@@ -347,9 +356,7 @@ function get_eval(bb) {
 
     return result;
 }
-
 console.assert(get_eval(EMPTY) === 0);
-
 
 var blocky = {
     foo: () => {
