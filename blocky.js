@@ -371,14 +371,37 @@ function get_eval(bb) {
 }
 console.assert(get_eval(EMPTY) === 0);
 
-function* get_piece_set_permutations(piece_set) {
+function* get_piece_set_permutations(board, piece_set) {
     yield piece_set;
+    if (!can_clear_with_2_pieces(board, piece_set)) {
+        return;
+    }
     const [a, b, c] = piece_set;
     yield [a, c, b];
     yield [b, a, c];
     yield [b, c, a];
     yield [c, a, b];
     yield [c, b, a];
+}
+
+function can_clear_with_2_pieces(board, piece_set) {
+    for (let i = 0; i < 3; ++i) {
+        const p0 = piece_set[0];
+        for (let [unused, after_p0] of get_next_boards(board, p0)) {
+            for (let j = 0; j < 3; ++j) {
+                if (i === j) {
+                    continue;
+                }
+                const p1 = piece_set[1];
+                for (let [unused, after_p1] of get_next_boards(after_p0, p1)) {
+                    if (count(after_p1) < count(board) + count(p0) + count(p1)) {
+                        return true;
+                    }
+                }
+            }
+        }
+    }
+    return false;
 }
 
 function ai_make_move(board, piece_set) {
@@ -389,7 +412,7 @@ function ai_make_move(board, piece_set) {
         prev_piece_placements: [EMPTY, EMPTY, EMPTY],
         pieces: [EMPTY, EMPTY, EMPTY],
     };
-    for (const [p0, p1, p2] of get_piece_set_permutations(piece_set)) {
+    for (const [p0, p1, p2] of get_piece_set_permutations(board, piece_set)) {
         for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
             for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
@@ -419,10 +442,10 @@ function center_piece(p) {
             width = i + 1;
         }
     }
-    for (let i=0;i<(5-width)/2;++i) {
+    for (let i = 0; i < (5 - width) / 2; ++i) {
         p = shift_right(p);
     }
-    for (let i=0;i<(5-height)/2;++i) {
+    for (let i = 0; i < (5 - height) / 2; ++i) {
         p = shift_down(p);
     }
     return p;
