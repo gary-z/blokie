@@ -451,7 +451,7 @@ function center_piece(p) {
     return p;
 }
 
-var blocky = {
+var blokie = {
     getNewGame: () => [...EMPTY],
     getRandomPieceSet: get_random_piece_set,
     getAIMove: ai_make_move,
