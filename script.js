@@ -18,20 +18,32 @@ function sleep(ms) {
 async function playGameLoop() {
     var canvas = document.getElementById('board');
     var game = blocky.getNewGame();
+    let score = 0;
     while (!blocky.isOver(game)) {
         const piece_set = blocky.getRandomPieceSet();
         const ai_move = blocky.getAIMove(game, piece_set);
         for (let i = 0; i < 3; ++i) {
+            const num_cleared = Math.max(0, blocky.count(ai_move.prev_boards[i]) +
+                blocky.count(ai_move.prev_piece_placements[i]) - blocky.count(ai_move.prev_boards[i + 1]));
             drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i]);
+            score += blocky.count(ai_move.pieces[i]);
+            updateScore(score);
             await sleep(1000);
-            if (blocky.count(ai_move.prev_boards[i + 1]) !== blocky.count(ai_move.prev_boards[i])+blocky.count(ai_move.prev_piece_placements[i])) {
-                drawGame(canvas, ai_move.prev_boards[i+1], blocky.getNewGame());
+            if (num_cleared > 0) {
+                score += 16;
+                updateScore(score);
+                drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame());
                 await sleep(1000);
             }
 
         }
         game = ai_move.board;
     }
+}
+
+function updateScore(score) {
+    const score_el = document.getElementById('score');
+    score_el.innerText = score.toString();
 }
 
 function drawGame(canvas, board, placement) {
@@ -109,5 +121,5 @@ function drawGame(canvas, board, placement) {
     // Draw outer border
     ctx.strokeStyle = 'black';
     ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, 9*grid_size-2, 9*grid_size-2);
+    ctx.strokeRect(1, 1, 9 * grid_size - 2, 9 * grid_size - 2);
 }

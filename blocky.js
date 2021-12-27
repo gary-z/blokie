@@ -387,6 +387,7 @@ function ai_make_move(board, piece_set) {
         board_score: 999999,
         prev_boards: [FULL, FULL, FULL],
         prev_piece_placements: [EMPTY, EMPTY, EMPTY],
+        pieces: [EMPTY, EMPTY, EMPTY],
     };
     for (const [p0, p1, p2] of get_piece_set_permutations(piece_set)) {
         for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
@@ -398,6 +399,7 @@ function ai_make_move(board, piece_set) {
                         result.board_score = score;
                         result.prev_boards = [board, after_p0, after_p1, after_p2];
                         result.prev_piece_placements = [placement_0, placement_1, placement_2];
+                        result.pieces = [p0, p1, p2];
                     }
                 }
             }
