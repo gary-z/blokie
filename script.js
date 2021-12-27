@@ -76,7 +76,7 @@ function drawGame(canvas, board, placement) {
 
     // Major grid lines.
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     for (let i = 0; i < 3; ++i) {
         ctx.beginPath();
         ctx.moveTo(i * grid_size * 3, 0);
@@ -108,6 +108,6 @@ function drawGame(canvas, board, placement) {
 
     // Draw outer border
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 4;
-    ctx.strokeRect(0, 0, 9*grid_size, 9*grid_size);
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, 9*grid_size-2, 9*grid_size-2);
 }
