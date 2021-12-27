@@ -383,21 +383,21 @@ function* get_piece_set_permutations(piece_set) {
 
 function ai_make_move(board, piece_set) {
     const result = {
-        final_board: FULL,
-        boards: [FULL, FULL, FULL],
-        piece_placements: [EMPTY, EMPTY, EMPTY],
-        final_board_score: 999999,
+        board: FULL,
+        board_score: 999999,
+        prev_boards: [FULL, FULL, FULL],
+        prev_piece_placements: [EMPTY, EMPTY, EMPTY],
     };
     for (const [p0, p1, p2] of get_piece_set_permutations(piece_set)) {
         for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
             for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
                     const score = get_eval(after_p2);
-                    if (score < result.final_board_score) {
-                        result.final_board = after_p2;
-                        result.final_board_score = score;
-                        result.boards = [after_p0, after_p1, after_p2];
-                        result.piece_placements = [placement_0, placement_1, placement_2];
+                    if (score < result.board_score) {
+                        result.board = after_p2;
+                        result.board_score = score;
+                        result.prev_boards = [after_p0, after_p1, after_p2];
+                        result.prev_piece_placements = [placement_0, placement_1, placement_2];
                     }
                 }
             }
@@ -407,12 +407,13 @@ function ai_make_move(board, piece_set) {
 }
 
 var blocky = {
-    getNewBoard: () => {
-        return [...EMPTY];
-    },
+    getNewGame: () => [...EMPTY],
     getRandomPieceSet: get_random_piece_set,
     getAIMove: ai_make_move,
     at: at,
+    isOver: (game) => {
+        return equal(game, FULL);
+    }
 };
 
 export { blocky };
