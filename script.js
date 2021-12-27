@@ -5,9 +5,13 @@ document.addEventListener("DOMContentLoaded", function (event) {
     onLoad();
 });
 
+let game_ongoing = false;
+let delay = 1000;
 
 async function onLoad() {
     var canvas = document.getElementById('board');
+    canvas.addEventListener("click", playGameLoop);
+
     await playGameLoop();
 }
 
@@ -16,7 +20,10 @@ function sleep(ms) {
 }
 
 async function playGameLoop() {
-    const DELAY = 1000;
+    if (game_ongoing) {
+        return;
+    }
+    game_ongoing = true;
     let canvas = document.getElementById('board');
     let game = blocky.getNewGame();
     let score = 0;
@@ -32,19 +39,25 @@ async function playGameLoop() {
         drawGame(canvas, game, [], centered_pieces);
         const [unused, ai_move] = await Promise.all(
             [
-                sleep(DELAY),
+                sleep(delay),
                 async function () {
                     return blocky.getAIMove(game, piece_set);
                 }(),
             ]
         );
+        if (blocky.isOver(ai_move.board)) {
+            game_ongoing = false;
+            updateScore("Final score: " + score.toString() + ". Tap board to restart.");
+            break;
+        }
+
         for (let i = 0; i < 3; ++i) {
             const num_cleared = Math.max(0, blocky.count(ai_move.prev_boards[i]) +
                 blocky.count(ai_move.prev_piece_placements[i]) - blocky.count(ai_move.prev_boards[i + 1]));
             drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], centered_pieces);
             score += blocky.count(ai_move.pieces[i]);
-            updateScore(score);
-            await sleep(DELAY);
+            updateScore(score.toString());
+            await sleep(delay);
             if (num_cleared > 0) {
                 if (prev_move_was_clear) {
                     score += 8;
@@ -56,9 +69,9 @@ async function playGameLoop() {
                 if (num_cleared >= 18) {
                     score += 16;
                 }
-                updateScore(score);
+                updateScore(score.toString());
                 drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame(), centered_pieces);
-                await sleep(DELAY);
+                await sleep(delay);
                 prev_move_was_clear = true;
             }
         }
@@ -68,7 +81,7 @@ async function playGameLoop() {
 
 function updateScore(score) {
     const score_el = document.getElementById('score');
-    score_el.innerText = score.toString();
+    score_el.innerText = score;
 }
 
 function drawGame(canvas, board, placement, piece_set) {
