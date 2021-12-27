@@ -319,7 +319,7 @@ for (let i = 0; i < 9; ++i) {
 function* get_next_boards(board, piece) {
     for (const placement of get_piece_placements(piece)) {
         if (is_empty(and(board, placement))) {
-            yield perform_clears(or(board, placement));
+            yield [placement, perform_clears(or(board, placement))];
         }
     }
 }
@@ -350,9 +350,22 @@ function get_eval(bb) {
     const open = not(bb);
     const blocked_up = diff(open, shift_down(open));
     const blocked_left = diff(open, shift_right(open));
+    const blocked_right = diff(open, shift_left(open));
+    const blocked_down = diff(open, shift_up(open));
 
+    // Perimeter
     result += (count(blocked_up) - 9) * ALTERNATING;
     result += (count(blocked_left) - 9) * ALTERNATING;
+
+    // Empty square between 2 blocked squares.
+    result += count(and(blocked_down, blocked_up)) * SQUASHED_EMPTY;
+    result += count(and(blocked_left, blocked_right)) * SQUASHED_EMPTY;
+
+    // Empty square cornered between 2 blocked squares.
+    result += count(diff(and(blocked_up, blocked_left), and(row(0), column(0)))) * CORNERED_EMPTY;
+    result += count(diff(and(blocked_up, blocked_right), and(row(0), column(8)))) * CORNERED_EMPTY;
+    result += count(diff(and(blocked_down, blocked_left), and(row(8), column(0)))) * CORNERED_EMPTY;
+    result += count(diff(and(blocked_down, blocked_right), and(row(8), column(8)))) * CORNERED_EMPTY;
 
     return result;
 }
@@ -369,31 +382,37 @@ function* get_piece_set_permutations(piece_set) {
 }
 
 function ai_make_move(board, piece_set) {
-    let best_score = 999999999;
-    let best_next = FULL;
+    const result = {
+        final_board: FULL,
+        boards: [FULL, FULL, FULL],
+        piece_placements: [EMPTY, EMPTY, EMPTY],
+        final_board_score: 999999,
+    };
     for (const [p0, p1, p2] of get_piece_set_permutations(piece_set)) {
-        for (const after_p0 of get_next_boards(board, p0)) {
-            for (const after_p1 of get_next_boards(after_p0, p1)) {
-                for (const after_p2 of get_next_boards(after_p1, p2)) {
+        for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
+            for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
+                for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
                     const score = get_eval(after_p2);
-                    if (score < best_score) {
-                        best_score = score;
-                        best_next = after_p2;
+                    if (score < result.final_board_score) {
+                        result.final_board = after_p2;
+                        result.final_board_score = score;
+                        result.boards = [after_p0, after_p1, after_p2];
+                        result.piece_placements = [placement_0, placement_1, placement_2];
                     }
                 }
             }
         }
     }
-    return best_next;
+    return result;
 }
 
 let game = EMPTY;
 let moves = 0;
-while (!equal(game, FULL)) {
+while (!equal(game, FULL) && moves<100) {
     moves ++;
     console.log(str(game));
     const piece_set = get_random_piece_set();
-    game = ai_make_move(game, piece_set);
+    game = ai_make_move(game, piece_set).final_board;
 }
 console.log(moves);
 
