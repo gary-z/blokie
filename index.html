@@ -1,13 +1,40 @@
 <!DOCTYPE html>
-<html style="overflow: hidden;margin: 0px;">
+<html>
 
 <head>
-    <title>Blocky</title>
+    <title>Bocky: A Blockudoku/Woodoku Engine</title>
     <script src="script.js" type="module"></script>
+    <style>
+        .imgbox {
+            display: grid;
+            height: 90%;
+        }
+
+        .center-fit {
+            max-width: 100%;
+            max-height: 80vh;
+            margin: auto;
+            object-fit: scale-down;
+        }
+
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: red;
+            color: white;
+            text-align: center;
+        }
+    </style>
 </head>
 
-<body style="background-color:powderblue; overflow: hidden;margin: 0px;">
-    <canvas id="board" ></canvas>
+<body style="background-color:powderblue; overflow: hidden;">
+    <h2 style="text-align: center;">1337</h2>
+    <div class="imgbox">
+        <canvas class="center-fit" id="board" height=810 width=600></canvas>
+    </div>
+    <div class="footer">test footer</div>
 </body>
 
 </html>

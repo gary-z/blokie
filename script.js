@@ -8,8 +8,6 @@ document.addEventListener("DOMContentLoaded", function (event) {
 
 async function onLoad() {
     var canvas = document.getElementById('board');
-    resizeCanvas(canvas);
-
     await playGameLoop();
 }
 
@@ -26,7 +24,6 @@ async function playGameLoop() {
         for (let i = 0; i < 3; ++i) {
             drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i]);
             await sleep(1000);
-            console.log([blocky.count(ai_move.prev_boards[i])+blocky.count(ai_move.prev_piece_placements[i]), blocky.count(ai_move.prev_boards[i + 1]) ]);
             if (blocky.count(ai_move.prev_boards[i + 1]) !== blocky.count(ai_move.prev_boards[i])+blocky.count(ai_move.prev_piece_placements[i])) {
                 drawGame(canvas, ai_move.prev_boards[i+1], blocky.getNewGame());
                 await sleep(1000);
@@ -35,12 +32,6 @@ async function playGameLoop() {
         }
         game = ai_move.board;
     }
-}
-
-
-function resizeCanvas(canvas) {
-    canvas.width = Math.min(window.innerWidth, window.innerHeight);
-    canvas.height = Math.min(window.innerWidth, window.innerHeight);
 }
 
 function drawGame(canvas, board, placement) {
@@ -118,5 +109,5 @@ function drawGame(canvas, board, placement) {
     // Draw outer border
     ctx.strokeStyle = 'black';
     ctx.lineWidth = 4;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeRect(0, 0, 9*grid_size, 9*grid_size);
 }
