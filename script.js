@@ -86,7 +86,7 @@ function drawGame(canvas, board, placement, piece_set) {
 
     // Minor grid lines
     ctx.lineWidth = 0.5;
-    ctx.strokeStyle = 'grey';
+    ctx.strokeStyle = 'black';
     for (let i = 0; i < 9; ++i) {
         ctx.beginPath();
         ctx.moveTo(i * grid_size, 0);
@@ -101,7 +101,7 @@ function drawGame(canvas, board, placement, piece_set) {
 
     // Major grid lines.
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 4;
     for (let i = 0; i < 3; ++i) {
         ctx.beginPath();
         ctx.moveTo(i * grid_size * 3, 0);
@@ -122,8 +122,8 @@ function drawGame(canvas, board, placement, piece_set) {
 
     // Draw outer border
     ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, 9 * grid_size - 2, 9 * grid_size - 2);
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, 9 * grid_size - 4, 9 * grid_size - 4);
 
     for (let i = 0; i < piece_set.length; ++i) {
         ctx.save();
@@ -142,7 +142,7 @@ function drawBoard(ctx, grid_size, board, fill_style) {
                 const rect = [c * grid_size, r * grid_size, grid_size, grid_size];
                 ctx.fillRect(...rect);
                 ctx.strokeStyle = 'black';
-                ctx.lineWidth = 1;
+                ctx.lineWidth = 2;
                 ctx.strokeRect(...rect);
             }
         }
