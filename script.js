@@ -23,26 +23,29 @@ async function playGameLoop() {
     while (!blocky.isOver(game)) {
         const piece_set = blocky.getRandomPieceSet();
         const ai_move = blocky.getAIMove(game, piece_set);
+        for (let i = 0; i < 3; ++i) {
+            drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i]);
+            await sleep(1000);
+            console.log([blocky.count(ai_move.prev_boards[i])+blocky.count(ai_move.prev_piece_placements[i]), blocky.count(ai_move.prev_boards[i + 1]) ]);
+            if (blocky.count(ai_move.prev_boards[i + 1]) !== blocky.count(ai_move.prev_boards[i])+blocky.count(ai_move.prev_piece_placements[i])) {
+                drawGame(canvas, ai_move.prev_boards[i+1], blocky.getNewGame());
+                await sleep(1000);
+            }
 
-        drawGame(canvas, ai_move.prev_boards[0], ai_move.prev_piece_placements[0]);
-        await sleep(200);
-        drawGame(canvas, ai_move.prev_boards[1], ai_move.prev_piece_placements[1]);
-        await sleep(200);
-        drawGame(canvas, ai_move.prev_boards[2], ai_move.prev_piece_placements[2]);
-        await sleep(200);
-
+        }
         game = ai_move.board;
     }
 }
 
 
 function resizeCanvas(canvas) {
-    canvas.width = Math.max(canvas.width, canvas.height);
-    canvas.height = Math.max(canvas.width, canvas.height);
+    canvas.width = Math.min(window.innerWidth, window.innerHeight);
+    canvas.height = Math.min(window.innerWidth, window.innerHeight);
 }
 
 function drawGame(canvas, board, placement) {
     const ctx = canvas.getContext('2d');
+
     const grid_size = Math.min(canvas.width, canvas.height) / 9;
 
     if (blocky.isOver(board)) {

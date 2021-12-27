@@ -396,7 +396,7 @@ function ai_make_move(board, piece_set) {
                     if (score < result.board_score) {
                         result.board = after_p2;
                         result.board_score = score;
-                        result.prev_boards = [board, after_p0, after_p1];
+                        result.prev_boards = [board, after_p0, after_p1, after_p2];
                         result.prev_piece_placements = [placement_0, placement_1, placement_2];
                     }
                 }
@@ -413,7 +413,8 @@ var blocky = {
     at: at,
     isOver: (game) => {
         return equal(game, FULL);
-    }
+    },
+    count: count,
 };
 
 export { blocky };
