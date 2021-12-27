@@ -358,17 +358,28 @@ function get_eval(bb) {
 }
 console.assert(get_eval(EMPTY) === 0);
 
+function* get_piece_set_permutations(piece_set) {
+    yield piece_set;
+    const [a, b, c] = piece_set;
+    yield [a, c, b];
+    yield [b, a, c];
+    yield [b, c, a];
+    yield [c, a, b];
+    yield [c, b, a];
+}
+
 function ai_make_move(board, piece_set) {
-    let [p0, p1, p2] = piece_set;
     let best_score = 999999999;
     let best_next = FULL;
-    for (const after_p0 of get_next_boards(board, p0)) {
-        for (const after_p1 of get_next_boards(after_p0, p1)) {
-            for (const after_p2 of get_next_boards(after_p1, p2)) {
-                const score = get_eval(after_p2);
-                if (score < best_score) {
-                    best_score = score;
-                    best_next = after_p2;
+    for (const [p0, p1, p2] of get_piece_set_permutations(piece_set)) {
+        for (const after_p0 of get_next_boards(board, p0)) {
+            for (const after_p1 of get_next_boards(after_p0, p1)) {
+                for (const after_p2 of get_next_boards(after_p1, p2)) {
+                    const score = get_eval(after_p2);
+                    if (score < best_score) {
+                        best_score = score;
+                        best_next = after_p2;
+                    }
                 }
             }
         }
@@ -377,11 +388,14 @@ function ai_make_move(board, piece_set) {
 }
 
 let game = EMPTY;
+let moves = 0;
 while (!equal(game, FULL)) {
+    moves ++;
     console.log(str(game));
     const piece_set = get_random_piece_set();
     game = ai_make_move(game, piece_set);
 }
+console.log(moves);
 
 var blocky = {
     foo: () => {
