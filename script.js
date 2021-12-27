@@ -1,5 +1,5 @@
 "use strict";
-import { blocky } from "./blocky.js";
+import { blokie } from "./blokie.js";
 
 document.addEventListener("DOMContentLoaded", function (event) {
     onLoad();
@@ -26,15 +26,15 @@ async function playGameLoop() {
     }
     game_ongoing = true;
     let canvas = document.getElementById('board');
-    let game = blocky.getNewGame();
+    let game = blockie.getNewGame();
     let score = 0;
     let prev_move_was_clear = false;
 
-    while (!blocky.isOver(game)) {
-        const piece_set = blocky.getRandomPieceSet();
+    while (!blockie.isOver(game)) {
+        const piece_set = blockie.getRandomPieceSet();
         const centered_pieces = [];
         for (const p of piece_set) {
-            centered_pieces.push(blocky.centerPiece(p));
+            centered_pieces.push(blockie.centerPiece(p));
         }
 
         drawGame(canvas, game, [], centered_pieces);
@@ -42,21 +42,21 @@ async function playGameLoop() {
             [
                 sleep(),
                 async function () {
-                    return blocky.getAIMove(game, piece_set);
+                    return blockie.getAIMove(game, piece_set);
                 }(),
             ]
         );
-        if (blocky.isOver(ai_move.board)) {
+        if (blockie.isOver(ai_move.board)) {
             game_ongoing = false;
             updateScore("Final score: " + score.toString() + ". Tap board to restart.");
             break;
         }
 
         for (let i = 0; i < 3; ++i) {
-            const num_cleared = Math.max(0, blocky.count(ai_move.prev_boards[i]) +
-                blocky.count(ai_move.prev_piece_placements[i]) - blocky.count(ai_move.prev_boards[i + 1]));
+            const num_cleared = Math.max(0, blockie.count(ai_move.prev_boards[i]) +
+                blockie.count(ai_move.prev_piece_placements[i]) - blockie.count(ai_move.prev_boards[i + 1]));
             drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], centered_pieces);
-            score += blocky.count(ai_move.pieces[i]);
+            score += blockie.count(ai_move.pieces[i]);
             updateScore(score.toString());
             await sleep();
             if (num_cleared > 0) {
@@ -71,7 +71,7 @@ async function playGameLoop() {
                     score += 16;
                 }
                 updateScore(score.toString());
-                drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame(), centered_pieces);
+                drawGame(canvas, ai_move.prev_boards[i + 1], blockie.getNewGame(), centered_pieces);
                 await sleep();
                 prev_move_was_clear = true;
             }
@@ -90,7 +90,7 @@ function drawGame(canvas, board, placement, piece_set) {
 
     const grid_size = Math.min(canvas.width, canvas.height) / 9;
 
-    if (blocky.isOver(board)) {
+    if (blockie.isOver(board)) {
         ctx.fillStyle = 'red';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         return;
@@ -164,7 +164,7 @@ function drawBoard(ctx, grid_size, board, fill_style) {
     ctx.fillStyle = fill_style;
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
-            if (blocky.at(board, r, c)) {
+            if (blockie.at(board, r, c)) {
                 const rect = [c * grid_size, r * grid_size, grid_size, grid_size];
                 ctx.fillRect(...rect);
                 ctx.strokeStyle = 'black';

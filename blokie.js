@@ -463,4 +463,4 @@ var blocky = {
     centerPiece: center_piece,
 };
 
-export { blocky };
+export { blokie };
