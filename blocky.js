@@ -315,6 +315,42 @@ function* get_next_boards(board, piece) {
     }
 }
 
+function get_eval(bb) {
+    const OCCUPIED_SQUARE = 10;
+    const CUBE = 30;
+    const SQUASHED_EMPTY = 10;
+    const CORNERED_EMPTY = 10;
+    const ALTERNATING = 15;
+    const DEADLY_PIECE = 40;
+
+    let result = 0;
+
+    // Occupied squares.
+    result += count(bb) * OCCUPIED_SQUARE;
+
+    // Occupied cube.
+    for (let r = 0; r < 3; ++r) {
+        for (let c = 0; c < 3; ++c) {
+            const cb = cube(r, c);
+            if (any(and(cube, bb))) {
+                result += CUBE;
+            }
+        }
+    }
+
+    const open = not(bb);
+    const blocked_up = diff(open, shift_down(open));
+    const blocked_left = diff(open, shift_right(open));
+
+    result += (count(blocked_up) - 9) * ALTERNATING;
+    result += (count(blocked_left) - 9) * ALTERNATING;
+
+    return result;
+}
+
+console.assert(get_eval(EMPTY) === 0);
+
+
 var blocky = {
     foo: () => {
         console.log('foo');
