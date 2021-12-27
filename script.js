@@ -17,9 +17,11 @@ function sleep(ms) {
 
 async function playGameLoop() {
     const DELAY = 1000;
-    var canvas = document.getElementById('board');
-    var game = blocky.getNewGame();
+    let canvas = document.getElementById('board');
+    let game = blocky.getNewGame();
     let score = 0;
+    let prev_move_was_clear = false;
+
     while (!blocky.isOver(game)) {
         const piece_set = blocky.getRandomPieceSet();
         const centered_pieces = [];
@@ -44,10 +46,20 @@ async function playGameLoop() {
             updateScore(score);
             await sleep(DELAY);
             if (num_cleared > 0) {
+                if (prev_move_was_clear) {
+                    score += 8;
+                }
                 score += 16;
+                if (num_cleared > 9) {
+                    score += 16;
+                }
+                if (num_cleared >= 18) {
+                    score += 16;
+                }
                 updateScore(score);
                 drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame(), centered_pieces);
                 await sleep(DELAY);
+                prev_move_was_clear = true;
             }
         }
         game = ai_move.board;
