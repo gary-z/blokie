@@ -16,6 +16,7 @@ function sleep(ms) {
 }
 
 async function playGameLoop() {
+    const DELAY = 1000;
     var canvas = document.getElementById('board');
     var game = blocky.getNewGame();
     let score = 0;
@@ -25,21 +26,29 @@ async function playGameLoop() {
         for (const p of piece_set) {
             centered_pieces.push(blocky.centerPiece(p));
         }
-        const ai_move = blocky.getAIMove(game, piece_set);
+
+        drawGame(canvas, game, [], centered_pieces);
+        const [unused, ai_move] = await Promise.all(
+            [
+                sleep(DELAY),
+                async function () {
+                    return blocky.getAIMove(game, piece_set);
+                }(),
+            ]
+        );
         for (let i = 0; i < 3; ++i) {
             const num_cleared = Math.max(0, blocky.count(ai_move.prev_boards[i]) +
                 blocky.count(ai_move.prev_piece_placements[i]) - blocky.count(ai_move.prev_boards[i + 1]));
             drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], centered_pieces);
             score += blocky.count(ai_move.pieces[i]);
             updateScore(score);
-            await sleep(1000);
+            await sleep(DELAY);
             if (num_cleared > 0) {
                 score += 16;
                 updateScore(score);
                 drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame(), centered_pieces);
-                await sleep(1000);
+                await sleep(DELAY);
             }
-
         }
         game = ai_move.board;
     }
@@ -106,7 +115,9 @@ function drawGame(canvas, board, placement, piece_set) {
     }
 
     // The pieces.
-    drawBoard(ctx, grid_size, placement, 'pink');
+    if (placement.length) {
+        drawBoard(ctx, grid_size, placement, 'pink');
+    }
     drawBoard(ctx, grid_size, board, 'rgb(54,112,232)');
 
     // Draw outer border
@@ -114,9 +125,9 @@ function drawGame(canvas, board, placement, piece_set) {
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, 9 * grid_size - 2, 9 * grid_size - 2);
 
-    for (let i = 0; i < 3; ++i) {
+    for (let i = 0; i < piece_set.length; ++i) {
         ctx.save();
-        ctx.translate(10 + grid_size*3*i, grid_size*9 + 50);
+        ctx.translate(10 + grid_size * 3 * i, grid_size * 9 + 50);
         ctx.scale(0.55, 0.55);
         drawBoard(ctx, grid_size, piece_set[i]);
         ctx.restore()
