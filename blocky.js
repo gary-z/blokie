@@ -219,10 +219,46 @@ const PIECES = [
 for (let p of PIECES) {
     console.assert(count(p) >= 1);
     console.assert(count(p) <= 5);
-    for (let i=5;i<9;++i){
+    for (let i = 5; i < 9; ++i) {
         console.assert(is_empty(and(row(i), p)));
         console.assert(is_empty(and(column(i), p)));
     }
+}
+
+function* get_piece_placements(p) {
+    let left = p;
+    const col8 = column(8);
+    const row8 = row(8);
+    while (true) {
+        yield p;
+        if (any(and(p, col8))) {
+            if (any(and(left, row8))) {
+                return;
+            }
+            left = shift_down(left);
+            p = left;
+        } else {
+            p = shift_right(p);
+        }
+    }
+}
+
+for (let p of PIECES) {
+    let height = 0;
+    let width = 0;
+    for (let i = 0; i<9;++i){
+        if (any(and(p, row(i)))) {
+            height = i + 1;
+        }
+        if (any(and(p, column(i)))) {
+            width = i + 1;
+        }
+    }
+    let num_placements = 0;
+    for (let placement of get_piece_placements(p)) {
+        num_placements++;
+    }
+    console.assert(num_placements === (9-height+1)*(9-width+1));
 }
 
 var blocky = {
