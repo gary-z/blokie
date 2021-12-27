@@ -408,6 +408,26 @@ function ai_make_move(board, piece_set) {
     return result;
 }
 
+function center_piece(p) {
+    let height = 0;
+    let width = 0;
+    for (let i = 0; i < 9; ++i) {
+        if (any(and(p, row(i)))) {
+            height = i + 1;
+        }
+        if (any(and(p, column(i)))) {
+            width = i + 1;
+        }
+    }
+    for (let i=0;i<(5-width)/2;++i) {
+        p = shift_right(p);
+    }
+    for (let i=0;i<(5-height)/2;++i) {
+        p = shift_down(p);
+    }
+    return p;
+}
+
 var blocky = {
     getNewGame: () => [...EMPTY],
     getRandomPieceSet: get_random_piece_set,
@@ -417,6 +437,7 @@ var blocky = {
         return equal(game, FULL);
     },
     count: count,
+    centerPiece: center_piece,
 };
 
 export { blocky };

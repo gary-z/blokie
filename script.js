@@ -21,18 +21,22 @@ async function playGameLoop() {
     let score = 0;
     while (!blocky.isOver(game)) {
         const piece_set = blocky.getRandomPieceSet();
+        const centered_pieces = [];
+        for (const p of piece_set) {
+            centered_pieces.push(blocky.centerPiece(p));
+        }
         const ai_move = blocky.getAIMove(game, piece_set);
         for (let i = 0; i < 3; ++i) {
             const num_cleared = Math.max(0, blocky.count(ai_move.prev_boards[i]) +
                 blocky.count(ai_move.prev_piece_placements[i]) - blocky.count(ai_move.prev_boards[i + 1]));
-            drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i]);
+            drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], centered_pieces);
             score += blocky.count(ai_move.pieces[i]);
             updateScore(score);
             await sleep(1000);
             if (num_cleared > 0) {
                 score += 16;
                 updateScore(score);
-                drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame());
+                drawGame(canvas, ai_move.prev_boards[i + 1], blocky.getNewGame(), centered_pieces);
                 await sleep(1000);
             }
 
@@ -46,7 +50,7 @@ function updateScore(score) {
     score_el.innerText = score.toString();
 }
 
-function drawGame(canvas, board, placement) {
+function drawGame(canvas, board, placement, piece_set) {
     const ctx = canvas.getContext('2d');
 
     const grid_size = Math.min(canvas.width, canvas.height) / 9;
@@ -102,12 +106,29 @@ function drawGame(canvas, board, placement) {
     }
 
     // The pieces.
-    ctx.fillStyle = 'blue';
+    drawBoard(ctx, grid_size, placement, 'pink');
+    drawBoard(ctx, grid_size, board, 'rgb(54,112,232)');
+
+    // Draw outer border
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, 9 * grid_size - 2, 9 * grid_size - 2);
+
+    for (let i = 0; i < 3; ++i) {
+        ctx.save();
+        ctx.translate(10 + grid_size*3*i, grid_size*9 + 50);
+        ctx.scale(0.55, 0.55);
+        drawBoard(ctx, grid_size, piece_set[i]);
+        ctx.restore()
+    }
+}
+
+function drawBoard(ctx, grid_size, board, fill_style) {
+    ctx.fillStyle = fill_style;
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
-            if (blocky.at(placement, r, c) || blocky.at(board, r, c)) {
+            if (blocky.at(board, r, c)) {
                 const rect = [c * grid_size, r * grid_size, grid_size, grid_size];
-                ctx.fillStyle = blocky.at(placement, r, c) ? 'pink' : 'rgb(54,112,232)';
                 ctx.fillRect(...rect);
                 ctx.strokeStyle = 'black';
                 ctx.lineWidth = 1;
@@ -115,11 +136,4 @@ function drawGame(canvas, board, placement) {
             }
         }
     }
-
-
-
-    // Draw outer border
-    ctx.strokeStyle = 'black';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(1, 1, 9 * grid_size - 2, 9 * grid_size - 2);
 }
