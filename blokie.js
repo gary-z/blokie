@@ -461,6 +461,7 @@ var blokie = {
     },
     count: count,
     centerPiece: center_piece,
+    and: and,
 };
 
 export { blokie };

@@ -56,19 +56,24 @@ async function playGameLoop() {
             const num_cleared = Math.max(0, blokie.count(ai_move.prev_boards[i]) +
                 blokie.count(ai_move.prev_piece_placements[i]) - blokie.count(ai_move.prev_boards[i + 1]));
             drawGame(canvas, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], centered_pieces);
-            score += blokie.count(ai_move.pieces[i]);
+
+            // 1 point for each placed block that was not cleared.
+            score += blokie.count(blokie.and(ai_move.prev_piece_placements[i], ai_move.prev_boards[i + 1]));
             updateScore(score.toString());
             await sleep();
             if (num_cleared > 0) {
+                // Streaks.
                 if (prev_move_was_clear) {
                     score += 8;
                 }
-                score += 16;
+
+                // Combos.
+                score += num_cleared*2;
                 if (num_cleared > 9) {
-                    score += 16;
+                    score += num_cleared;
                 }
                 if (num_cleared >= 18) {
-                    score += 16;
+                    score += num_cleared*2;
                 }
                 updateScore(score.toString());
                 drawGame(canvas, ai_move.prev_boards[i + 1], blokie.getNewGame(), centered_pieces);
