@@ -362,10 +362,10 @@ function get_eval(bb) {
     result += count(and(blocked_left, blocked_right)) * SQUASHED_EMPTY;
 
     // Empty square cornered between 2 blocked squares.
-    result += count(diff(and(blocked_up, blocked_left), and(row(0), column(0)))) * CORNERED_EMPTY;
-    result += count(diff(and(blocked_up, blocked_right), and(row(0), column(8)))) * CORNERED_EMPTY;
-    result += count(diff(and(blocked_down, blocked_left), and(row(8), column(0)))) * CORNERED_EMPTY;
-    result += count(diff(and(blocked_down, blocked_right), and(row(8), column(8)))) * CORNERED_EMPTY;
+    result += count(diff(and(blocked_up, blocked_left), or(row(0), column(0)))) * CORNERED_EMPTY;
+    result += count(diff(and(blocked_up, blocked_right), or(row(0), column(8)))) * CORNERED_EMPTY;
+    result += count(diff(and(blocked_down, blocked_left), or(row(8), column(0)))) * CORNERED_EMPTY;
+    result += count(diff(and(blocked_down, blocked_right), or(row(8), column(8)))) * CORNERED_EMPTY;
 
     return result;
 }
