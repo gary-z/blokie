@@ -74,6 +74,8 @@ async function playGameLoop() {
                 drawGame(canvas, ai_move.prev_boards[i + 1], blokie.getNewGame(), centered_pieces);
                 await sleep();
                 prev_move_was_clear = true;
+            } else {
+                prev_move_was_clear = false;
             }
         }
         game = ai_move.board;
