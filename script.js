@@ -68,12 +68,12 @@ async function playGameLoop() {
                 }
 
                 // Combos.
-                score += num_cleared*2;
+                score += 18;
                 if (num_cleared > 9) {
-                    score += num_cleared;
+                    score += 18;
                 }
                 if (num_cleared >= 18) {
-                    score += num_cleared*2;
+                    score += 18; // Not sure how 3x combos work yet.
                 }
                 updateScore(score.toString());
                 drawGame(canvas, ai_move.prev_boards[i + 1], blokie.getNewGame(), centered_pieces);
