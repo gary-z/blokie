@@ -64,7 +64,7 @@ async function playGameLoop() {
             if (num_cleared > 0) {
                 // Streaks.
                 if (prev_move_was_clear) {
-                    score += 8;
+                    score += 9;
                 }
 
                 // Combos.
