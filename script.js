@@ -16,7 +16,7 @@ async function onLoad() {
 
 function sleep() {
     const slider = document.getElementById('speed');
-    const ms = 5000 / slider.value;
+    const ms = slider.value == slider.max ? 0 : 5000 / slider.value;
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
