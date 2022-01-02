@@ -30,6 +30,10 @@ console.assert(count([1, 3, 7]) === 6);
 console.assert(count(FULL) === 81);
 console.assert(count(EMPTY) === 0);
 
+function compare(a, b) {
+    return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+}
+
 function equal(a, b) {
     return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
 }
@@ -39,7 +43,6 @@ console.assert(!equal(EMPTY, FULL));
 console.assert(!equal(EMPTY, [1, 0, 0]));
 console.assert(!equal(EMPTY, [0, 1, 0]));
 console.assert(!equal(EMPTY, [0, 0, 1]));
-
 function any(bb) {
     return bb[0] + bb[1] + bb[2] !== 0;
 }
@@ -372,6 +375,8 @@ function get_eval(bb) {
 console.assert(get_eval(EMPTY) === 0);
 
 function* get_piece_set_permutations(board, piece_set) {
+    piece_set = [...piece_set];
+    piece_set.sort(compare);
     yield piece_set;
     if (!can_clear_with_2_pieces(board, piece_set)) {
         return;
@@ -415,6 +420,10 @@ function ai_make_move(board, piece_set) {
     for (const [p0, p1, p2] of get_piece_set_permutations(board, piece_set)) {
         for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
             for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
+                if (compare(p0, p1) > 0 && count(after_p1) == count(board) + count(p0) + count(p1)) {
+                    // We tried this state before.
+                    continue;
+                }
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
                     const score = get_eval(after_p2);
                     if (score < result.board_score) {
