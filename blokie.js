@@ -417,14 +417,24 @@ function ai_make_move(board, piece_set) {
         prev_piece_placements: [EMPTY, EMPTY, EMPTY],
         pieces: [EMPTY, EMPTY, EMPTY],
     };
+    const board_count = count(board);
+    let is_first_perm = true;
     for (const [p0, p1, p2] of get_piece_set_permutations(board, piece_set)) {
+        const p0_count = count(p0);
+        const p1_count = count(p1);
+        const p2_count = count(p2);
+
         for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
             for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
-                if (compare(p0, p1) > 0 && count(after_p1) == count(board) + count(p0) + count(p1)) {
+                if (compare(p0, p1) > 0 && count(after_p1) == board_count + p0_count + p1_count) {
                     // We tried this state before.
                     continue;
                 }
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
+                    if (!is_first_perm &&
+                        count(after_p2) === board_count + p0_count + p1_count + p2_count){
+                        continue;
+                    }
                     const score = get_eval(after_p2);
                     if (score < result.board_score) {
                         result.board = after_p2;
@@ -436,6 +446,8 @@ function ai_make_move(board, piece_set) {
                 }
             }
         }
+
+        is_first_perm = false;
     }
     return result;
 }
