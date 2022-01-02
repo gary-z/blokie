@@ -341,7 +341,7 @@ function get_eval(bb) {
     for (let r = 0; r < 3; ++r) {
         for (let c = 0; c < 3; ++c) {
             const cb = cube(r, c);
-            if (any(and(cube, bb))) {
+            if (any(and(cb, bb))) {
                 result += CUBE;
             }
         }
