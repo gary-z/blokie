@@ -391,13 +391,13 @@ function* get_piece_set_permutations(board, piece_set) {
 
 function can_clear_with_2_pieces(board, piece_set) {
     for (let i = 0; i < 3; ++i) {
-        const p0 = piece_set[0];
+        const p0 = piece_set[i];
         for (let [unused, after_p0] of get_next_boards(board, p0)) {
             for (let j = 0; j < 3; ++j) {
                 if (i === j) {
                     continue;
                 }
-                const p1 = piece_set[1];
+                const p1 = piece_set[j];
                 for (let [unused, after_p1] of get_next_boards(after_p0, p1)) {
                     if (count(after_p1) < count(board) + count(p0) + count(p1)) {
                         return true;
