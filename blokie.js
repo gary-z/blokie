@@ -328,12 +328,12 @@ function* get_next_boards(board, piece) {
 }
 
 function get_eval(bb) {
-    const OCCUPIED_SQUARE = 10;
-    const CUBE = 30;
-    const SQUASHED_EMPTY = 10;
-    const CORNERED_EMPTY = 10;
-    const ALTERNATING = 15;
-    const DEADLY_PIECE = 40;
+    const OCCUPIED_SQUARE = 20;
+    const CUBE = 45;
+    const SQUASHED_EMPTY = 32;
+    const CORNERED_EMPTY = 40;
+    const ALTERNATING = 56;
+    const THREE_BAR = 13;
 
     let result = 0;
 
@@ -369,6 +369,26 @@ function get_eval(bb) {
     result += count(diff(and(blocked_up, blocked_right), or(row(0), column(8)))) * CORNERED_EMPTY;
     result += count(diff(and(blocked_down, blocked_left), or(row(8), column(0)))) * CORNERED_EMPTY;
     result += count(diff(and(blocked_down, blocked_right), or(row(8), column(8)))) * CORNERED_EMPTY;
+
+    // 3 BAR
+    const open_up = shift_down(open);
+    const open_2_up = shift_down(open_up);
+    const open_down = shift_up(open);
+    const open_2_down = shift_up(open_down);
+    const open_left = shift_right(open);
+    const open_2_left = shift_right(open_left);
+    const open_right = shift_left(open);
+    const open_2_right = shift_left(open_right);
+
+    let fillable_by_horizontal_3_bar = and(and(open, open_left), open_right);
+    fillable_by_horizontal_3_bar = or(fillable_by_horizontal_3_bar, and(and(open, open_left), open_2_left));
+    fillable_by_horizontal_3_bar = or(fillable_by_horizontal_3_bar, and(and(open, open_right), open_2_right));
+    result += count(and(open, not(fillable_by_horizontal_3_bar))) * THREE_BAR;
+
+    let fillable_by_verticle_3_bar = and(and(open, open_down), open_up);
+    fillable_by_verticle_3_bar = or(fillable_by_verticle_3_bar, and(and(open, open_down), open_2_down));
+    fillable_by_verticle_3_bar = or(fillable_by_verticle_3_bar, and(and(open, open_up), open_2_up));
+    result += count(and(open, not(fillable_by_verticle_3_bar))) * THREE_BAR;
 
     return result;
 }
@@ -409,6 +429,7 @@ function can_clear_with_2_pieces(board, piece_set) {
     return false;
 }
 
+
 function ai_make_move(board, piece_set) {
     const result = {
         board: FULL,
@@ -432,7 +453,7 @@ function ai_make_move(board, piece_set) {
                 }
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
                     if (!is_first_perm &&
-                        count(after_p2) === board_count + p0_count + p1_count + p2_count){
+                        count(after_p2) === board_count + p0_count + p1_count + p2_count) {
                         continue;
                     }
                     const score = get_eval(after_p2);
