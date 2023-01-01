@@ -11,6 +11,35 @@
             height: 90%;
         }
 
+        table.game-board tr:nth-of-type(3n) td {
+            border-bottom: 2px solid black;
+        }
+
+        table.game-board tr td:nth-of-type(3n) {
+            border-right: 2px solid black;
+        }
+
+        table.game-board {
+            /* margin: 0 auto; */
+            border-collapse: collapse;
+            background: white;
+            border: 2px solid black;
+        }
+        table.game-board tr td {
+            width: 40px; height: 40px; border: 0.5px solid black;
+        }
+
+        table.game-board tr:nth-of-type(-n+3) td:nth-child(n+4):nth-child(-n+6),
+        table.game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(-n+3),
+        table.game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(n+7):nth-child(-n+9),
+        table.game-board tr:nth-child(n+7):nth-child(-n+9) td:nth-child(n+4):nth-child(-n+6)  {
+            background: rgb(228,233,238)
+        }
+
+        table.game-board tr:nth-of-type(n):nth-of-type(n) td.has-piece:nth-of-type(n):nth-of-type(n)  {
+            background: rgb(54,112,232)
+        }
+
         .center-fit {
             max-width: 100%;
             max-height: 80vh;
@@ -35,6 +64,17 @@
 
 <body style="overflow: hidden; font-family:roboto">
     <p title="score" id="score" style="text-align: center;font-size: 5vh">0</p>
+    <table class="game-board">
+        <tr><td class="has-piece"></td><td></td><td></td><td class="has-piece"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    </table>
     <div class="imgbox">
         <canvas title="The BlockuDoku/Woodoku game board." class="center-fit" id="board" height=1800 width=1200></canvas>
     </div>
