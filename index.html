@@ -12,13 +12,13 @@
 
         #score {
             text-align: center;
-            font-family:roboto;
+            font-family: roboto;
             font-size: 5vh;
         }
 
         #for-aspect-ratio {
             aspect-ratio: 2/3;
-            width: min(90vw, calc(90vh / 1.7) );
+            width: min(90vw, calc(90vh / 1.7));
             margin: auto;
         }
 
@@ -88,6 +88,7 @@
         #speed {
             width: 50%;
         }
+
     </style>
     <meta property="og:description"
         content="A Javascript engine for BlockuDoku/Woodoku mobile games. The AI averages 300,000 points." />
@@ -200,7 +201,7 @@
                 <td></td>
             </tr>
         </table>
-        <table id="pieces-on-deck">
+        <table id="pieces-on-deck" title="The three pieces you have available.">
             <tr>
                 <td></td>
                 <td></td>
@@ -288,8 +289,7 @@
             </tr>
         </table>
         <div class="footer">
-            <input title="Engine move speed." name="speed" type="range" id="speed" min="1" max="50"
-                value="5">
+            <input title="Engine move speed." name="speed" type="range" id="speed" min="1" max="50" value="5">
             <p>
                 <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>
             </p>
