@@ -79,8 +79,6 @@ async function playGameLoop() {
                     score += 18; // Not sure how 3x combos work yet.
                 }
                 updateScore(score.toString());
-                drawGame(board_table, on_deck_table, ai_move.prev_boards[i + 1], blokie.getNewGame(), piece_set);
-                await sleep();
                 prev_move_was_clear = true;
             } else {
                 prev_move_was_clear = false;
