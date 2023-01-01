@@ -65,21 +65,6 @@
             background: rgb(54, 112, 232);
             outline: 0.5px solid black;
         }
-
-        .center-fit {
-            max-width: 100%;
-            max-height: 80vh;
-            margin: auto;
-            object-fit: scale-down;
-        }
-
-        .footer {
-            position: fixed;
-            left: 0;
-            bottom: 0;
-            width: 100%;
-        }
-
     </style>
     <meta property="og:description"
         content="A Javascript engine for BlockuDoku/Woodoku mobile games. The AI averages 300,000 points." />
@@ -278,12 +263,8 @@
             <td></td>
         </tr>
     </table>
-    <div class="imgbox">
-        <canvas title="The BlockuDoku/Woodoku game board." class="center-fit" id="board" height=1800
-            width=1200></canvas>
-    </div>
-    <div class="footer" style="text-align: center;font-size: 2vh">
-        <input title="Engine move speed." name="speed" type="range" style="width: 40vw" id="speed" min="1" max="50"
+    <div class="footer" style="text-align: center;">
+        <input title="Engine move speed." name="speed" type="range" style="width: 300px" id="speed" min="1" max="50"
             value="5">
         <p>
             <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>
