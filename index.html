@@ -11,33 +11,59 @@
             height: 90%;
         }
 
-        table.game-board tr:nth-of-type(3n) td {
+        #game-board tr:nth-of-type(3n) td {
             border-bottom: 2px solid black;
         }
 
-        table.game-board tr td:nth-of-type(3n) {
+        #game-board tr td:nth-of-type(3n) {
             border-right: 2px solid black;
         }
 
-        table.game-board {
+        #game-board {
             /* margin: 0 auto; */
             border-collapse: collapse;
             background: white;
             border: 2px solid black;
-        }
-        table.game-board tr td {
-            width: 40px; height: 40px; border: 0.5px solid black;
-        }
-
-        table.game-board tr:nth-of-type(-n+3) td:nth-child(n+4):nth-child(-n+6),
-        table.game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(-n+3),
-        table.game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(n+7):nth-child(-n+9),
-        table.game-board tr:nth-child(n+7):nth-child(-n+9) td:nth-child(n+4):nth-child(-n+6)  {
-            background: rgb(228,233,238)
+            margin-bottom: 20px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
-        table.game-board tr:nth-of-type(n):nth-of-type(n) td.has-piece:nth-of-type(n):nth-of-type(n)  {
-            background: rgb(54,112,232)
+        #game-board tr td {
+            width: 40px;
+            height: 40px;
+            border: 0.5px solid black;
+        }
+
+        #game-board tr:nth-of-type(-n+3) td:nth-child(n+4):nth-child(-n+6),
+        #game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(-n+3),
+        #game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(n+7):nth-child(-n+9),
+        #game-board tr:nth-child(n+7):nth-child(-n+9) td:nth-child(n+4):nth-child(-n+6) {
+            background: rgb(228, 233, 238)
+        }
+
+        #game-board tr:nth-of-type(n):nth-of-type(n) td.has-piece:nth-of-type(n):nth-of-type(n) {
+            background: rgb(54, 112, 232)
+        }
+
+        #game-board tr:nth-of-type(n):nth-of-type(n) td.piece-pending:nth-of-type(n):nth-of-type(n) {
+            background: pink
+        }
+
+        #pieces-on-deck {
+            margin-left: auto;
+            margin-right: auto;
+            border-collapse: collapse;
+        }
+
+        #pieces-on-deck tr td {
+            width: 24px;
+            height: 24px;
+        }
+
+        #pieces-on-deck tr td.has-piece {
+            background: rgb(54, 112, 232);
+            outline: 0.5px solid black;
         }
 
         .center-fit {
@@ -52,31 +78,209 @@
             left: 0;
             bottom: 0;
             width: 100%;
-            text-align: center;
         }
+
     </style>
     <meta property="og:description"
         content="A Javascript engine for BlockuDoku/Woodoku mobile games. The AI averages 300,000 points." />
     <meta property="og:image" content="https://gary-z.github.io/blokie/preview.png" />
     <meta name="google-site-verification" content="a62LBKJ5-DBNPPVbH1buHMLMT1CEM5j456tPhU30GCE" />
-    <meta property="description" content="Watch a computer play BlockuDoku/Woodoku near perfectly."/>
+    <meta property="description" content="Watch a computer play BlockuDoku/Woodoku near perfectly." />
 </head>
 
 <body style="overflow: hidden; font-family:roboto">
-    <p title="score" id="score" style="text-align: center;font-size: 5vh">0</p>
-    <table class="game-board">
-        <tr><td class="has-piece"></td><td></td><td></td><td class="has-piece"></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    <h1 title="score" id="score" style="text-align: center;">0</h1>
+    <table title="The BlockuDoku/Woodoku game board." id="game-board">
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+    </table>
+    <table id="pieces-on-deck">
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td class="has-piece"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+        </tr>
     </table>
     <div class="imgbox">
-        <canvas title="The BlockuDoku/Woodoku game board." class="center-fit" id="board" height=1800 width=1200></canvas>
+        <canvas title="The BlockuDoku/Woodoku game board." class="center-fit" id="board" height=1800
+            width=1200></canvas>
     </div>
     <div class="footer" style="text-align: center;font-size: 2vh">
         <input title="Engine move speed." name="speed" type="range" style="width: 40vw" id="speed" min="1" max="50"
