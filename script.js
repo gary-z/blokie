@@ -27,7 +27,6 @@ async function playGameLoop() {
     game_ongoing = true;
     let board_table = document.getElementById('game-board');
     let on_deck_table = document.getElementById('pieces-on-deck');
-    console.log(board_table);
     let game = blokie.getNewGame();
     let score = 0;
     let prev_move_was_clear = false;
