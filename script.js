@@ -34,12 +34,7 @@ async function playGameLoop() {
 
     while (!blokie.isOver(game)) {
         const piece_set = blokie.getRandomPieceSet();
-        const centered_pieces = [];
-        for (const p of piece_set) {
-            centered_pieces.push(blokie.centerPiece(p));
-        }
-
-        drawGame(board_table, on_deck_table, game, [], centered_pieces);
+        drawGame(board_table, on_deck_table, game, [], piece_set);
         const [unused, ai_move] = await Promise.all(
             [
                 sleep(),
@@ -57,7 +52,7 @@ async function playGameLoop() {
         for (let i = 0; i < 3; ++i) {
             const num_cleared = Math.max(0, blokie.count(ai_move.prev_boards[i]) +
                 blokie.count(ai_move.prev_piece_placements[i]) - blokie.count(ai_move.prev_boards[i + 1]));
-            drawGame(board_table, on_deck_table, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], centered_pieces);
+            drawGame(board_table, on_deck_table, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], piece_set);
 
             // 1 point for each placed block that was not cleared.
             score += blokie.count(blokie.and(ai_move.prev_piece_placements[i], ai_move.prev_boards[i + 1]));
@@ -78,7 +73,7 @@ async function playGameLoop() {
                     score += 18; // Not sure how 3x combos work yet.
                 }
                 updateScore(score.toString());
-                drawGame(board_table, on_deck_table, ai_move.prev_boards[i + 1], blokie.getNewGame(), centered_pieces);
+                drawGame(board_table, on_deck_table, ai_move.prev_boards[i + 1], blokie.getNewGame(), piece_set);
                 await sleep();
                 prev_move_was_clear = true;
             } else {
@@ -89,12 +84,20 @@ async function playGameLoop() {
     }
 }
 
+function centerPieces(piece_set) {
+    const centered_pieces = [];
+    for (const p of piece_set) {
+        centered_pieces.push(blokie.centerPiece(p));
+    }
+    return centered_pieces;
+}
+
 function updateScore(score) {
     const score_el = document.getElementById('score');
     score_el.innerText = score;
 }
 
-function drawGame(board_table, on_deck_table,  board, placement, piece_set) {
+function drawGame(board_table, on_deck_table, board, placement, piece_set) {
     if (blokie.isOver(board)) {
         for (let r = 0; r < 9; ++r) {
             for (let c = 0; c < 9; ++c) {
@@ -120,6 +123,7 @@ function drawGame(board_table, on_deck_table,  board, placement, piece_set) {
         }
     }
 
+    piece_set = centerPieces(piece_set);
     for (let i = 0; i < 3; ++i) {
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
