@@ -8,8 +8,8 @@ document.addEventListener("DOMContentLoaded", function (event) {
 let game_ongoing = false;
 
 async function onLoad() {
-    var canvas = document.getElementById('board');
-    canvas.addEventListener("click", playGameLoop);
+    var board_table = document.getElementById('game-board');
+    board_table.addEventListener("click", playGameLoop);
 
     await playGameLoop();
 }
@@ -50,12 +50,19 @@ async function playGameLoop() {
         }
 
         for (let i = 0; i < 3; ++i) {
+            const piece_used = ai_move.pieces[i];
+            const used_piece_index = piece_set.indexOf(piece_used);
+            if (used_piece_index >=0 ) {
+                piece_set[used_piece_index] = blokie.getNewGame();
+            }
+
+            const placement = ai_move.prev_piece_placements[i];
             const num_cleared = Math.max(0, blokie.count(ai_move.prev_boards[i]) +
-                blokie.count(ai_move.prev_piece_placements[i]) - blokie.count(ai_move.prev_boards[i + 1]));
-            drawGame(board_table, on_deck_table, ai_move.prev_boards[i], ai_move.prev_piece_placements[i], piece_set);
+                blokie.count(placement) - blokie.count(ai_move.prev_boards[i + 1]));
+            drawGame(board_table, on_deck_table, ai_move.prev_boards[i], placement, piece_set);
 
             // 1 point for each placed block that was not cleared.
-            score += blokie.count(blokie.and(ai_move.prev_piece_placements[i], ai_move.prev_boards[i + 1]));
+            score += blokie.count(blokie.and(placement, ai_move.prev_boards[i + 1]));
             updateScore(score.toString());
             await sleep();
             if (num_cleared > 0) {
