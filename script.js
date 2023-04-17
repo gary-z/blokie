@@ -14,6 +14,11 @@ async function onLoad() {
     await playGameLoop();
 }
 
+function isMaxSpeed() {
+    const slider = document.getElementById('speed');
+    return slider.value == slider.max;
+}
+
 function sleep() {
     const slider = document.getElementById('speed');
     const ms = slider.value == slider.max ? 0 : 5000 / slider.value;
@@ -33,6 +38,9 @@ async function playGameLoop() {
 
     while (!blokie.isOver(game)) {
         const piece_set = blokie.getRandomPieceSet();
+        if (isMaxSpeed()) {
+            updateScore(score.toString());
+        }
         drawGame(board_table, on_deck_table, game, [], piece_set);
         const [unused, ai_move] = await Promise.all(
             [
@@ -51,19 +59,24 @@ async function playGameLoop() {
         for (let i = 0; i < 3; ++i) {
             const piece_used = ai_move.pieces[i];
             const used_piece_index = piece_set.indexOf(piece_used);
-            if (used_piece_index >=0 ) {
+            if (used_piece_index >= 0) {
                 piece_set[used_piece_index] = blokie.getNewGame();
             }
 
             const placement = ai_move.prev_piece_placements[i];
             const num_cleared = Math.max(0, blokie.count(ai_move.prev_boards[i]) +
                 blokie.count(placement) - blokie.count(ai_move.prev_boards[i + 1]));
-            drawGame(board_table, on_deck_table, ai_move.prev_boards[i], placement, piece_set);
+
+            if (!isMaxSpeed()) {
+                drawGame(board_table, on_deck_table, ai_move.prev_boards[i], placement, piece_set);
+            }
 
             // 1 point for each placed block that was not cleared.
             score += blokie.count(blokie.and(placement, ai_move.prev_boards[i + 1]));
-            updateScore(score.toString());
-            await sleep();
+            if (!isMaxSpeed()) {
+                updateScore(score.toString());
+                await sleep();
+            }
             if (num_cleared > 0) {
                 // Streaks.
                 if (prev_move_was_clear) {
@@ -78,7 +91,9 @@ async function playGameLoop() {
                 if (num_cleared >= 18) {
                     score += 18; // Not sure how 3x combos work yet.
                 }
-                updateScore(score.toString());
+                if (!isMaxSpeed()) {
+                    updateScore(score.toString());
+                }
                 prev_move_was_clear = true;
             } else {
                 prev_move_was_clear = false;
