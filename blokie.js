@@ -71,8 +71,11 @@ function or(a, b) {
 function diff(a, b) {
     return [a[0] & ~b[0], a[1] & ~b[1], a[2] & ~b[2]];
 }
+function bit(r, c) {
+    return and(row(r), column(c));
+}
 function at(bb, r, c) {
-    return !is_empty(and(and(row(r), column(c)), bb));
+    return !is_empty(and(bit(r, c), bb));
 }
 
 function row(r) {
@@ -237,6 +240,93 @@ for (let p of PIECES) {
     }
 }
 
+function rotate(bb) {
+    let result = EMPTY;
+    for (let r = 0; r < 9; ++r) {
+        for (let c = 0; c < 9; ++c) {
+            if (at(bb, r, c)) {
+                const rotated_r = c;
+                const rotated_c = 8 - r;
+                result = or(result, bit(rotated_r, rotated_c));
+            }
+        }
+    }
+    return result;
+}
+
+console.assert(equal(rotate(EMPTY), EMPTY));
+console.assert(equal(rotate(FULL), FULL));
+console.assert(equal(rotate(PIECES[0]), bit(0, 8)));
+console.assert(equal(rotate(rotate(PIECES[0])), bit(8, 8)));
+console.assert(equal(rotate(rotate(rotate(PIECES[0]))), bit(8, 0)));
+
+for (let test_piece of PIECES) {
+    console.assert(count(rotate(test_piece)) === count(test_piece));
+    console.assert(equal(rotate(rotate(rotate(rotate(test_piece)))), test_piece));
+}
+
+function mirror(bb) {
+    let result = EMPTY;
+    for (let r = 0; r < 9; ++r) {
+        for (let c = 0; c < 9; ++c) {
+            if (at(bb, r, c)) {
+                result = or(result, bit(r, 8 - c));
+            }
+        }
+    }
+    return result;
+}
+console.assert(equal(mirror(EMPTY), EMPTY));
+console.assert(equal(mirror(FULL), FULL));
+console.assert(!equal(mirror(PIECES[0]), PIECES[0]));
+
+for (let test_piece of PIECES) {
+    console.assert(count(mirror(test_piece)) === count(test_piece));
+    console.assert(equal(rotate(rotate(rotate(rotate(test_piece)))), test_piece));
+}
+
+function get_all_transformations(bb) {
+    const transformations = [];
+
+    let rotated = bb;
+    for (let i = 0; i < 4; ++i) {
+        rotated = rotate(rotated);
+        const mirrored = mirror(rotated);
+
+        transformations.push(rotated);
+        transformations.push(mirrored);
+    }
+
+    return transformations;
+}
+const empty_transformations = get_all_transformations(EMPTY);
+console.assert(empty_transformations.length === 8);
+console.assert(empty_transformations.every(t => equal(t, EMPTY)));
+
+const full_transformations = get_all_transformations(FULL);
+console.assert(full_transformations.length === 8);
+console.assert(full_transformations.every(t => equal(t, FULL)));
+
+const test_piece = PIECES[0];
+const piece_transformations = get_all_transformations(test_piece);
+console.assert(piece_transformations.length === 8);
+
+function get_random_board(fullness) {
+    let result = EMPTY;
+    for (let r = 0; r < 9; ++r) {
+        for (let c = 0; c < 9; ++c) {
+            if (Math.random() < fullness) {
+                result = or(result, bit(r, c));
+            }
+        }
+    }
+    return result;
+}
+
+console.assert(equal(get_random_board(0), EMPTY));
+console.assert(equal(get_random_board(1), FULL));
+
+
 function* get_piece_placements(p) {
     let left = p;
     const col8 = column(8);
@@ -393,6 +483,17 @@ function get_eval(bb) {
     return result;
 }
 console.assert(get_eval(EMPTY) === 0);
+
+for (let fullness = 0.0; fullness <= 1; fullness += 0.1) {
+    for (let i = 0; i < 100; ++i) {
+        const board = get_random_board(fullness);
+        const score = get_eval(board);
+        for (const transformed of get_all_transformations(board)) {
+            console.assert(get_eval(transformed) === score);
+        }
+    }
+}
+
 
 function* get_piece_set_permutations(board, piece_set) {
     piece_set = [...piece_set];
