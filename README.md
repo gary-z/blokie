@@ -15,5 +15,12 @@ Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/s
   - Avoid leaving a single empty space between two blocks.
   - Keep as many 3x3 cubes free as possible.
 
+## Implementation details
+Blokie looks at all possible board states resulting from places the 3 pieces and chooses the the move that results in the best "board cleaniness" score.
+
+Internally, the board state is represented as a bitboard using three 32-bit integers.
+
+The board state evaluation weights were trained using a genetic learning algorithm written in C++. JavaScript is too slow for training.
+
 ## Can I have the computer play for me?
 No.
