@@ -21,7 +21,7 @@ function isMaxSpeed() {
 
 function sleep() {
     const slider = document.getElementById('speed');
-    const ms = slider.value == slider.max ? 0 : 5000 / slider.value;
+    const ms = slider.value == slider.max ? 0 : 300 * slider.max / slider.value;
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
