@@ -1,6 +1,8 @@
 Latest version hosted at https://gary-z.github.io/blokie/ .
 
-Blokie is a powerful AI/engine/solver for [BlockuDoku](https://play.google.com/store/apps/details?id=com.easybrain.block.puzzle.games) and [Woodoku](https://play.google.com/store/apps/details?id=com.tripledot.woodoku&hl=en_CA&gl=US) puzzle games. It can achieve 300,000 points (roughly 20,000 sets of 3 pieces) half the time.
+<img style="width: 25%; height: 15%" src="/preview.gif?raw=true"/>
+
+Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/store/apps/details?id=com.easybrain.block.puzzle.games) and [Woodoku](https://play.google.com/store/apps/details?id=com.tripledot.woodoku&hl=en_CA&gl=US) puzzle games. It can achieve 300,000 points (roughly 20,000 sets of 3 pieces) half the time.
 
 
 ## What can I learn from Blokie to improve at the game?
