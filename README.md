@@ -6,9 +6,15 @@ Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/s
 
 
 ## What can I learn from Blokie to improve at the game?
-- Blokie will clear blocks almost every round. If your board is clean, there is almost always a way to clear, so look *very* hard before deciding to let blocks stack up.
-- Blokie sees placing each set of 3 pieces as one move, rather than 3 individual moves. This lets it plan tricky clearing patterns and leave a clean board state. Try to visualize where you will place all 3 pieces before you place your first piece.
-- Blokie's most critical component is its "board cleaniness" measurement. Roughly speaking in decreasing importance:
+
+### Prioritize clearing
+Blokie will clear blocks almost every round. If your board is clean, there is almost always a way to clear, so look *very* hard before deciding to let blocks stack up. 
+
+### Plan your 3 pieces together
+Blokie sees placing each set of 3 pieces as one move, rather than 3 individual moves. This lets it plan tricky clearing patterns and leave a clean board state. Try to visualize where you will place all 3 pieces before you place your first piece.
+
+### Rules of thumb for keeping your board clean
+Blokie's most critical component is its "board cleaniness" measurement. Roughly speaking in decreasing importance:
   - Minimize the number of blocks on the board.
   - Minimize the total perimeter of blocks.
   - Avoid jagged edges of blocks.
