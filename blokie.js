@@ -231,13 +231,24 @@ for (let i = 0; i < 100; ++i) {
     console.assert(any(get_random_piece()));
 }
 
-for (let p of PIECES) {
+for (const p of PIECES) {
     console.assert(count(p) >= 1);
     console.assert(count(p) <= 5);
     for (let i = 5; i < 9; ++i) {
         console.assert(is_empty(and(row(i), p)));
         console.assert(is_empty(and(column(i), p)));
     }
+
+    // Pieces are left-top justified;
+    console.assert(count(shift_left(p)) !== count(p));
+    console.assert(count(shift_up(p)) !== count(p));
+
+    console.assert(!equal(p, shift_right(p)));
+    console.assert(!equal(p, shift_down(p)));
+
+    console.assert(equal(p, shift_left(shift_right(p))));
+    console.assert(equal(p, shift_up(shift_down(p))));
+
 }
 
 function rotate(bb) {
@@ -260,9 +271,27 @@ console.assert(equal(rotate(PIECES[0]), bit(0, 8)));
 console.assert(equal(rotate(rotate(PIECES[0])), bit(8, 8)));
 console.assert(equal(rotate(rotate(rotate(PIECES[0]))), bit(8, 0)));
 
-for (let test_piece of PIECES) {
+for (const test_piece of PIECES) {
     console.assert(count(rotate(test_piece)) === count(test_piece));
     console.assert(equal(rotate(rotate(rotate(rotate(test_piece)))), test_piece));
+
+    const top_right = rotate(test_piece);
+    console.assert(count(top_right) !== count(shift_right(top_right)));
+    console.assert(count(top_right) !== count(shift_up(top_right)));
+    console.assert(equal(top_right, shift_right(shift_left(top_right))));
+    console.assert(equal(top_right, shift_up(shift_down(top_right))));
+
+    const bottom_right = rotate(top_right);
+    console.assert(count(bottom_right) !== count(shift_right(bottom_right)));
+    console.assert(count(bottom_right) !== count(shift_down(bottom_right)));
+    console.assert(equal(bottom_right, shift_right(shift_left(bottom_right))));
+    console.assert(equal(bottom_right, shift_down(shift_up(bottom_right))));
+
+    const bottom_left = rotate(bottom_right);
+    console.assert(count(bottom_left) !== count(shift_left(bottom_left)));
+    console.assert(count(bottom_left) !== count(shift_down(bottom_left)));
+    console.assert(equal(bottom_left, shift_left(shift_right(bottom_left))));
+    console.assert(equal(bottom_left, shift_down(shift_up(bottom_left))));
 }
 
 function mirror(bb) {
