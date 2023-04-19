@@ -649,8 +649,8 @@ function can_clear_with_2_pieces(board, piece_set) {
 }
 
 
-function ai_make_move(game, piece_set) {
-    piece_set = piece_set.map(p => left_top_justify_piece(p));
+function ai_make_move(game, original_piece_set) {
+    const piece_set = original_piece_set.map(p => left_top_justify_piece(p));
     const board = game.board;
     const result = {
         evaluation: 999999,
@@ -696,21 +696,21 @@ function ai_make_move(game, piece_set) {
                             {
                                 board: after_p0,
                                 previous_piece_placement: placement_0,
-                                previous_piece: p0,
+                                previous_piece: original_piece_set[piece_set.indexOf(p0)],
                                 previous_move_was_clear: p0_move_was_clear,
                                 score: game.score + p0_score
                             },
                             {
                                 board: after_p1,
                                 previous_piece_placement: placement_1,
-                                previous_piece: p1,
+                                previous_piece: original_piece_set[piece_set.indexOf(p1)],
                                 previous_move_was_clear: p1_move_was_clear,
                                 score: game.score + p0_score + p1_score
                             },
                             {
                                 board: after_p2,
                                 previous_piece_placement: placement_2,
-                                previous_piece: p2,
+                                previous_piece: original_piece_set[piece_set.indexOf(p2)],
                                 previous_move_was_clear: p2_move_was_clear,
                                 score: game.score + p0_score + p1_score + p2_score
                             },
