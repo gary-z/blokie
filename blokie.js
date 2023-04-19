@@ -650,6 +650,7 @@ function can_clear_with_2_pieces(board, piece_set) {
 
 
 function ai_make_move(game, piece_set) {
+    piece_set = piece_set.map(p => left_top_justify_piece(p));
     const board = game.board;
     const result = {
         evaluation: 999999,
@@ -744,6 +745,26 @@ function center_piece(p) {
     return p;
 }
 
+function left_top_justify_piece(p) {
+    if (is_empty(p)) {
+        return p;
+    }
+    while (is_empty(and(p, row(0)))) {
+        p = shift_up(p);
+    }
+    while (is_empty(and(p, column(0)))) {
+        p = shift_left(p);
+    }
+    return p;
+}
+
+for(const p of PIECES) {
+    const centered = center_piece(p);
+    console.assert(count(p) === count(centered));
+    console.assert(equal(p, left_top_justify_piece(p)));
+    console.assert(equal(p, left_top_justify_piece(center_piece(p))));
+}
+
 var blokie = {
     getNewGame: () => {
         return {
@@ -755,14 +776,13 @@ var blokie = {
 
         };
     },
-    getRandomPieceSet: () => get_random_piece_set().map(p => [...p]),
+    getRandomPieceSet: () => get_random_piece_set().map(p => center_piece([...p])),
     getEmptyPiece: getEmpty,
     getAIMove: ai_make_move,
     at: at,
     isOver: (game) => {
         return equal(game.board, FULL);
     },
-    centerPiece: center_piece,
 };
 
 export { blokie };

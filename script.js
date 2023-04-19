@@ -75,14 +75,6 @@ async function playGameLoop() {
     }
 }
 
-function centerPieces(piece_set) {
-    const centered_pieces = [];
-    for (const p of piece_set) {
-        centered_pieces.push(blokie.centerPiece(p));
-    }
-    return centered_pieces;
-}
-
 function updateScore(score) {
     const score_el = document.getElementById('score');
     score_el.innerText = score;
@@ -104,7 +96,6 @@ function drawGame(board_table, pieces_on_deck_div, board, placement, piece_set) 
         }
     }
 
-    piece_set = centerPieces(piece_set);
     for (let i = 0; i < 3; ++i) {
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
