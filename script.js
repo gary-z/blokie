@@ -36,9 +36,7 @@ async function playGameLoop() {
 
     while (!blokie.isOver(game)) {
         const piece_set = blokie.getRandomPieceSet();
-        if (isMaxSpeed()) {
-            updateScore(game.score.toString());
-        }
+        updateScore(game.score.toString());
         drawGame(board_table, pieces_on_deck_div, game.board, blokie.getEmptyPiece(), piece_set);
         const [unused, ai_move] = await Promise.all(
             [
