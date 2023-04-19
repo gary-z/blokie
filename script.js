@@ -73,10 +73,6 @@ async function playGameLoop() {
 
             // 1 point for each placed block that was not cleared.
             score += blokie.count(blokie.and(placement, ai_move.prev_boards[i + 1]));
-            if (!isMaxSpeed()) {
-                updateScore(score.toString());
-                await sleep();
-            }
             if (num_cleared > 0) {
                 // Streaks.
                 if (prev_move_was_clear) {
@@ -91,12 +87,13 @@ async function playGameLoop() {
                 if (num_cleared >= 18) {
                     score += 18; // Not sure how 3x combos work yet.
                 }
-                if (!isMaxSpeed()) {
-                    updateScore(score.toString());
-                }
                 prev_move_was_clear = true;
             } else {
                 prev_move_was_clear = false;
+            }
+            if (!isMaxSpeed()) {
+                updateScore(score.toString());
+                await sleep();
             }
         }
         game = ai_move.board;
