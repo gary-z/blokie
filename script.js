@@ -83,7 +83,9 @@ function render() {
 
 function aiPlayGame() {
     if (state.queued_game_states.length === 0) {
-        state.piece_set = blokie.getRandomPieceSet();
+        if (state.piece_set.every(p => blokie.isEmpty(p))) {
+            state.piece_set = blokie.getRandomPieceSet();
+        }
         state.queued_game_states = blokie.getAIMove(state.game, state.piece_set).new_game_states;
         state.game.previous_piece_placement = blokie.getEmptyPiece();
         return;

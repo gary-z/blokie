@@ -450,6 +450,10 @@ for (let i = 0; i < 9; ++i) {
 }
 
 function* get_next_boards(board, piece) {
+    if (is_empty(piece)) {
+        yield [piece, board];
+        return;
+    }
     for (const placement of get_piece_placements(piece)) {
         if (is_empty(and(board, placement))) {
             yield [placement, perform_clears(or(board, placement))];
@@ -728,6 +732,19 @@ function ai_make_move(game, original_piece_set) {
     return result;
 }
 
+function get_new_game() {
+    return {
+        board: getEmpty(),
+        previous_piece_placement: getEmpty(),
+        previous_piece: getEmpty(),
+        previous_move_was_clear: false,
+        score: 0,
+
+    };
+}
+
+console.assert(ai_make_move(get_new_game(), [EMPTY, EMPTY, EMPTY]).evaluation === 0);
+
 function center_piece(p) {
     let height = 0;
     let width = 0;
@@ -769,16 +786,7 @@ for(const p of PIECES) {
 }
 
 var blokie = {
-    getNewGame: () => {
-        return {
-            board: getEmpty(),
-            previous_piece_placement: getEmpty(),
-            previous_piece: getEmpty(),
-            previous_move_was_clear: false,
-            score: 0,
-
-        };
-    },
+    getNewGame: get_new_game,
     getRandomPieceSet: () => get_random_piece_set().map(p => center_piece([...p])),
     getEmptyPiece: getEmpty,
     getAIMove: ai_make_move,
@@ -787,6 +795,7 @@ var blokie = {
         return equal(game.board, FULL);
     },
     toggleSquare: (board, r, c) => xor(board, bit(r, c)),
+    isEmpty: is_empty,
 };
 
 export { blokie };
