@@ -24,6 +24,9 @@ document.addEventListener("DOMContentLoaded", function (event) {
             onNewGame();
         }
     });
+    board_table.addEventListener("click", (event) => {
+        onBoardCellClick(event);
+    });
 });
 
 async function onNewGame() {
@@ -45,6 +48,18 @@ function queueAIInterval() {
 
 function cancelAIInterval() {
     clearInterval(state.ai_interval_id);
+}
+
+function onBoardCellClick(event) {
+    const cell = event.target;
+    if (state.game_progress !== 'ACTIVE') {
+        return;
+    }
+    state.queued_game_states = [];
+    state.game.board = blokie.toggleSquare(state.game.board, cell.parentNode.rowIndex, cell.cellIndex);
+    cancelAIInterval();
+    queueAIInterval();
+    render();
 }
 
 function render() {

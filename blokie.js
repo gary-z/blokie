@@ -76,6 +76,9 @@ function and(a, b) {
 function or(a, b) {
     return [a[0] | b[0], a[1] | b[1], a[2] | b[2]];
 }
+function xor(a, b) {
+    return and(or(a, b), not(and(a, b)));
+}
 function diff(a, b) {
     return [a[0] & ~b[0], a[1] & ~b[1], a[2] & ~b[2]];
 }
@@ -783,6 +786,7 @@ var blokie = {
     isOver: (game) => {
         return equal(game.board, FULL);
     },
+    toggleSquare: (board, r, c) => xor(board, bit(r, c)),
 };
 
 export { blokie };
