@@ -523,6 +523,87 @@ for (let fullness = 0.0; fullness <= 1; fullness += 0.1) {
     }
 }
 
+function get_combo_magnitude(mid_clear) {
+    let result = 0;
+    for (let i = 0; i < 9; ++i) {
+        if (equal(row(i), and(row(i), mid_clear))) {
+            result += 1;
+        }
+        if (equal(column(i), and(column(i), mid_clear))) {
+            result += 1;
+        }
+    }
+    for (let r = 0; r < 3; ++r) {
+        for (let c = 0; c < 3; ++c) {
+            if (equal(cube(r, c), and(cube(r, c), mid_clear))) {
+                result += 1;
+            }
+        }
+    }
+    return result;
+}
+console.assert(get_combo_magnitude(EMPTY) === 0);
+console.assert(get_combo_magnitude(FULL) === 9 * 3);
+for (const piece of PIECES) {
+    for (const transformed of get_all_transformations(piece)) {
+        console.assert(get_combo_magnitude(transformed) === 0);
+    }
+}
+for (let i = 0; i < 9; ++i) {
+    console.assert(get_combo_magnitude(row(i)) === 1);
+    console.assert(get_combo_magnitude(column(i)) === 1);
+    for (let j = 0; j < 9; ++j) {
+        console.assert(get_combo_magnitude(or(row(i), column(j))) === 2);
+        if (i !== j) {
+            console.assert(get_combo_magnitude(or(row(i), row(j))) === 2);
+            console.assert(get_combo_magnitude(or(column(i), column(j))) === 2);
+        }
+        for (let r = 0; r < 3; ++r) {
+            for (let c = 0; c < 3; ++c) {
+                console.assert(get_combo_magnitude(or(cube(r, c), or(row(i), column(j)))) === 3);
+            }
+        }
+    }
+    for (let r = 0; r < 3; ++r) {
+        for (let c = 0; c < 3; ++c) {
+            console.assert(get_combo_magnitude(or(row(i), cube(r, c))) === 2);
+            console.assert(get_combo_magnitude(or(column(i), cube(r, c))) === 2);
+        }
+    }
+}
+for (let r = 0; r < 3; ++r) {
+    for (let c = 0; c < 3; ++c) {
+        console.assert(get_combo_magnitude(cube(r, c)) === 1);
+    }
+}
+
+function get_move_score(previous_was_clear, prev, placement, after) {
+    console.assert(is_empty(and(prev, placement)));
+    // 1 point for each block placed that was not cleared.
+    let result = count(diff(after, prev));
+    const combo = get_combo_magnitude(or(prev, placement));
+    if (combo === 0) {
+        return result;
+    }
+
+    // Streak
+    if (previous_was_clear) {
+        result += 9;
+    }
+
+    if (combo <= 2) {
+        result += 18 * combo;
+    } else if (combo <= 7) {
+        result += 36 * combo;
+        // I'm missing datapoints on 5x combo to 7x combo.
+        // Let me know if you know the multiplier.
+    } else {
+        result += 72 * combo;
+    }
+
+    return result;
+}
+
 
 function* get_piece_set_permutations(board, piece_set) {
     piece_set = [...piece_set];
