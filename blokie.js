@@ -11,6 +11,14 @@ const TOP_LEFT_CUBE = 0x7 | (0x7 << 9) | (0x7 << 18);
 const EMPTY = [0, 0, 0];
 const FULL = [USED_BITS, USED_BITS, USED_BITS];
 
+// Used when returning values so clients can't change out consts.
+function getEmpty() {
+    return [...EMPTY];
+}
+function getFull() {
+    return [...FULL];
+}
+
 function _popcount(x) {
     x -= x >> 1 & 0x55555555
     x = (x & 0x33333333) + (x >> 2 & 0x33333333)
@@ -641,13 +649,19 @@ function can_clear_with_2_pieces(board, piece_set) {
 }
 
 
-function ai_make_move(board, piece_set) {
+function ai_make_move(game, piece_set) {
+    const board = game.board;
     const result = {
-        board: FULL,
-        board_score: 999999,
-        prev_boards: [FULL, FULL, FULL],
-        prev_piece_placements: [EMPTY, EMPTY, EMPTY],
-        pieces: [EMPTY, EMPTY, EMPTY],
+        evaluation: 999999,
+        new_game_states: Array(3).fill(
+            {
+                board: getFull(),
+                previous_piece_placement: getEmpty(),
+                previous_piece: getEmpty(),
+                score: 0,
+                previous_move_was_clear: false,
+            }
+        ),
     };
     const board_count = count(board);
     let is_first_perm = true;
@@ -668,12 +682,38 @@ function ai_make_move(board, piece_set) {
                         continue;
                     }
                     const score = get_eval(after_p2);
-                    if (score < result.board_score) {
-                        result.board = after_p2;
-                        result.board_score = score;
-                        result.prev_boards = [board, after_p0, after_p1, after_p2];
-                        result.prev_piece_placements = [placement_0, placement_1, placement_2];
-                        result.pieces = [p0, p1, p2];
+                    if (score < result.evaluation) {
+                        const p0_move_was_clear = count(after_p0) < count(board) + count(p0);
+                        const p1_move_was_clear = count(after_p1) < count(after_p0) + count(p1);
+                        const p2_move_was_clear = count(after_p2) < count(after_p1) + count(p1);
+
+                        const p0_score = get_move_score(game.previous_move_was_clear, board, placement_0, after_p0);
+                        const p1_score = get_move_score(p0_move_was_clear, after_p0, placement_1, after_p1);
+                        const p2_score = get_move_score(p1_move_was_clear, after_p1, placement_2, after_p2);
+                        result.evaluation = score;
+                        result.new_game_states = [
+                            {
+                                board: after_p0,
+                                previous_piece_placement: placement_0,
+                                previous_piece: p0,
+                                previous_move_was_clear: p0_move_was_clear,
+                                score: game.score + p0_score
+                            },
+                            {
+                                board: after_p1,
+                                previous_piece_placement: placement_1,
+                                previous_piece: p1,
+                                previous_move_was_clear: p1_move_was_clear,
+                                score: game.score + p0_score + p1_score
+                            },
+                            {
+                                board: after_p2,
+                                previous_piece_placement: placement_2,
+                                previous_piece: p2,
+                                previous_move_was_clear: p2_move_was_clear,
+                                score: game.score + p0_score + p1_score + p2_score
+                            },
+                        ];
                     }
                 }
             }
@@ -705,16 +745,24 @@ function center_piece(p) {
 }
 
 var blokie = {
-    getNewGame: () => [...EMPTY],
-    getRandomPieceSet: get_random_piece_set,
+    getNewGame: () => {
+        return {
+            board: getEmpty(),
+            previous_piece_placement: getEmpty(),
+            previous_piece: getEmpty(),
+            previous_move_was_clear: false,
+            score: 0,
+
+        };
+    },
+    getRandomPieceSet: () => get_random_piece_set().map(p => [...p]),
+    getEmptyPiece: getEmpty,
     getAIMove: ai_make_move,
     at: at,
     isOver: (game) => {
-        return equal(game, FULL);
+        return equal(game.board, FULL);
     },
-    count: count,
     centerPiece: center_piece,
-    and: and,
 };
 
 export { blokie };
