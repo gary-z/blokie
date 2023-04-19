@@ -682,7 +682,7 @@ function ai_make_move(game, original_piece_set) {
                         count(after_p2) === board_count + p0_count + p1_count + p2_count) {
                         continue;
                     }
-                    const score = get_eval(after_p2);
+                    const score = -get_eval(after_p2);
                     if (score < result.evaluation) {
                         const p0_move_was_clear = count(after_p0) < count(board) + count(p0);
                         const p1_move_was_clear = count(after_p1) < count(after_p0) + count(p1);
