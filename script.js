@@ -31,7 +31,7 @@ async function playGameLoop() {
     }
     game_ongoing = true;
     let board_table = document.getElementById('game-board');
-    let on_deck_table = document.getElementById('pieces-on-deck');
+    let pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
     let game = blokie.getNewGame();
 
     while (!blokie.isOver(game)) {
@@ -39,7 +39,7 @@ async function playGameLoop() {
         if (isMaxSpeed()) {
             updateScore(game.score.toString());
         }
-        drawGame(board_table, on_deck_table, game.board, blokie.getEmptyPiece(), piece_set);
+        drawGame(board_table, pieces_on_deck_div, game.board, blokie.getEmptyPiece(), piece_set);
         const [unused, ai_move] = await Promise.all(
             [
                 sleep(),
@@ -63,7 +63,7 @@ async function playGameLoop() {
 
             const placement = ai_move.new_game_states[i].previous_piece_placement;
             if (!isMaxSpeed()) {
-                drawGame(board_table, on_deck_table, i === 0 ? game.board : ai_move.new_game_states[i - 1].board, placement, piece_set);
+                drawGame(board_table, pieces_on_deck_div, i === 0 ? game.board : ai_move.new_game_states[i - 1].board, placement, piece_set);
             }
 
             if (!isMaxSpeed()) {
@@ -88,7 +88,7 @@ function updateScore(score) {
     score_el.innerText = score;
 }
 
-function drawGame(board_table, on_deck_table, board, placement, piece_set) {
+function drawGame(board_table, pieces_on_deck_div, board, placement, piece_set) {
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
             const td = board_table.rows[r].cells[c];
@@ -108,7 +108,7 @@ function drawGame(board_table, on_deck_table, board, placement, piece_set) {
     for (let i = 0; i < 3; ++i) {
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
-                const td = on_deck_table.rows[r].cells[c + 5 * i];
+                const td = pieces_on_deck_div.children[i].rows[r].cells[c];
                 td.className = blokie.at(piece_set[i], r, c) ? 'has-piece' : null;
             }
         }
