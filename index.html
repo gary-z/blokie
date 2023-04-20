@@ -40,13 +40,11 @@
 
         #hand-icon {
             position: absolute;
-            top: 50%;
-            left: 50%;
             width: 8vw;
             height: 8vh;
             z-index: 100;
             opacity: 1;
-            animation: hand-animation 1.5s linear forwards;
+            animation: hand-animation 3s linear forwards;
         }
 
 
@@ -54,13 +52,24 @@
             0% {
                 transform: scale(1);
             }
-            40% {
+
+            20% {
                 transform: scale(0.8);
             }
+
+            40% {
+                transform: scale(1);
+            }
+
+            60% {
+                transform: scale(0.8);
+            }
+
             80% {
                 transform: scale(1);
                 opacity: 1;
             }
+
             100% {
                 opacity: 0;
                 visibility: hidden;
@@ -176,7 +185,7 @@
 
 <body>
     <div id="for-aspect-ratio">
-        <img src="hand-index.svg" id="hand-icon">
+
         <h1 title="score" id="score">0</h1>
         <div>
             <table title="The Blockudoku/Woodoku game board. Tap a square to add or remove a block." id="game-board">
@@ -217,7 +226,7 @@
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td></td>
+                    <td><img src="hand-index.svg" id="hand-icon"></td>
                     <td></td>
                     <td></td>
                     <td></td>
