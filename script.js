@@ -8,6 +8,7 @@ let state = {
     queued_game_states: [],
     piece_set: [],
     ai_interval_id: null,
+    mouse_down: false,
 };
 
 document.addEventListener("DOMContentLoaded", function (event) {
@@ -27,14 +28,36 @@ document.addEventListener("DOMContentLoaded", function (event) {
     board_table.addEventListener("click", (event) => {
         onBoardCellClick(event);
     });
+    board_table.addEventListener("mouseover", (event) => {
+        if (state.mouse_down) {
+            onBoardCellClick(event);
+        }
+    });
+    board_table.addEventListener("touchmove", (event) => {
+        if (state.mouse_down) {
+            onBoardCellClick(event);
+        }
+    });
+    document.addEventListener('mousedown', () => {
+        state.mouse_down = true;
+    });
+    document.addEventListener('touchstart', () => {
+        state.mouse_down = true;
+    });
+    document.addEventListener('mouseup', () => {
+        state.mouse_down = false;
+    });
+    document.addEventListener('touchend', () => {
+        state.mouse_down = false;
+    });
 });
 
 async function onNewGame() {
     state.game_progress = 'ACTIVE';
     state.queued_game_states = [];
     state.game = blokie.getNewGame(),
-    state.previous_game_state = blokie.getNewGame(),
-    state.piece_set = blokie.getRandomPieceSet();
+        state.previous_game_state = blokie.getNewGame(),
+        state.piece_set = blokie.getRandomPieceSet();
     render();
     queueAIInterval();
 }
