@@ -155,6 +155,10 @@ function render() {
 }
 
 function aiPlayGame() {
+    if (state.piece_set.every(p => blokie.isEmpty(p))) {
+        state.piece_set = blokie.getRandomPieceSet();
+        return;
+    }
     if (state.queued_game_states.length === 0) {
         if (state.piece_set.every(p => blokie.isEmpty(p))) {
             state.piece_set = blokie.getRandomPieceSet();
