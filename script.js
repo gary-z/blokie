@@ -9,7 +9,7 @@ let state = {
     piece_set: [],
     ai_interval_id: null,
     mouse_down: false,
-    last_dragged_cell: null,
+    last_dragged_board_cell: null,
 };
 
 document.addEventListener("DOMContentLoaded", function (event) {
@@ -35,19 +35,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
         }
     });
     board_table.addEventListener("touchmove", (event) => {
-        event.preventDefault();
-        const location = event.touches[0];
-        const cell = document.elementFromPoint(location.clientX, location.clientY);
-        if (cell.nodeName !== 'TD') {
-            return;
-        }
-        if (cell === state.last_dragged_cell) {
-            return;
-        }
-        state.last_dragged_cell = cell;
-        if (state.mouse_down) {
-            onBoardCellClick(cell);
-        }
+        processCellDrag(event, onBoardCellClick);
     });
     document.addEventListener('mousedown', () => {
         state.mouse_down = true;
@@ -60,9 +48,39 @@ document.addEventListener("DOMContentLoaded", function (event) {
     });
     document.addEventListener('touchend', () => {
         state.mouse_down = false;
-        state.last_dragged_cell = null;
+        state.last_dragged_board_cell = null;
+    });
+
+    const pieces_on_deck_container = document.getElementById('pieces-on-deck-container');
+    pieces_on_deck_container.addEventListener('click', (event) => {
+        onPieceCellClick(event.target);
+    });
+
+    pieces_on_deck_container.addEventListener('mouseover', (event) => {
+        if (state.mouse_down) {
+            onPieceCellClick(event.target);
+        }
+    });
+    pieces_on_deck_container.addEventListener('touchmove', (event) => {
+        processCellDrag(event, onPieceCellClick);
     });
 });
+
+function processCellDrag(event, call) {
+    event.preventDefault();
+    const location = event.touches[0];
+    const cell = document.elementFromPoint(location.clientX, location.clientY);
+    if (cell.nodeName !== 'TD') {
+        return;
+    }
+    if (cell === state.last_dragged_board_cell) {
+        return;
+    }
+    state.last_dragged_board_cell = cell;
+    if (state.mouse_down) {
+        call(cell);
+    }
+}
 
 async function onNewGame() {
     state.game_progress = 'ACTIVE';
@@ -86,11 +104,23 @@ function cancelAIInterval() {
 }
 
 function onBoardCellClick(cell) {
-    if (state.game_progress !== 'ACTIVE') {
+    if (state.game_progress !== 'ACTIVE' || cell.nodeName !== 'TD') {
         return;
     }
-    state.queued_game_states = [];
     state.game.board = blokie.toggleSquare(state.game.board, cell.parentNode.rowIndex, cell.cellIndex);
+    resetAIOnHumanInterferance();
+}
+function onPieceCellClick(cell) {
+    if (state.game_progress !== 'ACTIVE' || cell.nodeName !== 'TD') {
+        return;
+    }
+    const piece_table_id = parseInt(cell.closest('table').id.slice(-1));
+    state.piece_set[piece_table_id] = blokie.toggleSquare(state.piece_set[piece_table_id], cell.parentNode.rowIndex, cell.cellIndex);
+    resetAIOnHumanInterferance();
+}
+
+function resetAIOnHumanInterferance() {
+    state.queued_game_states = [];
     cancelAIInterval();
     queueAIInterval();
     render();
