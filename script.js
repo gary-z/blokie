@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
         if (state.mouse_down) {
             onBoardCellClick(event);
         }
+        event.preventDefault();
     });
     document.addEventListener('mousedown', () => {
         state.mouse_down = true;
