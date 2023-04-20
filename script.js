@@ -9,6 +9,7 @@ let state = {
     piece_set: [],
     ai_interval_id: null,
     mouse_down: false,
+    last_dragged_cell: null,
 };
 
 document.addEventListener("DOMContentLoaded", function (event) {
@@ -34,10 +35,14 @@ document.addEventListener("DOMContentLoaded", function (event) {
         }
     });
     board_table.addEventListener("touchmove", (event) => {
+        event.preventDefault();
+        if (event.target === state.last_dragged_cell) {
+            return;
+        }
+        state.last_dragged_cell = event.target;
         if (state.mouse_down) {
             onBoardCellClick(event);
         }
-        event.preventDefault();
     });
     document.addEventListener('mousedown', () => {
         state.mouse_down = true;
@@ -50,6 +55,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
     });
     document.addEventListener('touchend', () => {
         state.mouse_down = false;
+        state.last_dragged_cell = null;
     });
 });
 
