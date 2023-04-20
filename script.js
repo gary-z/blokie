@@ -107,6 +107,10 @@ function onBoardCellClick(cell) {
     if (state.game_progress !== 'ACTIVE' || cell.nodeName !== 'TD') {
         return;
     }
+    const table = cell.closest('table');
+    if (table.id !== 'game-board') {
+        return;
+    }
     state.game.board = blokie.toggleSquare(state.game.board, cell.parentNode.rowIndex, cell.cellIndex);
     resetAIOnHumanInterferance();
 }
@@ -114,6 +118,11 @@ function onPieceCellClick(cell) {
     if (state.game_progress !== 'ACTIVE' || cell.nodeName !== 'TD') {
         return;
     }
+    const table = cell.closest('table');
+    if (table.className !== 'pieces-on-deck') {
+        return;
+    }
+
     const piece_table_id = parseInt(cell.closest('table').id.slice(-1));
     state.piece_set[piece_table_id] = blokie.toggleSquare(state.piece_set[piece_table_id], cell.parentNode.rowIndex, cell.cellIndex);
     resetAIOnHumanInterferance();
