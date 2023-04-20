@@ -38,6 +38,41 @@
             border-right: 2px solid black;
         }
 
+        #hand-icon {
+            position: absolute;
+            width: 5vw;
+            height: 5vh;
+            z-index: 100;
+            opacity: 1;
+            animation: hand-animation 4s linear forwards;
+        }
+
+
+        @keyframes hand-animation {
+            0% {
+                top: calc(20%);
+                left: calc(50%);
+            }
+
+            40% {
+                top: calc(80%);
+                left: calc(50%);
+            }
+
+            99% {
+                top: calc(80%);
+                left: calc(30%);
+
+
+                opacity: 1;
+            }
+
+            100% {
+                hidden: true;
+                opacity: 0;
+            }
+        }
+
         #game-board {
             border-collapse: collapse;
             background: white;
@@ -146,6 +181,7 @@
 
 <body>
     <div id="for-aspect-ratio">
+        <img src="hand-index.svg" id="hand-icon">
         <h1 title="score" id="score">0</h1>
         <div>
             <table title="The Blockudoku/Woodoku game board. Tap a square to add or remove a block." id="game-board">
@@ -365,7 +401,7 @@
             </div>
             <div class="footer">
                 <div id="speed-container">
-                    <img id="speedometer-icon" src="https://gary-z.github.io/blokie/speedometer.svg"/>
+                    <img id="speedometer-icon" src="speedometer.svg" />
                     <input title="Engine move speed." name="speed" type="range" id="speed" min="1" max="7" value="3">
                 </div>
                 <p>
