@@ -40,37 +40,31 @@
 
         #hand-icon {
             position: absolute;
-            width: 5vw;
-            height: 5vh;
+            top: 50%;
+            left: 50%;
+            width: 8vw;
+            height: 8vh;
             z-index: 100;
             opacity: 1;
-            animation: hand-animation 4s linear forwards;
+            animation: hand-animation 2s linear forwards;
         }
 
 
         @keyframes hand-animation {
             0% {
-                top: calc(20%);
-                left: calc(50%);
+                transform: scale(1);
             }
-
             40% {
-                top: calc(80%);
-                left: calc(50%);
+                transform: scale(0.8);
             }
-
-            99% {
-                top: calc(80%);
-                left: calc(30%);
-
-
+            80% {
+                transform: scale(1);
                 opacity: 1;
             }
-
             100% {
-                hidden: true;
                 opacity: 0;
             }
+
         }
 
         #game-board {
