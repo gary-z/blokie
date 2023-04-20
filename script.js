@@ -27,21 +27,26 @@ document.addEventListener("DOMContentLoaded", function (event) {
         }
     });
     board_table.addEventListener("click", (event) => {
-        onBoardCellClick(event);
+        onBoardCellClick(event.target);
     });
     board_table.addEventListener("mouseover", (event) => {
         if (state.mouse_down) {
-            onBoardCellClick(event);
+            onBoardCellClick(event.target);
         }
     });
     board_table.addEventListener("touchmove", (event) => {
         event.preventDefault();
-        if (event.target === state.last_dragged_cell) {
+        const location = event.touches[0];
+        const cell = document.elementFromPoint(location.clientX, location.clientY);
+        if (cell.nodeName !== 'TD') {
             return;
         }
-        state.last_dragged_cell = event.target;
+        if (cell === state.last_dragged_cell) {
+            return;
+        }
+        state.last_dragged_cell = cell;
         if (state.mouse_down) {
-            onBoardCellClick(event);
+            onBoardCellClick(cell);
         }
     });
     document.addEventListener('mousedown', () => {
@@ -80,8 +85,7 @@ function cancelAIInterval() {
     clearInterval(state.ai_interval_id);
 }
 
-function onBoardCellClick(event) {
-    const cell = event.target;
+function onBoardCellClick(cell) {
     if (state.game_progress !== 'ACTIVE') {
         return;
     }
