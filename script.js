@@ -88,8 +88,8 @@ async function onNewGame() {
     state.game = blokie.getNewGame(),
         state.previous_game_state = blokie.getNewGame(),
         state.piece_set = blokie.getRandomPieceSet();
-    render();
-    queueAIInterval();
+
+    resetAIOnHumanInterferance();
 }
 
 function queueAIInterval() {
