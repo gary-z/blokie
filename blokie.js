@@ -82,6 +82,9 @@ function xor(a, b) {
 function diff(a, b) {
     return [a[0] & ~b[0], a[1] & ~b[1], a[2] & ~b[2]];
 }
+function is_subset(a/*superset*/, b) {
+    return (b[0] & ~a[0]) === 0 && (b[1] & ~a[1]) === 0 && (b[2] & ~a[2]) === 0;
+}
 function bit(r, c) {
     return and(row(r), column(c));
 }
@@ -96,7 +99,6 @@ function _row(r) {
     return result;
 }
 const ROWS = Array.from({ length: 10 }, (_, i) => _row(i));
-Object.freeze(ROWS);
 function row(r) {
     return ROWS[r];
 }
@@ -110,7 +112,6 @@ function _column(c) {
     return [LEFT_BITS << c, LEFT_BITS << c, LEFT_BITS << c];
 }
 const COLS = Array.from({ length: 10 }, (_, i) => _column(i));
-Object.freeze(COLS);
 function column(c) {
     return COLS[c];
 }
@@ -127,28 +128,32 @@ for (let c = 0; c < 9; ++c) {
     }
 }
 
-function cube(r, c) {
+function _cube(i) {
     const result = [0, 0, 0];
-    result[r] = TOP_LEFT_CUBE << (c * 3);
+    result[Math.floor(i/3)] = TOP_LEFT_CUBE << ((i%3) * 3);
     return result;
 }
-for (let r = 0; r < 3; ++r) {
-    for (let c = 0; c < 3; ++c) {
-        console.assert(count(cube(r, c)) === 9);
-        let num_cols_spanned = 0;
-        let num_rows_spanned = 0;
-        for (let i = 0; i < 9; ++i) {
-            if (any(and(cube(r, c), row(i)))) {
-                num_rows_spanned++;
-            }
-            if (any(and(cube(r, c), column(i)))) {
-                num_cols_spanned++;
-            }
-        }
-        console.assert(num_cols_spanned === 3);
-        console.assert(num_rows_spanned === 3);
-    }
+const CUBES = Array.from({ length: 10 }, (_, i) => _cube(i));
+function cube(i) {
+    return CUBES[i];
 }
+
+for (let i=0;i<9;++i) {
+    console.assert(count(cube(i)) === 9);
+    let num_cols_spanned = 0;
+    let num_rows_spanned = 0;
+    for (let j = 0; j < 9; ++j) {
+        if (any(and(cube(i), row(j)))) {
+            num_rows_spanned++;
+        }
+        if (any(and(cube(i), column(j)))) {
+            num_cols_spanned++;
+        }
+    }
+    console.assert(num_cols_spanned === 3);
+    console.assert(num_rows_spanned === 3);
+}
+
 
 function shift_right(bb) {
     return [(bb[0] & ~RIGHT_BITS) << 1, (bb[1] & ~RIGHT_BITS) << 1, (bb[2] & ~RIGHT_BITS) << 1];
@@ -430,23 +435,19 @@ function perform_clears(board) {
     let to_remove = EMPTY;
     for (let i = 0; i < 9; ++i) {
         const c = column(i);
-        if (equal(and(c, board), c)) {
+        if (is_subset(board, c)) {
             to_remove = or(to_remove, c);
         }
         const r = row(i);
-        if (equal(and(r, board), r)) {
+        if (is_subset(board, r)) {
             to_remove = or(to_remove, r);
+        }
+        const cb = cube(i);
+        if (is_subset(board, cb)) {
+            to_remove = or(to_remove, cb);
         }
     }
 
-    for (let r = 0; r < 3; ++r) {
-        for (let c = 0; c < 3; ++c) {
-            const cb = cube(r, c);
-            if (equal(and(cb, board), cb)) {
-                to_remove = or(to_remove, cb);
-            }
-        }
-    }
     return diff(board, to_remove);
 }
 console.assert(is_empty(perform_clears(FULL)));
@@ -459,6 +460,7 @@ for (let p of PIECES) {
 for (let i = 0; i < 9; ++i) {
     console.assert(is_empty(perform_clears(row(i))));
     console.assert(is_empty(perform_clears(column(i))));
+    console.assert(is_empty(perform_clears(cube(i))));
 }
 
 function* get_next_boards(board, piece) {
@@ -487,12 +489,10 @@ function get_eval(bb) {
     result += count(bb) * OCCUPIED_SQUARE;
 
     // Occupied cube.
-    for (let r = 0; r < 3; ++r) {
-        for (let c = 0; c < 3; ++c) {
-            const cb = cube(r, c);
-            if (any(and(cb, bb))) {
-                result += CUBE;
-            }
+    for(let i=0;i<9;++i) {
+        const cb = cube(i);
+        if (any(and(cb, bb))) {
+            result += CUBE;
         }
     }
 
@@ -559,14 +559,11 @@ function get_combo_magnitude(mid_clear) {
         if (equal(column(i), and(column(i), mid_clear))) {
             result += 1;
         }
-    }
-    for (let r = 0; r < 3; ++r) {
-        for (let c = 0; c < 3; ++c) {
-            if (equal(cube(r, c), and(cube(r, c), mid_clear))) {
-                result += 1;
-            }
+        if (equal(cube(i), and(cube(i), mid_clear))) {
+            result += 1;
         }
     }
+
     return result;
 }
 console.assert(get_combo_magnitude(EMPTY) === 0);
