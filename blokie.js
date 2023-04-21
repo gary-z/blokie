@@ -130,7 +130,7 @@ for (let c = 0; c < 9; ++c) {
 
 function _cube(i) {
     const result = [0, 0, 0];
-    result[Math.floor(i/3)] = TOP_LEFT_CUBE << ((i%3) * 3);
+    result[Math.floor(i / 3)] = TOP_LEFT_CUBE << ((i % 3) * 3);
     return result;
 }
 const CUBES = Array.from({ length: 10 }, (_, i) => _cube(i));
@@ -138,7 +138,7 @@ function cube(i) {
     return CUBES[i];
 }
 
-for (let i=0;i<9;++i) {
+for (let i = 0; i < 9; ++i) {
     console.assert(count(cube(i)) === 9);
     let num_cols_spanned = 0;
     let num_rows_spanned = 0;
@@ -489,7 +489,7 @@ function get_eval(bb) {
     result += count(bb) * OCCUPIED_SQUARE;
 
     // Occupied cube.
-    for(let i=0;i<9;++i) {
+    for (let i = 0; i < 9; ++i) {
         const cb = cube(i);
         if (any(and(cb, bb))) {
             result += CUBE;
@@ -582,24 +582,20 @@ for (let i = 0; i < 9; ++i) {
             console.assert(get_combo_magnitude(or(row(i), row(j))) === 2);
             console.assert(get_combo_magnitude(or(column(i), column(j))) === 2);
         }
-        for (let r = 0; r < 3; ++r) {
-            for (let c = 0; c < 3; ++c) {
-                console.assert(get_combo_magnitude(or(cube(r, c), or(row(i), column(j)))) === 3);
-            }
+
+        for (let k = 0; k < 9; ++k) {
+            console.assert(get_combo_magnitude(or(cube(k), or(row(i), column(j)))) === 3);
         }
     }
-    for (let r = 0; r < 3; ++r) {
-        for (let c = 0; c < 3; ++c) {
-            console.assert(get_combo_magnitude(or(row(i), cube(r, c))) === 2);
-            console.assert(get_combo_magnitude(or(column(i), cube(r, c))) === 2);
-        }
+    for (let k = 0; k < 9; ++k) {
+        console.assert(get_combo_magnitude(or(row(i), cube(k))) === 2);
+        console.assert(get_combo_magnitude(or(column(i), cube(k))) === 2);
     }
 }
-for (let r = 0; r < 3; ++r) {
-    for (let c = 0; c < 3; ++c) {
-        console.assert(get_combo_magnitude(cube(r, c)) === 1);
-    }
+for (let k = 0; k < 9; ++k) {
+    console.assert(get_combo_magnitude(cube(k)) === 1);
 }
+
 
 function get_move_score(previous_was_clear, prev, placement, after) {
     console.assert(is_empty(and(prev, placement)));
@@ -787,7 +783,7 @@ function left_top_justify_piece(p) {
     return p;
 }
 
-for(const p of PIECES) {
+for (const p of PIECES) {
     const centered = center_piece(p);
     console.assert(count(p) === count(centered));
     console.assert(equal(p, left_top_justify_piece(p)));
