@@ -89,20 +89,32 @@ function at(bb, r, c) {
     return !is_empty(and(bit(r, c), bb));
 }
 
-function row(r) {
+function _row(r) {
     const result = [0, 0, 0];
     const m = r % 3;
     result[(r - m) / 3] = ROW_0 << (m * 9);
     return result;
 }
+const ROWS = Array.from({ length: 10 }, (_, i) => _row(i));
+Object.freeze(ROWS);
+function row(r) {
+    return ROWS[r];
+}
+
 for (let r = 0; r < 9; ++r) {
     console.assert(!is_empty(row(r)));
     console.assert(count(row(r)) === 9);
 }
 
-function column(c) {
+function _column(c) {
     return [LEFT_BITS << c, LEFT_BITS << c, LEFT_BITS << c];
 }
+const COLS = Array.from({ length: 10 }, (_, i) => _column(i));
+Object.freeze(COLS);
+function column(c) {
+    return COLS[c];
+}
+
 for (let c = 0; c < 9; ++c) {
     console.assert(!is_empty(row(c)));
     console.assert(count(row(c)) === 9);
