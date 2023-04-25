@@ -73,6 +73,9 @@ console.assert(count(not([1, 1, 1])) === 78);
 function and(a, b) {
     return [a[0] & b[0], a[1] & b[1], a[2] & b[2]];
 }
+function is_disjoint(a, b) {
+    return (a[0] & b[0]) === 0 && (a[1] & b[1]) === 0 && (a[2] & b[2]) === 0;
+}
 function or(a, b) {
     return [a[0] | b[0], a[1] | b[1], a[2] | b[2]];
 }
@@ -481,6 +484,7 @@ function get_eval(bb) {
     const SQUASHED_EMPTY = 32;
     const CORNERED_EMPTY = 40;
     const ALTERNATING = 56;
+    const DEADLY_PIECE = 72;
     const THREE_BAR = 13;
 
     let result = 0;
@@ -517,24 +521,101 @@ function get_eval(bb) {
     result += count(diff(and(blocked_down, blocked_right), or(row(8), column(8)))) * CORNERED_EMPTY;
 
     // 3 BAR
-    const open_up = shift_down(open);
-    const open_2_up = shift_down(open_up);
-    const open_down = shift_up(open);
-    const open_2_down = shift_up(open_down);
+    // Deadly pieces.
     const open_left = shift_right(open);
     const open_2_left = shift_right(open_left);
     const open_right = shift_left(open);
     const open_2_right = shift_left(open_right);
+    const open_up = shift_down(open);
+    const open_2_up = shift_down(open_up);
+    const open_down = shift_up(open);
+    const open_2_down = shift_up(open_down);
 
-    let fillable_by_horizontal_3_bar = and(and(open, open_left), open_right);
-    fillable_by_horizontal_3_bar = or(fillable_by_horizontal_3_bar, and(and(open, open_left), open_2_left));
-    fillable_by_horizontal_3_bar = or(fillable_by_horizontal_3_bar, and(and(open, open_right), open_2_right));
+    const open_up_left = shift_right(open_up);
+    const open_down_left = shift_right(open_down);
+    const open_up_right = shift_left(open_up);
+    const open_down_right = shift_left(open_down);
+
+    const open_and_open_left = and(open, open_left);
+    const open_and_open_right = and(open, open_right);
+    const open_and_open_up = and(open, open_up);
+    const open_and_open_down = and(open, open_down);
+
+    let fillable_by_horizontal_3_bar =
+        or(and(open_and_open_left, open_right), or(and(open_and_open_left, open_2_left), and(open_and_open_right, open_2_right)));
     result += count(and(open, not(fillable_by_horizontal_3_bar))) * THREE_BAR;
 
-    let fillable_by_verticle_3_bar = and(and(open, open_down), open_up);
-    fillable_by_verticle_3_bar = or(fillable_by_verticle_3_bar, and(and(open, open_down), open_2_down));
-    fillable_by_verticle_3_bar = or(fillable_by_verticle_3_bar, and(and(open, open_up), open_2_up));
+    let fillable_by_verticle_3_bar = or(and(open_and_open_up, open_down), or(and(open_and_open_up, open_2_up), and(open_and_open_down, open_2_down)));
     result += count(and(open, not(fillable_by_verticle_3_bar))) * THREE_BAR;
+
+    const open_and_open_2_left = and(open, open_2_left);
+    const open_and_open_2_right = and(open, open_2_right);
+    const open_and_open_2_up = and(open, open_2_up);
+    const open_and_open_2_down = and(open, open_2_down);
+
+    // 5 Bar
+    if (is_disjoint(and(open_and_open_left, open_and_open_2_left), and(open_and_open_right, open_and_open_2_right))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_up, open_and_open_2_up), and(open_and_open_down, open_and_open_2_down))) {
+        result += DEADLY_PIECE;
+    }
+
+    // L
+    if (is_disjoint(and(open_and_open_up, open_and_open_2_up), and(open_and_open_right, open_and_open_2_right))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_up, open_and_open_2_up), and(open_and_open_left, open_and_open_2_left))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_down, open_and_open_2_down), and(open_and_open_right, open_and_open_2_right))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_down, open_and_open_2_down), and(open_and_open_left, open_and_open_2_left))) {
+        result += DEADLY_PIECE;
+    }
+
+    // T
+    if (is_disjoint(and(open_and_open_left, open_and_open_right), and(open_and_open_down, open_and_open_2_down))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_left, open_and_open_right), and(open_and_open_up, open_and_open_2_up))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_up, open_and_open_down), and(open_and_open_left, open_and_open_2_left))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_up, open_and_open_down), and(open_and_open_right, open_and_open_2_right))) {
+        result += DEADLY_PIECE;
+    }
+
+    // +
+    if (is_disjoint(and(open_and_open_left, open_and_open_right), and(open_and_open_up, open_and_open_down))) {
+        result += DEADLY_PIECE;
+    }
+
+    // 3 Stair
+    if (is_disjoint(open, and(open_down_left, open_up_right))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(open, and(open_up_left, open_down_right))) {
+        result += DEADLY_PIECE;
+    }
+
+    // C
+    if (is_disjoint(and(open_and_open_up, open_and_open_down), and(open_up_right, open_down_right))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_up, open_and_open_down), and(open_up_left, open_down_left))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_left, open_and_open_right), and(open_up_left, open_up_right))) {
+        result += DEADLY_PIECE;
+    }
+    if (is_disjoint(and(open_and_open_left, open_and_open_right), and(open_down_left, open_down_right))) {
+        result += DEADLY_PIECE;
+    }
+
 
     return result;
 }
