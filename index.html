@@ -76,6 +76,10 @@
 
         }
 
+        #game-table-container {
+            aspect-ratio: 1 / 1;
+        }
+
         #game-board {
             border-collapse: collapse;
             background: white;
@@ -84,7 +88,7 @@
             margin-left: auto;
             margin-right: auto;
             width: 100%;
-            aspect-ratio: 1 / 1;
+            height: 100%;
         }
 
         #game-board tr td {
@@ -186,7 +190,7 @@
     <div id="for-aspect-ratio">
 
         <h1 title="score" id="score">0</h1>
-        <div>
+        <div id="game-table-container">
             <table title="The Blockudoku/Woodoku game board. Tap a square to add or remove a block." id="game-board">
                 <tr>
                     <td></td>
@@ -224,8 +228,8 @@
                 <tr>
                     <td></td>
                     <td></td>
-                    <td></td>
                     <td><img src="hand-index.svg" id="hand-icon"></td>
+                    <td></td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -329,9 +333,9 @@
                 </table>
                 <table class="pieces-on-deck" id="piece-on-deck-1">
                     <tr>
+                        <td></td>
+                        <td></td>
                         <td><img src="hand-index.svg" id="hand-icon"></td>
-                        <td></td>
-                        <td></td>
                         <td></td>
                         <td></td>
                     </tr>
