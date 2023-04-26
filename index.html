@@ -11,7 +11,8 @@
         }
 
         body {
-            display: flex;
+            padding: none;
+            border: none;
         }
 
         #page-description {
@@ -22,11 +23,13 @@
             text-align: center;
             font-family: roboto;
             font-size: 5vh;
+            font-weight: bold;
+            margin-bottom: 3vh;
         }
 
         #for-aspect-ratio {
             aspect-ratio: 2/3;
-            width: min(90vw, calc(90vh / 1.7));
+            width: min(90vw, calc(90vh / (3/2)));
             margin: auto;
         }
 
@@ -185,7 +188,7 @@
 
 <body>
     <div id="for-aspect-ratio">
-        <h1 title="score" id="score">0</h1>
+        <div title="score" id="score">0</div>
         <div id="game-table-container">
             <table title="The Blockudoku/Woodoku game board. Tap a square to add or remove a block." id="game-board">
                 <tr>
