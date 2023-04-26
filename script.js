@@ -20,14 +20,20 @@ document.addEventListener("DOMContentLoaded", function (event) {
         queueAIInterval();
     });
 
+    document.addEventListener('mouseup', () => {
+        state.last_dragged_board_cell = null;
+        state.mouse_down = false;
+    });
+    document.addEventListener('touchend', () => {
+        state.mouse_down = false;
+        state.last_dragged_board_cell = null;
+    });
+
     var board_table = document.getElementById('game-board');
     board_table.addEventListener("click", () => {
         if (state.game_progress === 'OVER') {
             onNewGame();
         }
-    });
-    board_table.addEventListener("click", (event) => {
-        onBoardCellClick(event.target);
     });
     board_table.addEventListener("mouseover", (event) => {
         if (state.mouse_down) {
@@ -37,32 +43,34 @@ document.addEventListener("DOMContentLoaded", function (event) {
     board_table.addEventListener("touchmove", (event) => {
         processCellDrag(event, onBoardCellClick);
     });
-    document.addEventListener('mousedown', () => {
+    board_table.addEventListener('mousedown', (event) => {
+        onBoardCellClick(event.target);
         state.mouse_down = true;
     });
-    document.addEventListener('touchstart', () => {
+    board_table.addEventListener('touchstart', () => {
+        onBoardCellClick(event.target);
+        state.last_dragged_board_cell = event.target;
         state.mouse_down = true;
     });
-    document.addEventListener('mouseup', () => {
-        state.mouse_down = false;
-    });
-    document.addEventListener('touchend', () => {
-        state.mouse_down = false;
-        state.last_dragged_board_cell = null;
-    });
+
 
     const pieces_on_deck_container = document.getElementById('pieces-on-deck-container');
-    pieces_on_deck_container.addEventListener('click', (event) => {
+    pieces_on_deck_container.addEventListener('touchstart', (event) => {
         onPieceCellClick(event.target);
+        state.last_dragged_board_cell = event.target;
+        state.mouse_down = true;
     });
-
+    pieces_on_deck_container.addEventListener('touchmove', (event) => {
+        processCellDrag(event, onPieceCellClick);
+    });
+    pieces_on_deck_container.addEventListener('mousedown', (event) => {
+        onPieceCellClick(event.target);
+        state.mouse_down = true;
+    });
     pieces_on_deck_container.addEventListener('mouseover', (event) => {
         if (state.mouse_down) {
             onPieceCellClick(event.target);
         }
-    });
-    pieces_on_deck_container.addEventListener('touchmove', (event) => {
-        processCellDrag(event, onPieceCellClick);
     });
 });
 
