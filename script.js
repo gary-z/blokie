@@ -158,7 +158,7 @@ function render() {
         }
     } else if (state.game_progress === 'OVER') {
         drawGame(board_table, pieces_on_deck_div, state.game.board, blokie.getEmptyPiece(), state.piece_set);
-        updateScore("Final score: " + state.game.score.toString() + ". Tap board to restart.");
+        updateScore("Final score: " + state.game.score.toString());
     }
 }
 
