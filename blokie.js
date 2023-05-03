@@ -694,10 +694,11 @@ function get_move_score(previous_was_clear, prev, placement, after) {
 
     if (combo <= 2) {
         result += 18 * combo;
-    } else if (combo <= 7) {
+    } else if (combo <= 4) {
         result += 36 * combo;
-        // I'm missing datapoints on 5x combo to 7x combo.
-        // Let me know if you know the multiplier.
+    } else if (combo <= 7) {
+        result += 54 * combo;
+        // Not sure if 7x combo is correct.
     } else {
         result += 72 * combo;
     }
