@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Play Against an AI in Blockudoku/Woodoku </title>
+    <title>Play Against an AI in Blockudoku/Woodoku/Block Sudoku </title>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <script src="script.js" type="module"></script>
     <style>
@@ -177,18 +177,13 @@
             }
         }
 
-        This CSS code creates a circle element that appears on the screen and scales up with a flash,
-        creating the touch gesture effect. The @keyframes rule specifies the behavior of the animation,
-        while the animation property applies the animation to the .touch-circle element. Save both files in the same folder and open the HTML file in a browser. You should see the touch gesture effect in action. Note that the circle will be positioned in the center of the screen. If you want it to appear at a specific location,
-        you can modify the top and left properties of the .touch-circle element.
-
     </style>
     <meta property="og:description"
-        content="Test your skills against an AI in Blockudoku! Try to sabotage the computer's perfect gameplay by altering the board or pieces. Learn, be inspired, or vent your frustration." />
+        content="Test your skills against an AI in Blockudoku/Woodoku/Block Sudoku ! Try to sabotage the computer's perfect gameplay by altering the board or pieces. Learn, be inspired, or vent your frustration." />
     <meta property="og:image" content="https://gary-z.github.io/blokie/preview.png" />
     <meta name="google-site-verification" content="a62LBKJ5-DBNPPVbH1buHMLMT1CEM5j456tPhU30GCE" />
     <meta name="description"
-        content="Test your skills against an AI in Blockudoku! Try to sabotage the computer's perfect gameplay by altering the board or pieces. Learn, be inspired, or vent your frustration." />
+        content="Test your skills against an AI in Blockudoku/Woodoku/Block Sudoku ! Try to sabotage the computer's perfect gameplay by altering the board or pieces. Learn, be inspired, or vent your frustration." />
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JSG4CGEK2S"></script>
@@ -204,7 +199,8 @@
     <div id="for-aspect-ratio">
         <div title="score" id="score">0</div>
         <div id="game-table-container">
-            <table title="The Blockudoku/Woodoku game board. Tap a square to add or remove a block." id="game-board">
+            <table title="The Blockudoku/Woodoku/Block Sudoku  game board. Tap a square to add or remove a block."
+                id="game-board">
                 <tr>
                     <td></td>
                     <td></td>
@@ -367,7 +363,12 @@
                     <tr>
                         <td></td>
                         <td></td>
-                        <td></td>
+                        <div class="touch-circle">
+                            <div class="inner-circle"></div>
+                        </div>
+                        <td>
+
+                        </td>
                         <td></td>
                         <td></td>
                     </tr>
