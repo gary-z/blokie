@@ -76,6 +76,12 @@ function and(a, b) {
 function is_disjoint(a, b) {
     return (a[0] & b[0]) === 0 && (a[1] & b[1]) === 0 && (a[2] & b[2]) === 0;
 }
+function count_intersection(a, b) {
+    return _popcount(a[0] & b[0]) + _popcount(a[1] & b[1]) + _popcount(a[2] & b[2]);
+}
+function count_diff(a, b) {
+    return _popcount(a[0] &~ b[0]) + _popcount(a[1] &~ b[1]) + _popcount(a[2] &~ b[2]);
+}
 function or(a, b) {
     return [a[0] | b[0], a[1] | b[1], a[2] | b[2]];
 }
@@ -478,25 +484,48 @@ function* get_next_boards(board, piece) {
     }
 }
 
+const EDGES = or(or(column(0),column(8)), or(row(0),row(8)));
+const ALIGNED_BLOCKED_UP = or(row(3), row(6));
+const ALIGNED_BLOCKED_DOWN = or(row(2), row(5));
+const ALIGNED_BLOCKED_LEFT = or(column(3), column(6));
+const ALIGNED_BLOCKED_RIGHT = or(column(2), column(5));
+
 function get_eval(bb) {
-    const OCCUPIED_SQUARE = 20;
-    const CUBE = 45;
-    const SQUASHED_EMPTY = 32;
-    const CORNERED_EMPTY = 40;
-    const ALTERNATING = 56;
-    const DEADLY_PIECE = 72;
-    const THREE_BAR = 13;
+    const OCCUPIED_SIDE_SQUARE = 2000;
+    const OCCUPIED_CENTER_SQUARE = 1607;
+    const OCCUPIED_CORNER_SQUARE = 3067;
+
+    const SIDE_CUBE = 1358;
+    const CORNER_CUBE = 908;
+    const CENTER_CUBE = 204;
+
+    const SQUASHED_EMPTY_MIDDLE = 524;
+    const SQUASHED_EMPTY_EDGE = 3386;
+
+    const ALTERNATING_UNALIGNED = 4450;
+    const ALTERNATING_ALIGNED = 1776;
+
+    const CORNERED_EMPTY = 6540;
+    const DEADLY_PIECE = 18185;
+    const THREE_BAR = 2665;
 
     let result = 0;
 
-    // Occupied squares.
-    result += count(bb) * OCCUPIED_SQUARE;
-
     // Occupied cube.
     for (let i = 0; i < 9; ++i) {
-        const cb = cube(i);
-        if (any(and(cb, bb))) {
-            result += CUBE;
+        const cb = and(cube(i), bb);
+        if (any(cb)) {
+            const cnt = count(cb);
+            if (i == 4) {
+                result += CENTER_CUBE;
+                result += OCCUPIED_CENTER_SQUARE * cnt;
+            } else if (i === 1 || i === 3 || i === 5 || i === 7) {
+                result += SIDE_CUBE;
+                result += OCCUPIED_SIDE_SQUARE * cnt;
+            } else {
+                result += CORNER_CUBE;
+                result += OCCUPIED_CORNER_SQUARE * cnt;
+            }
         }
     }
 
@@ -506,19 +535,33 @@ function get_eval(bb) {
     const blocked_right = diff(open, shift_left(open));
     const blocked_down = diff(open, shift_up(open));
 
-    // Perimeter
-    result += (count(blocked_up) - 9) * ALTERNATING;
-    result += (count(blocked_left) - 9) * ALTERNATING;
+    // Alternating
+    result += (count_diff(blocked_up, ALIGNED_BLOCKED_UP) - 9) * ALTERNATING_UNALIGNED;
+    result += count_intersection(blocked_up, ALIGNED_BLOCKED_UP) * ALTERNATING_ALIGNED;
+
+    result += (count_diff(blocked_left, ALIGNED_BLOCKED_LEFT) - 9) * ALTERNATING_UNALIGNED;
+    result += count_intersection(blocked_left, ALIGNED_BLOCKED_LEFT) * ALTERNATING_ALIGNED;
+
+    result += (count_diff(blocked_right, ALIGNED_BLOCKED_RIGHT) - 9) * ALTERNATING_UNALIGNED;
+    result += count_intersection(blocked_right, ALIGNED_BLOCKED_RIGHT) * ALTERNATING_ALIGNED;
+
+    result += (count_diff(blocked_down, ALIGNED_BLOCKED_DOWN) - 9) * ALTERNATING_UNALIGNED;
+    result += count_intersection(blocked_down, ALIGNED_BLOCKED_DOWN) * ALTERNATING_ALIGNED;
 
     // Empty square between 2 blocked squares.
-    result += count(and(blocked_down, blocked_up)) * SQUASHED_EMPTY;
-    result += count(and(blocked_left, blocked_right)) * SQUASHED_EMPTY;
+    const squashed_verticle = and(blocked_down, blocked_up);
+    result += count_diff(squashed_verticle, EDGES) * SQUASHED_EMPTY_MIDDLE;
+    result += count_intersection(squashed_verticle, EDGES) * SQUASHED_EMPTY_EDGE;
+
+    const squashed_horizontal = and(blocked_left, blocked_right);
+    result += count_diff(squashed_horizontal, EDGES) * SQUASHED_EMPTY_MIDDLE;
+    result += count_intersection(squashed_horizontal, EDGES) * SQUASHED_EMPTY_EDGE;
 
     // Empty square cornered between 2 blocked squares.
-    result += count(diff(and(blocked_up, blocked_left), or(row(0), column(0)))) * CORNERED_EMPTY;
-    result += count(diff(and(blocked_up, blocked_right), or(row(0), column(8)))) * CORNERED_EMPTY;
-    result += count(diff(and(blocked_down, blocked_left), or(row(8), column(0)))) * CORNERED_EMPTY;
-    result += count(diff(and(blocked_down, blocked_right), or(row(8), column(8)))) * CORNERED_EMPTY;
+    result += count_diff(and(blocked_up, blocked_left), or(row(0), column(0))) * CORNERED_EMPTY;
+    result += count_diff(and(blocked_up, blocked_right), or(row(0), column(8))) * CORNERED_EMPTY;
+    result += count_diff(and(blocked_down, blocked_left), or(row(8), column(0))) * CORNERED_EMPTY;
+    result += count_diff(and(blocked_down, blocked_right), or(row(8), column(8))) * CORNERED_EMPTY;
 
     // 3 BAR
     // Deadly pieces.
@@ -543,10 +586,10 @@ function get_eval(bb) {
 
     let fillable_by_horizontal_3_bar =
         or(and(open_and_open_left, open_right), or(and(open_and_open_left, open_2_left), and(open_and_open_right, open_2_right)));
-    result += count(and(open, not(fillable_by_horizontal_3_bar))) * THREE_BAR;
+    result += count_intersection(open, not(fillable_by_horizontal_3_bar)) * THREE_BAR;
 
     let fillable_by_verticle_3_bar = or(and(open_and_open_up, open_down), or(and(open_and_open_up, open_2_up), and(open_and_open_down, open_2_down)));
-    result += count(and(open, not(fillable_by_verticle_3_bar))) * THREE_BAR;
+    result += count_intersection(open, not(fillable_by_verticle_3_bar)) * THREE_BAR;
 
     const open_and_open_2_left = and(open, open_2_left);
     const open_and_open_2_right = and(open, open_2_right);
@@ -753,7 +796,7 @@ function ai_make_move(game, original_piece_set) {
                 board: getFull(),
                 previous_piece_placement: getEmpty(),
                 previous_piece: getEmpty(),
-                score: 0,
+                score: game.score,
                 previous_move_was_clear: false,
             }
         ),
@@ -872,17 +915,33 @@ for (const p of PIECES) {
     console.assert(equal(p, left_top_justify_piece(center_piece(p))));
 }
 
+function is_over(game) {
+    return equal(game.board, FULL);
+}
+
+function get_fitness_sample() {
+    let game = get_new_game();
+    let num_moves = 0;
+    while (!is_over(game)) {
+        num_moves ++;
+        game = ai_make_move(game, get_random_piece_set()).new_game_states[2];
+    }
+    return {
+        score: game.score,
+        num_moves: num_moves,
+    };
+}
+
 var blokie = {
     getNewGame: get_new_game,
     getRandomPieceSet: () => get_random_piece_set().map(p => center_piece([...p])),
     getEmptyPiece: getEmpty,
     getAIMove: ai_make_move,
     at: at,
-    isOver: (game) => {
-        return equal(game.board, FULL);
-    },
+    isOver: is_over,
     toggleSquare: (board, r, c) => xor(board, bit(r, c)),
     isEmpty: is_empty,
+    getFitnessSample: get_fitness_sample,
 };
 
 export { blokie };

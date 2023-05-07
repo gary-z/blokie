@@ -1,0 +1,11 @@
+{
+  "name": "blokie",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "A Blockudoku/Woodoku/Block Sudoku Enging",
+  "main": "blokie.js",
+  "homepage": "https://gary-z.github.io/blokie/",
+  "scripts": {
+    "test:fitness": "node fitnessTest.js"
+  }
+}
