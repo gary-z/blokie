@@ -80,7 +80,7 @@ function count_intersection(a, b) {
     return _popcount(a[0] & b[0]) + _popcount(a[1] & b[1]) + _popcount(a[2] & b[2]);
 }
 function count_diff(a, b) {
-    return _popcount(a[0] &~ b[0]) + _popcount(a[1] &~ b[1]) + _popcount(a[2] &~ b[2]);
+    return _popcount(a[0] & ~b[0]) + _popcount(a[1] & ~b[1]) + _popcount(a[2] & ~b[2]);
 }
 function or(a, b) {
     return [a[0] | b[0], a[1] | b[1], a[2] | b[2]];
@@ -484,7 +484,7 @@ function* get_next_boards(board, piece) {
     }
 }
 
-const EDGES = or(or(column(0),column(8)), or(row(0),row(8)));
+const EDGES = or(or(column(0), column(8)), or(row(0), row(8)));
 const ALIGNED_BLOCKED_UP = or(row(3), row(6));
 const ALIGNED_BLOCKED_DOWN = or(row(2), row(5));
 const ALIGNED_BLOCKED_LEFT = or(column(3), column(6));
@@ -802,7 +802,16 @@ function ai_make_move(game, original_piece_set) {
     // This call searches for the best possible end state.
     const ai_move_base = ai_make_move_impl(game, piece_set);
 
-    let result = null;
+    let result = {
+        evaluation: 9999999999,
+        new_game_states: Array(3).fill({
+            board: getFull(),
+            previous_piece_placement: getEmpty(),
+            previous_piece: getEmpty(),
+            score: game.score,
+            previous_move_was_clear: false,
+        })
+    };
     let best_score = -1;
 
     // Here we can optimize the score.
@@ -874,9 +883,6 @@ function ai_make_move(game, original_piece_set) {
                 }
             }
         }
-    }
-    if (result === null) {
-        console.log('not found?!');
     }
     return result;
 }
@@ -999,7 +1005,7 @@ function get_fitness_sample() {
     let game = get_new_game();
     let num_moves = 0;
     while (!is_over(game)) {
-        num_moves ++;
+        num_moves++;
         game = ai_make_move(game, get_random_piece_set()).new_game_states[2];
     }
     return {
