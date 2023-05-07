@@ -765,7 +765,7 @@ function* get_piece_set_permutations_optimized(board, piece_set) {
     yield [c, b, a];
 }
 
-function* get_all_piece_set_permutations(board, piece_set) {
+function* get_all_piece_set_permutations(piece_set) {
     const [a, b, c] = piece_set;
     yield [a, b, c];
     yield [a, c, b];
@@ -797,33 +797,50 @@ function can_clear_with_2_pieces(board, piece_set) {
 
 function ai_make_move(game, original_piece_set) {
     const piece_set = original_piece_set.map(p => left_top_justify_piece(p));
+    const board = game.board;
 
     // This call searches for the best possible end state.
     const ai_move_base = ai_make_move_impl(game, piece_set);
 
-    // Here we can compute the score and optimize for streaks.
-    for (const [p0, p1, p2] of get_piece_set_permutations_optimized(board, piece_set)) {
+    let result = null;
+    let best_score = -1;
+
+    // Here we can optimize the score.
+    for (const [p0, p1, p2] of get_all_piece_set_permutations(piece_set)) {
         for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
-            if (!ai_move_base.new_game_states.any(placement => equal(placement, placement_0))) {
+            if (!ai_move_base.new_game_states.some(state => equal(state.previous_piece_placement, placement_0))) {
                 continue;
             }
             for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
-                if (!ai_move_base.new_game_states.any(placement => equal(placement, placement_1))) {
+                if (!ai_move_base.new_game_states.some(state => equal(state.previous_piece_placement, placement_1))) {
                     continue;
                 }
+
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
-                    if (!ai_move_base.new_game_states.any(placement => equal(placement, placement_2))) {
+                    if (!ai_move_base.new_game_states.some(state => equal(state.previous_piece_placement, placement_2))) {
                         continue;
                     }
 
                     const p0_move_was_clear = count(after_p0) < count(board) + count(p0);
                     const p1_move_was_clear = count(after_p1) < count(after_p0) + count(p1);
                     const p2_move_was_clear = count(after_p2) < count(after_p1) + count(p1);
-                    const p0_score = get_move_score(game.previous_move_was_clear, board, placement_0, after_p0);
-                    const p1_score = get_move_score(p0_move_was_clear, after_p0, placement_1, after_p1);
-                    const p2_score = get_move_score(p1_move_was_clear, after_p1, placement_2, after_p2);
+                    const score_after_p0 = game.score + get_move_score(game.previous_move_was_clear, board, placement_0, after_p0);
+                    const score_after_p1 = score_after_p0 + get_move_score(p0_move_was_clear, after_p0, placement_1, after_p1);
+                    const score_after_p2 = score_after_p1 + get_move_score(p1_move_was_clear, after_p1, placement_2, after_p2);
 
-                    return {
+
+                    // Maximize score.
+                    if (score_after_p2 < best_score) {
+                        continue;
+                    }
+
+                    // Try to end with a clear to set up another streak next piece set.
+                    if (score_after_p2 === best_score && !p2_move_was_clear) {
+                        continue;
+                    }
+
+                    best_score = score_after_p2;
+                    result = {
                         evaluation: ai_move_base.evaluation,
                         new_game_states: [
                             {
@@ -831,21 +848,21 @@ function ai_make_move(game, original_piece_set) {
                                 previous_piece_placement: placement_0,
                                 previous_piece: original_piece_set[piece_set.indexOf(p0)],
                                 previous_move_was_clear: p0_move_was_clear,
-                                score: game.score + p0_score
+                                score: score_after_p0,
                             },
                             {
                                 board: after_p1,
                                 previous_piece_placement: placement_1,
                                 previous_piece: original_piece_set[piece_set.indexOf(p1)],
                                 previous_move_was_clear: p1_move_was_clear,
-                                score: game.score + p0_score + p1_score
+                                score: score_after_p1,
                             },
                             {
                                 board: after_p2,
                                 previous_piece_placement: placement_2,
                                 previous_piece: original_piece_set[piece_set.indexOf(p2)],
                                 previous_move_was_clear: p2_move_was_clear,
-                                score: game.score + p0_score + p1_score + p2_score
+                                score: score_after_p2,
                             },
                         ]
                     };
@@ -853,6 +870,10 @@ function ai_make_move(game, original_piece_set) {
             }
         }
     }
+    if (result === null) {
+        console.log('not found?!');
+    }
+    return result;
 }
 
 
