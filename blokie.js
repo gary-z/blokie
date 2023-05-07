@@ -750,7 +750,7 @@ function get_move_score(previous_was_clear, prev, placement, after) {
 }
 
 
-function* get_piece_set_permutations(board, piece_set) {
+function* get_piece_set_permutations_optimized(board, piece_set) {
     piece_set = [...piece_set];
     piece_set.sort(compare);
     yield piece_set;
@@ -758,6 +758,16 @@ function* get_piece_set_permutations(board, piece_set) {
         return;
     }
     const [a, b, c] = piece_set;
+    yield [a, c, b];
+    yield [b, a, c];
+    yield [b, c, a];
+    yield [c, a, b];
+    yield [c, b, a];
+}
+
+function* get_all_piece_set_permutations(board, piece_set) {
+    const [a, b, c] = piece_set;
+    yield [a, b, c];
     yield [a, c, b];
     yield [b, a, c];
     yield [b, c, a];
@@ -785,51 +795,37 @@ function can_clear_with_2_pieces(board, piece_set) {
     return false;
 }
 
-
 function ai_make_move(game, original_piece_set) {
     const piece_set = original_piece_set.map(p => left_top_justify_piece(p));
-    const board = game.board;
-    const result = {
-        evaluation: 999999,
-        new_game_states: Array(3).fill(
-            {
-                board: getFull(),
-                previous_piece_placement: getEmpty(),
-                previous_piece: getEmpty(),
-                score: game.score,
-                previous_move_was_clear: false,
-            }
-        ),
-    };
-    const board_count = count(board);
-    let is_first_perm = true;
-    for (const [p0, p1, p2] of get_piece_set_permutations(board, piece_set)) {
-        const p0_count = count(p0);
-        const p1_count = count(p1);
-        const p2_count = count(p2);
 
+    // This call searches for the best possible end state.
+    const ai_move_base = ai_make_move_impl(game, piece_set);
+
+    // Here we can compute the score and optimize for streaks.
+    for (const [p0, p1, p2] of get_piece_set_permutations_optimized(board, piece_set)) {
         for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
+            if (!ai_move_base.new_game_states.any(placement => equal(placement, placement_0))) {
+                continue;
+            }
             for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
-                if (compare(p0, p1) > 0 && count(after_p1) == board_count + p0_count + p1_count) {
-                    // We tried this state before.
+                if (!ai_move_base.new_game_states.any(placement => equal(placement, placement_1))) {
                     continue;
                 }
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
-                    if (!is_first_perm &&
-                        count(after_p2) === board_count + p0_count + p1_count + p2_count) {
+                    if (!ai_move_base.new_game_states.any(placement => equal(placement, placement_2))) {
                         continue;
                     }
-                    const score = get_eval(after_p2);
-                    if (score < result.evaluation) {
-                        const p0_move_was_clear = count(after_p0) < count(board) + count(p0);
-                        const p1_move_was_clear = count(after_p1) < count(after_p0) + count(p1);
-                        const p2_move_was_clear = count(after_p2) < count(after_p1) + count(p1);
 
-                        const p0_score = get_move_score(game.previous_move_was_clear, board, placement_0, after_p0);
-                        const p1_score = get_move_score(p0_move_was_clear, after_p0, placement_1, after_p1);
-                        const p2_score = get_move_score(p1_move_was_clear, after_p1, placement_2, after_p2);
-                        result.evaluation = score;
-                        result.new_game_states = [
+                    const p0_move_was_clear = count(after_p0) < count(board) + count(p0);
+                    const p1_move_was_clear = count(after_p1) < count(after_p0) + count(p1);
+                    const p2_move_was_clear = count(after_p2) < count(after_p1) + count(p1);
+                    const p0_score = get_move_score(game.previous_move_was_clear, board, placement_0, after_p0);
+                    const p1_score = get_move_score(p0_move_was_clear, after_p0, placement_1, after_p1);
+                    const p2_score = get_move_score(p1_move_was_clear, after_p1, placement_2, after_p2);
+
+                    return {
+                        evaluation: ai_move_base.evaluation,
+                        new_game_states: [
                             {
                                 board: after_p0,
                                 previous_piece_placement: placement_0,
@@ -850,6 +846,60 @@ function ai_make_move(game, original_piece_set) {
                                 previous_piece: original_piece_set[piece_set.indexOf(p2)],
                                 previous_move_was_clear: p2_move_was_clear,
                                 score: game.score + p0_score + p1_score + p2_score
+                            },
+                        ]
+                    };
+                }
+            }
+        }
+    }
+}
+
+
+function ai_make_move_impl(game, piece_set) {
+    const board = game.board;
+    const result = {
+        evaluation: 999999,
+        new_game_states: Array(3).fill(
+            {
+                board: getFull(),
+                previous_piece_placement: getEmpty(),
+            }
+        ),
+    };
+    const board_count = count(board);
+    let is_first_perm = true;
+    for (const [p0, p1, p2] of get_piece_set_permutations_optimized(board, piece_set)) {
+        const p0_count = count(p0);
+        const p1_count = count(p1);
+        const p2_count = count(p2);
+
+        for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
+            for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
+                if (compare(p0, p1) > 0 && count(after_p1) == board_count + p0_count + p1_count) {
+                    // We tried this state before.
+                    continue;
+                }
+                for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
+                    if (!is_first_perm &&
+                        count(after_p2) === board_count + p0_count + p1_count + p2_count) {
+                        continue;
+                    }
+                    const score = get_eval(after_p2);
+                    if (score < result.evaluation) {
+                        result.evaluation = score;
+                        result.new_game_states = [
+                            {
+                                board: after_p0,
+                                previous_piece_placement: placement_0,
+                            },
+                            {
+                                board: after_p1,
+                                previous_piece_placement: placement_1,
+                            },
+                            {
+                                board: after_p2,
+                                previous_piece_placement: placement_2,
                             },
                         ];
                     }
