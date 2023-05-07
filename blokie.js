@@ -821,6 +821,11 @@ function ai_make_move(game, original_piece_set) {
                         continue;
                     }
 
+                    if (!equal(ai_move_base.new_game_states[2].board, after_p2)) {
+                        // This permutation didn't yield the same end state.
+                        continue;
+                    }
+
                     const p0_move_was_clear = count(after_p0) < count(board) + count(p0);
                     const p1_move_was_clear = count(after_p1) < count(after_p0) + count(p1);
                     const p2_move_was_clear = count(after_p2) < count(after_p1) + count(p1);
