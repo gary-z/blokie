@@ -41,44 +41,6 @@
             border-right: 2px solid black;
         }
 
-        #hand-icon {
-            position: absolute;
-            width: 8vw;
-            height: 8vh;
-            z-index: 100;
-            opacity: 1;
-            animation: hand-animation 3s linear forwards;
-        }
-
-        @keyframes hand-animation {
-            0% {
-                transform: scale(1);
-            }
-
-            20% {
-                transform: scale(0.8);
-            }
-
-            40% {
-                transform: scale(1);
-            }
-
-            60% {
-                transform: scale(0.8);
-            }
-
-            80% {
-                transform: scale(1);
-                opacity: 1;
-            }
-
-            100% {
-                opacity: 0;
-                visibility: hidden;
-            }
-
-        }
-
         #game-table-container {
             aspect-ratio: 1 / 1;
         }
@@ -177,6 +139,50 @@
             width: 50%;
         }
 
+        .touch-circle {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(0, 123, 255, 0.378);
+            border-radius: 50%;
+            opacity: 0;
+            animation: touch-effect 2s 2;
+        }
+
+        .inner-circle {
+            position: absolute;
+            top: 25%;
+            left: 25%;
+            width: 50%;
+            height: 50%;
+            background-color: rgba(0, 80, 200, 0.8);
+            border-radius: 50%;
+            opacity: 1;
+            animation: inner-touch-effect 2s 2;
+        }
+
+        @keyframes touch-effect {
+            0% {
+                transform: scale(1);
+                opacity: 0;
+            }
+
+            20% {
+                transform: scale(1.5);
+                opacity: 0.5;
+            }
+
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+
+        This CSS code creates a circle element that appears on the screen and scales up with a flash,
+        creating the touch gesture effect. The @keyframes rule specifies the behavior of the animation,
+        while the animation property applies the animation to the .touch-circle element. Save both files in the same folder and open the HTML file in a browser. You should see the touch gesture effect in action. Note that the circle will be positioned in the center of the screen. If you want it to appear at a specific location,
+        you can modify the top and left properties of the .touch-circle element.
+
     </style>
     <meta property="og:description"
         content="Test your skills against an AI in Blockudoku! Try to sabotage the computer's perfect gameplay by altering the board or pieces. Learn, be inspired, or vent your frustration." />
@@ -236,9 +242,24 @@
                 <tr>
                     <td></td>
                     <td></td>
-                    <td><img src="hand-index.svg" id="hand-icon"></td>
                     <td></td>
                     <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td>
+                        <div class="touch-circle">
+                            <div class="inner-circle"></div>
+                        </div>
+                    </td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -260,18 +281,8 @@
                     <td></td>
                     <td></td>
                     <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                </tr>
-                <tr>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
+                    <td>
+                    </td>
                     <td></td>
                     <td></td>
                     <td></td>
@@ -343,7 +354,7 @@
                     <tr>
                         <td></td>
                         <td></td>
-                        <td><img src="hand-index.svg" id="hand-icon"></td>
+                        <td></td>
                         <td></td>
                         <td></td>
                     </tr>
