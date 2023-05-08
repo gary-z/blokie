@@ -59,6 +59,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
         onPieceCellClick(event.target);
         state.last_dragged_board_cell = event.target;
         state.mouse_down = true;
+        event.preventDefault();
     });
     pieces_on_deck_container.addEventListener('touchmove', (event) => {
         processCellDrag(event, onPieceCellClick);
