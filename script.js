@@ -51,6 +51,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
         onBoardCellClick(event.target);
         state.last_dragged_board_cell = event.target;
         state.mouse_down = true;
+        event.preventDefault();
     });
 
 
