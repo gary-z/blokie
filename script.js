@@ -48,6 +48,9 @@ document.addEventListener("DOMContentLoaded", function (event) {
         state.mouse_down = true;
     });
     board_table.addEventListener('touchstart', (event) => {
+        if (state.game_progress !== 'ACTIVE') {
+            return;
+        }
         onBoardCellClick(event.target);
         state.last_dragged_board_cell = event.target;
         state.mouse_down = true;

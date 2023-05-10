@@ -491,6 +491,7 @@ const ALIGNED_BLOCKED_LEFT = or(column(3), column(6));
 const ALIGNED_BLOCKED_RIGHT = or(column(2), column(5));
 
 function get_eval(bb) {
+    return 1;
     const OCCUPIED_SIDE_SQUARE = 2000;
     const OCCUPIED_CENTER_SQUARE = 1607;
     const OCCUPIED_CORNER_SQUARE = 3067;
