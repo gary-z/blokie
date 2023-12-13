@@ -837,7 +837,7 @@ function ai_make_move(game, original_piece_set) {
 
                     const p0_move_was_clear = count(after_p0) < count(board) + count(p0);
                     const p1_move_was_clear = count(after_p1) < count(after_p0) + count(p1);
-                    const p2_move_was_clear = count(after_p2) < count(after_p1) + count(p1);
+                    const p2_move_was_clear = count(after_p2) < count(after_p1) + count(p2);
                     const score_after_p0 = game.score + get_move_score(game.previous_move_was_clear, board, placement_0, after_p0);
                     const score_after_p1 = score_after_p0 + get_move_score(p0_move_was_clear, after_p0, placement_1, after_p1);
                     const score_after_p2 = score_after_p1 + get_move_score(p1_move_was_clear, after_p1, placement_2, after_p2);
