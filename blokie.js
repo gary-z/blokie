@@ -400,8 +400,8 @@ function* get_piece_placements(p) {
     const row8 = row(8);
     while (true) {
         yield p;
-        if (any(and(p, col8))) {
-            if (any(and(left, row8))) {
+        if (!is_disjoint(p, col8)) {
+            if (!is_disjoint(left, row8)) {
                 return;
             }
             left = shift_down(left);
@@ -457,6 +457,9 @@ function perform_clears(board) {
             to_remove = or(to_remove, cb);
         }
     }
+    if (is_empty(to_remove)) {
+        return board;
+    }
 
     return diff(board, to_remove);
 }
@@ -479,7 +482,7 @@ function* get_next_boards(board, piece) {
         return;
     }
     for (const placement of get_piece_placements(piece)) {
-        if (is_empty(and(board, placement))) {
+        if (is_disjoint(board, placement)) {
             yield [placement, perform_clears(or(board, placement))];
         }
     }
