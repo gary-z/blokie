@@ -10,6 +10,7 @@ const TOP_LEFT_CUBE = 0x7 | (0x7 << 9) | (0x7 << 18);
 
 const EMPTY = [0, 0, 0];
 const FULL = [USED_BITS, USED_BITS, USED_BITS];
+const INF_SCORE = 9999999;
 
 // Used when returning values so clients can't change out consts.
 function getEmpty() {
@@ -490,7 +491,7 @@ const ALIGNED_BLOCKED_DOWN = or(row(2), row(5));
 const ALIGNED_BLOCKED_LEFT = or(column(3), column(6));
 const ALIGNED_BLOCKED_RIGHT = or(column(2), column(5));
 
-function get_eval(bb) {
+function get_eval(bb, max = INF_SCORE/*exit early if the eval exceeds this value*/) {
     const OCCUPIED_SIDE_SQUARE = 2000;
     const OCCUPIED_CENTER_SQUARE = 1607;
     const OCCUPIED_CORNER_SQUARE = 3067;
@@ -528,6 +529,9 @@ function get_eval(bb) {
             }
         }
     }
+    if (result > max) {
+        return max;
+    }
 
     const open = not(bb);
     const blocked_up = diff(open, shift_down(open));
@@ -548,6 +552,10 @@ function get_eval(bb) {
     result += (count_diff(blocked_down, ALIGNED_BLOCKED_DOWN) - 9) * ALTERNATING_UNALIGNED;
     result += count_intersection(blocked_down, ALIGNED_BLOCKED_DOWN) * ALTERNATING_ALIGNED;
 
+    if (result > max) {
+        return max;
+    }
+
     // Empty square between 2 blocked squares.
     const squashed_verticle = and(blocked_down, blocked_up);
     result += count_diff(squashed_verticle, EDGES) * SQUASHED_EMPTY_MIDDLE;
@@ -562,6 +570,10 @@ function get_eval(bb) {
     result += count_diff(and(blocked_up, blocked_right), or(row(0), column(8))) * CORNERED_EMPTY;
     result += count_diff(and(blocked_down, blocked_left), or(row(8), column(0))) * CORNERED_EMPTY;
     result += count_diff(and(blocked_down, blocked_right), or(row(8), column(8))) * CORNERED_EMPTY;
+
+    if (result > max) {
+        return max;
+    }
 
     // 3 BAR
     // Deadly pieces.
@@ -590,6 +602,10 @@ function get_eval(bb) {
 
     let fillable_by_verticle_3_bar = or(and(open_and_open_up, open_down), or(and(open_and_open_up, open_2_up), and(open_and_open_down, open_2_down)));
     result += count_intersection(open, not(fillable_by_verticle_3_bar)) * THREE_BAR;
+
+    if (result > max) {
+        return max;
+    }
 
     const open_and_open_2_left = and(open, open_2_left);
     const open_and_open_2_right = and(open, open_2_right);
@@ -803,7 +819,7 @@ function ai_make_move(game, original_piece_set) {
     const ai_move_base = ai_make_move_impl(game, piece_set);
 
     let result = {
-        evaluation: 9999999999,
+        evaluation: INF_SCORE,
         new_game_states: Array(3).fill({
             board: getFull(),
             previous_piece_placement: getEmpty(),
@@ -891,7 +907,7 @@ function ai_make_move(game, original_piece_set) {
 function ai_make_move_impl(game, piece_set) {
     const board = game.board;
     const result = {
-        evaluation: 999999,
+        evaluation: INF_SCORE,
         new_game_states: Array(3).fill(
             {
                 board: getFull(),
@@ -917,7 +933,7 @@ function ai_make_move_impl(game, piece_set) {
                         count(after_p2) === board_count + p0_count + p1_count + p2_count) {
                         continue;
                     }
-                    const score = get_eval(after_p2);
+                    const score = get_eval(after_p2, result.evaluation);
                     if (score < result.evaluation) {
                         result.evaluation = score;
                         result.new_game_states = [
