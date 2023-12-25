@@ -777,11 +777,21 @@ function* get_piece_set_permutations_optimized(board, piece_set) {
         return;
     }
     const [a, b, c] = piece_set;
-    yield [a, c, b];
-    yield [b, a, c];
-    yield [b, c, a];
-    yield [c, a, b];
-    yield [c, b, a];
+    if (!equal(b, c)) {
+        yield [a, c, b];
+    }
+    if (!equal(a, b)) {
+        yield [b, a, c];
+    }
+    if (!equal(a, c) && !equal(a, b)) {
+        yield [b, c, a];
+    }
+    if (!equal(b, c) && !equal(a, c)) {
+        yield [c, a, b];
+    }
+    if (!equal(a, c) && !equal(a, b) && !equal(b, c)) {
+        yield [c, b, a];
+    }
 }
 
 function* get_all_piece_set_permutations(piece_set) {
