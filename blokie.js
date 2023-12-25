@@ -929,8 +929,9 @@ function ai_make_move_impl(game, piece_set) {
         ),
     };
     const board_count = count(board);
-    let is_first_perm = true;
+    let perm_index = 0;
     for (const [p0, p1, p2] of get_piece_set_permutations_optimized(board, piece_set)) {
+        perm_index++;
         const p0_count = count(p0);
         const p1_count = count(p1);
         const p2_count = count(p2);
@@ -942,7 +943,7 @@ function ai_make_move_impl(game, piece_set) {
                     continue;
                 }
                 for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
-                    if (!is_first_perm &&
+                    if (perm_index > 1 &&
                         count(after_p2) === board_count + p0_count + p1_count + p2_count) {
                         continue;
                     }
@@ -967,8 +968,6 @@ function ai_make_move_impl(game, piece_set) {
                 }
             }
         }
-
-        is_first_perm = false;
     }
     return result;
 }
