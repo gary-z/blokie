@@ -394,24 +394,6 @@ console.assert(equal(get_random_board(0), EMPTY));
 console.assert(equal(get_random_board(1), FULL));
 
 
-function* get_piece_placements(p) {
-    let left = p;
-    const col8 = column(8);
-    const row8 = row(8);
-    while (true) {
-        yield p;
-        if (!is_disjoint(p, col8)) {
-            if (!is_disjoint(left, row8)) {
-                return;
-            }
-            left = shift_down(left);
-            p = left;
-        } else {
-            p = shift_right(p);
-        }
-    }
-}
-
 for (let p of PIECES) {
     let height = 0;
     let width = 0;
@@ -423,17 +405,12 @@ for (let p of PIECES) {
             width = i + 1;
         }
     }
-    let num_placements = 0;
-    for (let placement of get_piece_placements(p)) {
-        num_placements++;
-    }
-    console.assert(num_placements === (9 - height + 1) * (9 - width + 1));
-
     let num_next_boards = 0;
     for (let next_board of get_next_boards(EMPTY, p)) {
         num_next_boards++;
     }
-    console.assert(num_next_boards === num_placements);
+
+    console.assert(num_next_boards === (9 - height + 1) * (9 - width + 1));
 
     for (let next_board of get_next_boards(FULL, p)) {
         // Can't place the piece on a full board.
@@ -466,7 +443,7 @@ function perform_clears(board) {
 console.assert(is_empty(perform_clears(FULL)));
 console.assert(is_empty(perform_clears(EMPTY)));
 for (let p of PIECES) {
-    for (let placement of get_piece_placements(p)) {
+    for (let [placement, board_unused] of get_next_boards(EMPTY, p)) {
         console.assert(equal(placement, perform_clears(placement)));
     }
 }
@@ -476,16 +453,31 @@ for (let i = 0; i < 9; ++i) {
     console.assert(is_empty(perform_clears(cube(i))));
 }
 
-function* get_next_boards(board, piece) {
-    if (is_empty(piece)) {
-        yield [piece, board];
-        return;
+function get_next_boards(board, p) {
+    if (is_empty(p)) {
+        return [[p, board]];
     }
-    for (const placement of get_piece_placements(piece)) {
-        if (is_disjoint(board, placement)) {
-            yield [placement, perform_clears(or(board, placement))];
+
+    let result = [];
+
+    let left = p;
+    const col8 = column(8);
+    const row8 = row(8);
+    while (true) {
+        if (is_disjoint(board, p)) {
+            result.push([p, perform_clears(or(board, p))]);
+        }
+        if (!is_disjoint(p, col8)) {
+            if (!is_disjoint(left, row8)) {
+                break;
+            }
+            left = shift_down(left);
+            p = left;
+        } else {
+            p = shift_right(p);
         }
     }
+    return result;
 }
 
 const EDGES = or(or(column(0), column(8)), or(row(0), row(8)));
