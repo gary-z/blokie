@@ -107,7 +107,12 @@ async function onNewGame() {
 
 function queueAIInterval() {
     state.ai_interval_id = setInterval(() => {
-        aiPlayGame();
+        while (!aiPlayGame() && getDelayMs() === 0) {
+            // When at max speed, don't play partial animations.
+        }
+        if (state.game_progress === 'OVER') {
+            cancelAIInterval();
+        }
     }, getDelayMs());
 }
 
@@ -177,10 +182,11 @@ function renderImpl() {
     }
 }
 
+// returns: true if should rerender at max speed
 function aiPlayGame() {
     if (state.piece_set.every(p => blokie.isEmpty(p))) {
         state.piece_set = blokie.getRandomPieceSet();
-        return;
+        return true;
     }
     if (state.queued_game_states.length === 0) {
         if (state.piece_set.every(p => blokie.isEmpty(p))) {
@@ -188,13 +194,12 @@ function aiPlayGame() {
         }
         state.queued_game_states = blokie.getAIMove(state.game, state.piece_set).new_game_states;
         state.game.previous_piece_placement = blokie.getEmptyPiece();
-        return;
+        return false;
     }
     const new_game_state = state.queued_game_states.shift();
     if (blokie.isOver(new_game_state)) {
         state.game_progress = 'OVER';
-        cancelAIInterval();
-        return;
+        return true;
     }
     const piece_used = new_game_state.previous_piece;
     const used_piece_index = state.piece_set.indexOf(piece_used);
@@ -203,6 +208,7 @@ function aiPlayGame() {
     }
     state.previous_game_state = state.game;
     state.game = new_game_state;
+    return false;
 }
 
 function getSpeedSlider() {
