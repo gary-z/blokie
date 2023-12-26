@@ -108,7 +108,6 @@ async function onNewGame() {
 function queueAIInterval() {
     state.ai_interval_id = setInterval(() => {
         aiPlayGame();
-        render();
     }, getDelayMs());
 }
 
@@ -145,10 +144,21 @@ function resetAIOnHumanInterferance() {
     state.queued_game_states = [];
     cancelAIInterval();
     queueAIInterval();
-    render();
 }
 
+
+let last_rendered_state_json = '';
 function render() {
+    const state_json = JSON.stringify(state);
+    if (last_rendered_state_json !== state_json) {
+        renderImpl();
+    }
+    last_rendered_state_json = state_json;
+    window.requestAnimationFrame(render);
+}
+window.requestAnimationFrame(render);
+
+function renderImpl() {
     let board_table = document.getElementById('game-board');
     let pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
     if (state.game_progress === 'ACTIVE') {
