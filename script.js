@@ -7,7 +7,6 @@ let state = {
         game: blokie.getNewGame(),
         queued_game_states: [],
         piece_set: [],
-        game_progress: 'OVER',
     },
 
     // Looping
@@ -37,7 +36,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
 
     var board_table = document.getElementById('game-board');
     board_table.addEventListener("click", () => {
-        if (state.game_state.game_progress === 'OVER') {
+        if (!gameIsActive()) {
             onNewGame();
         }
     });
@@ -54,7 +53,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
         state.mouse_down = true;
     });
     board_table.addEventListener('touchstart', (event) => {
-        if (state.game_state.game_progress !== 'ACTIVE') {
+        if (!gameIsActive()) {
             return;
         }
         onBoardCellClick(event.target);
@@ -85,6 +84,11 @@ document.addEventListener("DOMContentLoaded", function (event) {
     });
 });
 
+function gameIsActive() {
+    return state.game_state.queued_game_states.length === 0 || !blokie.isOver(state.game_state.queued_game_states[0]);
+
+}
+
 function processCellDrag(event, call) {
     event.preventDefault();
     const location = event.touches[0];
@@ -102,7 +106,6 @@ function processCellDrag(event, call) {
 }
 
 async function onNewGame() {
-    state.game_state.game_progress = 'ACTIVE';
     state.game_state.queued_game_states = [];
     state.game_state.game = blokie.getNewGame();
     state.game_state.previous_game_state = blokie.getNewGame();
@@ -116,7 +119,7 @@ function queueAIInterval() {
         while (!aiPlayGame() && getDelayMs() === 0) {
             // When at max speed, don't play partial animations.
         }
-        if (state.game_state.game_progress === 'OVER') {
+        if (!gameIsActive()) {
             cancelAIInterval();
         }
     }, getDelayMs());
@@ -127,7 +130,7 @@ function cancelAIInterval() {
 }
 
 function onBoardCellClick(cell) {
-    if (state.game_state.game_progress !== 'ACTIVE' || cell.nodeName !== 'TD') {
+    if (!gameIsActive() || cell.nodeName !== 'TD') {
         return;
     }
     const table = cell.closest('table');
@@ -138,7 +141,7 @@ function onBoardCellClick(cell) {
     resetAIOnHumanInterferance();
 }
 function onPieceCellClick(cell) {
-    if (state.game_state.game_progress !== 'ACTIVE' || cell.nodeName !== 'TD') {
+    if (!gameIsActive() || cell.nodeName !== 'TD') {
         return;
     }
     const table = cell.closest('table');
@@ -172,7 +175,7 @@ window.requestAnimationFrame(render);
 function renderImpl() {
     let board_table = document.getElementById('game-board');
     let pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
-    if (state.game_state.game_progress === 'ACTIVE') {
+    if (gameIsActive()) {
         if (state.game_state.queued_game_states.length === 0) {
             drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, blokie.getEmptyPiece(), state.game_state.piece_set);
             updateScore(state.game_state.game.score);
@@ -182,7 +185,7 @@ function renderImpl() {
             const piece_set_to_render = state.game_state.piece_set.map(p => p === next_game_state.previous_piece ? blokie.getEmptyPiece() : p);
             drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, next_game_state.previous_piece_placement, piece_set_to_render);
         }
-    } else if (state.game_state.game_progress === 'OVER') {
+    } else {
         drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, blokie.getEmptyPiece(), state.game_state.piece_set);
         updateScore("Final score: " + state.game_state.game.score.toString());
     }
@@ -202,11 +205,11 @@ function aiPlayGame() {
         state.game_state.game.previous_piece_placement = blokie.getEmptyPiece();
         return false;
     }
-    const new_game_state = state.game_state.queued_game_states.shift();
-    if (blokie.isOver(new_game_state)) {
-        state.game_state.game_progress = 'OVER';
+    if (blokie.isOver(state.game_state.queued_game_states[0])) {
         return true;
     }
+
+    const new_game_state = state.game_state.queued_game_states.shift();
     const piece_used = new_game_state.previous_piece;
     const used_piece_index = state.game_state.piece_set.indexOf(piece_used);
     if (used_piece_index >= 0) {
