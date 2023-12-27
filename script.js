@@ -225,7 +225,7 @@ function getSpeedSlider() {
 
 function getDelayMs() {
     const slider = getSpeedSlider();
-    return slider.value == slider.max ? 0 : 300 * slider.max / slider.value;
+    return slider.value == slider.max ? 0 : (1000.0 / 1.5 ** slider.value);
 }
 
 function updateScore(score) {
