@@ -2,12 +2,17 @@
 import { blokie } from "./blokie.js";
 
 let state = {
-    game_progress: 'OVER',
+    // Renderable.
     previous_game_state: blokie.getNewGame(),
     game: blokie.getNewGame(),
     queued_game_states: [],
     piece_set: [],
+
+    // Looping
     ai_interval_id: null,
+
+    // UI state
+    game_progress: 'OVER',
     mouse_down: false,
     last_dragged_board_cell: null,
 };
@@ -98,9 +103,9 @@ function processCellDrag(event, call) {
 async function onNewGame() {
     state.game_progress = 'ACTIVE';
     state.queued_game_states = [];
-    state.game = blokie.getNewGame(),
-        state.previous_game_state = blokie.getNewGame(),
-        state.piece_set = blokie.getRandomPieceSet();
+    state.game = blokie.getNewGame();
+    state.previous_game_state = blokie.getNewGame();
+    state.piece_set = blokie.getRandomPieceSet();
 
     resetAIOnHumanInterferance();
 }
