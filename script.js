@@ -1,28 +1,29 @@
 "use strict";
 import { blokie } from "./blokie.js";
 
-let state = {
-    game_state: {
+
+function getNewGameState() {
+    return {
         previous_game_state: blokie.getNewGame(),
         game: blokie.getNewGame(),
         queued_game_states: [],
-        piece_set: [],
-    },
+        piece_set: blokie.getRandomPieceSet(),
+    };
+}
 
-    // Looping
-    ai_interval_id: null,
+let state = {
+    game_state: getNewGameState(),
 
     // UI state
     mouse_down: false,
     last_dragged_board_cell: null,
+    active_worker_id: 0,
 };
 
 document.addEventListener("DOMContentLoaded", function (event) {
-    onNewGame();
     const slider = document.getElementById('speed');
     slider.addEventListener("input", (event) => {
-        cancelAIInterval();
-        queueAIInterval();
+        resetAIOnHumanInterferance();
     });
 
     document.addEventListener('mouseup', () => {
@@ -82,6 +83,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
             onPieceCellClick(event.target);
         }
     });
+    onNewGame();
 });
 
 function gameIsActive() {
@@ -106,27 +108,8 @@ function processCellDrag(event, call) {
 }
 
 async function onNewGame() {
-    state.game_state.queued_game_states = [];
-    state.game_state.game = blokie.getNewGame();
-    state.game_state.previous_game_state = blokie.getNewGame();
-    state.game_state.piece_set = blokie.getRandomPieceSet();
-
+    state.game_state = getNewGameState();
     resetAIOnHumanInterferance();
-}
-
-function queueAIInterval() {
-    state.ai_interval_id = setInterval(() => {
-        while (!aiPlayGame() && getDelayMs() === 0) {
-            // When at max speed, don't play partial animations.
-        }
-        if (!gameIsActive()) {
-            cancelAIInterval();
-        }
-    }, getDelayMs());
-}
-
-function cancelAIInterval() {
-    clearInterval(state.ai_interval_id);
 }
 
 function onBoardCellClick(cell) {
@@ -154,10 +137,26 @@ function onPieceCellClick(cell) {
     resetAIOnHumanInterferance();
 }
 
+let ai_worker = null;
+
 function resetAIOnHumanInterferance() {
+    if (ai_worker != null) {
+        ai_worker.terminate();
+    }
+
     state.game_state.queued_game_states = [];
-    cancelAIInterval();
-    queueAIInterval();
+    state.active_worker_id++;
+    ai_worker = new Worker('ai-worker.js', { type: 'module' });
+    ai_worker.postMessage({
+        delay_ms: getDelayMs(),
+        game_state: state.game_state,
+        id: state.active_worker_id,
+    });
+    ai_worker.onmessage = (e) => {
+        if (e.data.id == state.active_worker_id) {
+            state.game_state = e.data.game_state;
+        }
+    };
 }
 
 
