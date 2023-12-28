@@ -453,7 +453,7 @@ for (let i = 0; i < 9; ++i) {
     console.assert(is_empty(perform_clears(cube(i))));
 }
 
-function get_next_boards(board, p) {
+function get_next_boards(board, p, clears_first=false) {
     if (is_empty(p)) {
         return [[p, board]];
     }
@@ -476,6 +476,12 @@ function get_next_boards(board, p) {
         } else {
             p = shift_right(p);
         }
+    }
+    function is_clear(placement_pair) {
+        return is_subset(placement_pair[1], placement_pair[0]);
+    }
+    if (clears_first) {
+        result.sort((a,b) => is_clear(b) - is_clear(a));
     }
     return result;
 }
@@ -928,8 +934,8 @@ function ai_make_move_impl(game, piece_set) {
         const p1_count = count(p1);
         const p2_count = count(p2);
 
-        for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
-            for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
+        for (const [placement_0, after_p0] of get_next_boards(board, p0, true)) {
+            for (const [placement_1, after_p1] of get_next_boards(after_p0, p1, true)) {
                 if (compare(p0, p1) > 0 && count(after_p1) == board_count + p0_count + p1_count) {
                     // We tried this state before.
                     continue;
