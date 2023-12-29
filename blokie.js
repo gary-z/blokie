@@ -9,13 +9,19 @@ const RIGHT_BITS = LEFT_BITS << 8;
 const TOP_LEFT_CUBE = 0x7 | (0x7 << 9) | (0x7 << 18);
 
 const INF_SCORE = 9999999;
+function bitboard(a, b, c) {
+    return [a, b, c];
+}
 
 // Used when returning values so clients can't change out consts.
 function getEmpty() {
-    return [0, 0, 0];
+    return bitboard(0, 0, 0)
 }
 function getFull() {
-    return [USED_BITS, USED_BITS, USED_BITS];
+    return bitboard(USED_BITS, USED_BITS, USED_BITS);
+}
+function copy(bb) {
+    return bitboard(bb[0], bb[1], bb[2]);
 }
 
 const EMPTY = getEmpty();
@@ -36,7 +42,7 @@ console.assert(_popcount(TOP_LEFT_CUBE) === 9);
 function count(bb) {
     return _popcount(bb[0]) + _popcount(bb[1]) + _popcount(bb[2]);
 }
-console.assert(count([1, 3, 7]) === 6);
+console.assert(count(bitboard(1, 3, 7)) === 6);
 console.assert(count(FULL) === 81);
 console.assert(count(EMPTY) === 0);
 
@@ -50,9 +56,9 @@ function equal(a, b) {
 console.assert(equal(EMPTY, EMPTY));
 console.assert(equal(FULL, FULL));
 console.assert(!equal(EMPTY, FULL));
-console.assert(!equal(EMPTY, [1, 0, 0]));
-console.assert(!equal(EMPTY, [0, 1, 0]));
-console.assert(!equal(EMPTY, [0, 0, 1]));
+console.assert(!equal(EMPTY, bitboard(1, 0, 0)));
+console.assert(!equal(EMPTY, bitboard(0, 1, 0)));
+console.assert(!equal(EMPTY, bitboard(0, 0, 1)));
 function any(bb) {
     return bb[0] + bb[1] + bb[2] !== 0;
 }
@@ -61,19 +67,19 @@ function is_empty(bb) {
 }
 console.assert(is_empty(EMPTY));
 console.assert(!is_empty(FULL));
-console.assert(!is_empty([1, 0, 0]));
-console.assert(!is_empty([0, 1, 0]));
-console.assert(!is_empty([0, 0, 1]));
+console.assert(!is_empty(bitboard(1, 0, 0)));
+console.assert(!is_empty(bitboard(0, 1, 0)));
+console.assert(!is_empty(bitboard(0, 0, 1)));
 
 function not(bb) {
-    return [~bb[0] & USED_BITS, ~bb[1] & USED_BITS, ~bb[2] & USED_BITS];
+    return bitboard(~bb[0] & USED_BITS, ~bb[1] & USED_BITS, ~bb[2] & USED_BITS);
 }
 console.assert(equal(not(FULL), EMPTY));
 console.assert(equal(not(EMPTY), FULL));
-console.assert(count(not([1, 1, 1])) === 78);
+console.assert(count(not(bitboard(1, 1, 1))) === 78);
 
 function and(a, b) {
-    return [a[0] & b[0], a[1] & b[1], a[2] & b[2]];
+    return bitboard(a[0] & b[0], a[1] & b[1], a[2] & b[2]);
 }
 function is_disjoint(a, b) {
     return (a[0] & b[0]) === 0 && (a[1] & b[1]) === 0 && (a[2] & b[2]) === 0;
@@ -85,13 +91,13 @@ function count_diff(a, b) {
     return _popcount(a[0] & ~b[0]) + _popcount(a[1] & ~b[1]) + _popcount(a[2] & ~b[2]);
 }
 function or(a, b) {
-    return [a[0] | b[0], a[1] | b[1], a[2] | b[2]];
+    return bitboard(a[0] | b[0], a[1] | b[1], a[2] | b[2]);
 }
 function xor(a, b) {
     return and(or(a, b), not(and(a, b)));
 }
 function diff(a, b) {
-    return [a[0] & ~b[0], a[1] & ~b[1], a[2] & ~b[2]];
+    return bitboard(a[0] & ~b[0], a[1] & ~b[1], a[2] & ~b[2]);
 }
 function is_subset(a/*superset*/, b) {
     return (b[0] & ~a[0]) === 0 && (b[1] & ~a[1]) === 0 && (b[2] & ~a[2]) === 0;
@@ -107,7 +113,7 @@ function _row(r) {
     const result = [0, 0, 0];
     const m = r % 3;
     result[(r - m) / 3] = ROW_0 << (m * 9);
-    return result;
+    return bitboard(...result);
 }
 const ROWS = Array.from({ length: 10 }, (_, i) => _row(i));
 function row(r) {
@@ -120,7 +126,7 @@ for (let r = 0; r < 9; ++r) {
 }
 
 function _column(c) {
-    return [LEFT_BITS << c, LEFT_BITS << c, LEFT_BITS << c];
+    return bitboard(LEFT_BITS << c, LEFT_BITS << c, LEFT_BITS << c);
 }
 const COLS = Array.from({ length: 10 }, (_, i) => _column(i));
 function column(c) {
@@ -142,7 +148,7 @@ for (let c = 0; c < 9; ++c) {
 function _cube(i) {
     const result = [0, 0, 0];
     result[Math.floor(i / 3)] = TOP_LEFT_CUBE << ((i % 3) * 3);
-    return result;
+    return bitboard(...result);
 }
 const CUBES = Array.from({ length: 10 }, (_, i) => _cube(i));
 function cube(i) {
@@ -167,28 +173,28 @@ for (let i = 0; i < 9; ++i) {
 
 
 function shift_right(bb) {
-    return [(bb[0] & ~RIGHT_BITS) << 1, (bb[1] & ~RIGHT_BITS) << 1, (bb[2] & ~RIGHT_BITS) << 1];
+    return bitboard((bb[0] & ~RIGHT_BITS) << 1, (bb[1] & ~RIGHT_BITS) << 1, (bb[2] & ~RIGHT_BITS) << 1);
 }
 console.assert(count(shift_right(FULL)) === 72);
 
 function shift_left(bb) {
-    return [(bb[0] & ~LEFT_BITS) >> 1, (bb[1] & ~LEFT_BITS) >> 1, (bb[2] & ~LEFT_BITS) >> 1];
+    return bitboard((bb[0] & ~LEFT_BITS) >> 1, (bb[1] & ~LEFT_BITS) >> 1, (bb[2] & ~LEFT_BITS) >> 1);
 }
 console.assert(count(shift_left(FULL)) === 72);
 
 function shift_down(bb) {
-    return [
+    return bitboard(
         (bb[0] << 9) & USED_BITS,
         ((bb[1] << 9) | ((bb[0] & ROW_2) >> 18)) & USED_BITS,
         ((bb[2] << 9) | ((bb[1] & ROW_2) >> 18)) & USED_BITS,
-    ];
+    );
 }
 function shift_up(bb) {
-    return [
+    return bitboard(
         (bb[0] >> 9) | ((bb[1] & ROW_0) << 18),
         (bb[1] >> 9) | ((bb[2] & ROW_0) << 18),
         bb[2] >> 9,
-    ];
+    );
 }
 
 function str(bb) {
@@ -212,56 +218,56 @@ for (let c = 0; c < 8; ++c) {
 
 // === PIECES
 const PIECES = [
-    [1, 0, 0],
-    [3, 0, 0],
-    [513, 0, 0],
-    [1025, 0, 0],
-    [514, 0, 0],
-    [7, 0, 0],
-    [262657, 0, 0],
-    [1049601, 0, 0],
-    [263172, 0, 0],
-    [515, 0, 0],
-    [1537, 0, 0],
-    [1538, 0, 0],
-    [1027, 0, 0],
-    [15, 0, 0],
-    [262657, 1, 0],
-    [1539, 0, 0],
-    [786945, 0, 0],
-    [3588, 0, 0],
-    [525315, 0, 0],
-    [519, 0, 0],
-    [262659, 0, 0],
-    [2055, 0, 0],
-    [787458, 0, 0],
-    [3585, 0, 0],
-    [3586, 0, 0],
-    [263681, 0, 0],
-    [525826, 0, 0],
-    [1031, 0, 0],
-    [3075, 0, 0],
-    [263682, 0, 0],
-    [525825, 0, 0],
-    [1542, 0, 0],
-    [31, 0, 0],
-    [262657, 513, 0],
-    [265729, 0, 0],
-    [525319, 0, 0],
-    [1836034, 0, 0],
-    [1052164, 0, 0],
-    [2567, 0, 0],
-    [787459, 0, 0],
-    [786947, 0, 0],
-    [3589, 0, 0],
-    [262663, 0, 0],
-    [1050631, 0, 0],
-    [1837060, 0, 0],
-    [1835521, 0, 0],
-    [527874, 0, 0],
+    bitboard(1, 0, 0),
+    bitboard(3, 0, 0),
+    bitboard(513, 0, 0),
+    bitboard(1025, 0, 0),
+    bitboard(514, 0, 0),
+    bitboard(7, 0, 0),
+    bitboard(262657, 0, 0),
+    bitboard(1049601, 0, 0),
+    bitboard(263172, 0, 0),
+    bitboard(515, 0, 0),
+    bitboard(1537, 0, 0),
+    bitboard(1538, 0, 0),
+    bitboard(1027, 0, 0),
+    bitboard(15, 0, 0),
+    bitboard(262657, 1, 0),
+    bitboard(1539, 0, 0),
+    bitboard(786945, 0, 0),
+    bitboard(3588, 0, 0),
+    bitboard(525315, 0, 0),
+    bitboard(519, 0, 0),
+    bitboard(262659, 0, 0),
+    bitboard(2055, 0, 0),
+    bitboard(787458, 0, 0),
+    bitboard(3585, 0, 0),
+    bitboard(3586, 0, 0),
+    bitboard(263681, 0, 0),
+    bitboard(525826, 0, 0),
+    bitboard(1031, 0, 0),
+    bitboard(3075, 0, 0),
+    bitboard(263682, 0, 0),
+    bitboard(525825, 0, 0),
+    bitboard(1542, 0, 0),
+    bitboard(31, 0, 0),
+    bitboard(262657, 513, 0),
+    bitboard(265729, 0, 0),
+    bitboard(525319, 0, 0),
+    bitboard(1836034, 0, 0),
+    bitboard(1052164, 0, 0),
+    bitboard(2567, 0, 0),
+    bitboard(787459, 0, 0),
+    bitboard(786947, 0, 0),
+    bitboard(3589, 0, 0),
+    bitboard(262663, 0, 0),
+    bitboard(1050631, 0, 0),
+    bitboard(1837060, 0, 0),
+    bitboard(1835521, 0, 0),
+    bitboard(527874, 0, 0),
 ];
 function get_random_piece() {
-    return PIECES[Math.floor(Math.random() * PIECES.length)];
+    return copy(PIECES[Math.floor(Math.random() * PIECES.length)]);
 }
 function get_random_piece_set() {
     return [get_random_piece(), get_random_piece(), get_random_piece()];
@@ -479,10 +485,10 @@ function get_next_boards(board, p, clears_first=false) {
         }
     }
     function is_clear(placement_pair) {
-        return is_subset(placement_pair[1], placement_pair[0]);
+        return is_subset(placement_pair[1/*after clears*/], placement_pair[0/*placement*/]);
     }
     if (clears_first) {
-        result.sort((a,b) => is_clear(b) - is_clear(a));
+        result.sort((a, b) => is_clear(b) - is_clear(a));
     }
     return result;
 }
@@ -769,7 +775,7 @@ function get_move_score(previous_was_clear, prev, placement, after) {
 
 
 function* get_piece_set_permutations_optimized(board, piece_set) {
-    piece_set = [...piece_set];
+    piece_set = copy(piece_set);
     piece_set.sort(compare);
     yield piece_set;
     if (!can_clear_with_2_pieces(board, piece_set)) {
@@ -1062,7 +1068,7 @@ function get_performance_sample(n) {
         for (let j = 0; j < 3; ++j) {
             piece_set.push(PIECES[Math.floor(random() * PIECES.length)]);
         }
-        game = blokie.getAIMove(game, piece_set).new_game_states[2];
+        game = blokie.getAIMove(game, piece_set).new_game_states[2/*last state*/];
         if (blokie.isOver(game)) {
             game = blokie.getNewGame();
         }
@@ -1071,7 +1077,7 @@ function get_performance_sample(n) {
 
 var blokie = {
     getNewGame: get_new_game,
-    getRandomPieceSet: () => get_random_piece_set().map(p => center_piece([...p])),
+    getRandomPieceSet: () => get_random_piece_set().map(p => center_piece(p)),
     getEmptyPiece: getEmpty,
     getAIMove: ai_make_move,
     at: at,
