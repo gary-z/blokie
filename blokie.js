@@ -8,17 +8,18 @@ const LEFT_BITS = 1 | (1 << 9) | (1 << 18);
 const RIGHT_BITS = LEFT_BITS << 8;
 const TOP_LEFT_CUBE = 0x7 | (0x7 << 9) | (0x7 << 18);
 
-const EMPTY = [0, 0, 0];
-const FULL = [USED_BITS, USED_BITS, USED_BITS];
 const INF_SCORE = 9999999;
 
 // Used when returning values so clients can't change out consts.
 function getEmpty() {
-    return [...EMPTY];
+    return [0, 0, 0];
 }
 function getFull() {
-    return [...FULL];
+    return [USED_BITS, USED_BITS, USED_BITS];
 }
+
+const EMPTY = getEmpty();
+const FULL = getFull();
 
 function _popcount(x) {
     x -= x >> 1 & 0x55555555
