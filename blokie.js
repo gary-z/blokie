@@ -530,7 +530,7 @@ function get_eval(bb, max = INF_SCORE/*exit early if the eval exceeds this value
             }
         }
     }
-    if (result > max) {
+    if (result >= max) {
         return max;
     }
 
@@ -553,7 +553,7 @@ function get_eval(bb, max = INF_SCORE/*exit early if the eval exceeds this value
     result += (count_diff(blocked_down, ALIGNED_BLOCKED_DOWN) - 9) * ALTERNATING_UNALIGNED;
     result += count_intersection(blocked_down, ALIGNED_BLOCKED_DOWN) * ALTERNATING_ALIGNED;
 
-    if (result > max) {
+    if (result >= max) {
         return max;
     }
 
@@ -572,7 +572,7 @@ function get_eval(bb, max = INF_SCORE/*exit early if the eval exceeds this value
     result += count_diff(and(blocked_down, blocked_left), or(row(8), column(0))) * CORNERED_EMPTY;
     result += count_diff(and(blocked_down, blocked_right), or(row(8), column(8))) * CORNERED_EMPTY;
 
-    if (result > max) {
+    if (result >= max) {
         return max;
     }
 
@@ -604,7 +604,7 @@ function get_eval(bb, max = INF_SCORE/*exit early if the eval exceeds this value
     let fillable_by_verticle_3_bar = or(and(open_and_open_up, open_down), or(and(open_and_open_up, open_2_up), and(open_and_open_down, open_2_down)));
     result += count_intersection(open, not(fillable_by_verticle_3_bar)) * THREE_BAR;
 
-    if (result > max) {
+    if (result >= max) {
         return max;
     }
 
