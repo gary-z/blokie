@@ -1041,6 +1041,17 @@ function get_fitness_sample() {
     };
 }
 
+function get_performance_sample(n) {
+    let game = blokie.getNewGame();
+    for (let i = 0; i < n; ++i) {
+        const piece_set = get_random_piece_set();
+        game = blokie.getAIMove(game, piece_set).new_game_states[2];
+        if (blokie.isOver(game)) {
+            game = blokie.getNewGame();
+        }
+    }
+}
+
 var blokie = {
     getNewGame: get_new_game,
     getRandomPieceSet: () => get_random_piece_set().map(p => center_piece([...p])),
@@ -1051,6 +1062,7 @@ var blokie = {
     toggleSquare: (board, r, c) => xor(board, bit(r, c)),
     isEmpty: is_empty,
     getFitnessSample: get_fitness_sample,
+    getPerformanceSample: get_performance_sample,
 };
 
 export { blokie };
