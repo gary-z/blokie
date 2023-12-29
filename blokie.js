@@ -1041,10 +1041,27 @@ function get_fitness_sample() {
     };
 }
 
+function sfc32(a, b, c, d) {
+    return function() {
+      a |= 0; b |= 0; c |= 0; d |= 0;
+      var t = (a + b | 0) + d | 0;
+      d = d + 1 | 0;
+      a = b ^ b >>> 9;
+      b = c + (c << 3) | 0;
+      c = (c << 21 | c >>> 11);
+      c = c + t | 0;
+      return (t >>> 0) / 4294967296;
+    }
+}
+
 function get_performance_sample(n) {
+    const random = sfc32(1, 2, 3, 4);
     let game = blokie.getNewGame();
     for (let i = 0; i < n; ++i) {
-        const piece_set = get_random_piece_set();
+        const piece_set = [];
+        for (let j = 0; j < 3; ++j) {
+            piece_set.push(PIECES[Math.floor(random() * PIECES.length)]);
+        }
         game = blokie.getAIMove(game, piece_set).new_game_states[2];
         if (blokie.isOver(game)) {
             game = blokie.getNewGame();

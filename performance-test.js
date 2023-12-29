@@ -3,7 +3,7 @@
 import { blokie } from './blokie.js';
 import { performance } from 'perf_hooks';
 
-const NUM_MOVES = 1000;
+const NUM_MOVES = 10000;
 
 const start_time = performance.now();
 blokie.getPerformanceSample(NUM_MOVES);
