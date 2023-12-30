@@ -450,7 +450,7 @@ function perform_clears(board) {
 console.assert(is_empty(perform_clears(FULL)));
 console.assert(is_empty(perform_clears(EMPTY)));
 for (let p of PIECES) {
-    for (let [placement, board_unused] of get_next_boards(EMPTY, p)) {
+    for (let { placement } of get_next_boards(EMPTY, p)) {
         console.assert(equal(placement, perform_clears(placement)));
     }
 }
@@ -462,7 +462,7 @@ for (let i = 0; i < 9; ++i) {
 
 function get_next_boards(board, p, clears_first = false) {
     if (is_empty(p)) {
-        return [[p, board]];
+        return [{ placement: p, board: board }];
     }
 
     let result = [];
@@ -472,7 +472,7 @@ function get_next_boards(board, p, clears_first = false) {
     const row8 = row(8);
     while (true) {
         if (is_disjoint(board, p)) {
-            result.push([p, perform_clears(or(board, p))]);
+            result.push({ placement: p, board: perform_clears(or(board, p)) });
         }
         if (!is_disjoint(p, col8)) {
             if (!is_disjoint(left, row8)) {
@@ -485,7 +485,7 @@ function get_next_boards(board, p, clears_first = false) {
         }
     }
     function is_clear(placement_pair) {
-        return is_subset(placement_pair[1/*after clears*/], placement_pair[0/*placement*/]);
+        return is_subset(placement_pair.board, placement_pair.placement);
     }
     if (clears_first) {
         result.sort((a, b) => is_clear(b) - is_clear(a));
@@ -812,13 +812,13 @@ function* get_all_piece_set_permutations(piece_set) {
 function can_clear_with_2_pieces(board, piece_set) {
     for (let i = 0; i < 3; ++i) {
         const p0 = piece_set[i];
-        for (let [unused, after_p0] of get_next_boards(board, p0)) {
+        for (let { board: after_p0 } of get_next_boards(board, p0)) {
             for (let j = 0; j < 3; ++j) {
                 if (i === j) {
                     continue;
                 }
                 const p1 = piece_set[j];
-                for (let [unused, after_p1] of get_next_boards(after_p0, p1)) {
+                for (let { board: after_p1 } of get_next_boards(after_p0, p1)) {
                     if (count(after_p1) < count(board) + count(p0) + count(p1)) {
                         return true;
                     }
@@ -850,16 +850,16 @@ function ai_make_move(game, original_piece_set) {
 
     // Here we can optimize the score.
     for (const [p0, p1, p2] of get_all_piece_set_permutations(piece_set)) {
-        for (const [placement_0, after_p0] of get_next_boards(board, p0)) {
+        for (const { placement: placement_0, board: after_p0 } of get_next_boards(board, p0)) {
             if (!ai_move_base.new_game_states.some(state => equal(state.previous_piece_placement, placement_0))) {
                 continue;
             }
-            for (const [placement_1, after_p1] of get_next_boards(after_p0, p1)) {
+            for (const { placement: placement_1, board: after_p1 } of get_next_boards(after_p0, p1)) {
                 if (!ai_move_base.new_game_states.some(state => equal(state.previous_piece_placement, placement_1))) {
                     continue;
                 }
 
-                for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
+                for (const { placement: placement_2, board: after_p2 } of get_next_boards(after_p1, p2)) {
                     if (!ai_move_base.new_game_states.some(state => equal(state.previous_piece_placement, placement_2))) {
                         continue;
                     }
@@ -941,13 +941,13 @@ function ai_make_move_impl(game, piece_set) {
         const p1_count = count(p1);
         const p2_count = count(p2);
 
-        for (const [placement_0, after_p0] of get_next_boards(board, p0, true)) {
-            for (const [placement_1, after_p1] of get_next_boards(after_p0, p1, true)) {
+        for (const { placement: placement_0, board: after_p0 } of get_next_boards(board, p0, true)) {
+            for (const { placement: placement_1, board: after_p1 } of get_next_boards(after_p0, p1, true)) {
                 if (compare(p0, p1) > 0 && count(after_p1) == board_count + p0_count + p1_count) {
                     // We tried this state before.
                     continue;
                 }
-                for (const [placement_2, after_p2] of get_next_boards(after_p1, p2)) {
+                for (const { placement: placement_2, board: after_p2 } of get_next_boards(after_p1, p2)) {
                     if (perm_index > 1 &&
                         count(after_p2) === board_count + p0_count + p1_count + p2_count) {
                         continue;
