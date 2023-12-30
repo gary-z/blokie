@@ -10,7 +10,7 @@ const TOP_LEFT_CUBE = 0x7 | (0x7 << 9) | (0x7 << 18);
 
 const INF_SCORE = 9999999;
 function bitboard(a, b, c) {
-    return [a, b, c];
+    return { a: a, b: b, c: c };
 }
 
 // Used when returning values so clients can't change out consts.
@@ -21,7 +21,7 @@ function getFull() {
     return bitboard(USED_BITS, USED_BITS, USED_BITS);
 }
 function copy(bb) {
-    return bitboard(bb[0], bb[1], bb[2]);
+    return bitboard(bb.a, bb.b, bb.c);
 }
 
 const EMPTY = getEmpty();
@@ -40,18 +40,18 @@ console.assert(_popcount(ROW_0) === 9);
 console.assert(_popcount(TOP_LEFT_CUBE) === 9);
 
 function count(bb) {
-    return _popcount(bb[0]) + _popcount(bb[1]) + _popcount(bb[2]);
+    return _popcount(bb.a) + _popcount(bb.b) + _popcount(bb.c);
 }
 console.assert(count(bitboard(1, 3, 7)) === 6);
 console.assert(count(FULL) === 81);
 console.assert(count(EMPTY) === 0);
 
 function compare(a, b) {
-    return a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+    return a.a - b.a || a.b - b.b || a.c - b.c;
 }
 
 function equal(a, b) {
-    return a[0] === b[0] && a[1] === b[1] && a[2] === b[2];
+    return a.a === b.a && a.b === b.b && a.c === b.c;
 }
 console.assert(equal(EMPTY, EMPTY));
 console.assert(equal(FULL, FULL));
@@ -60,7 +60,7 @@ console.assert(!equal(EMPTY, bitboard(1, 0, 0)));
 console.assert(!equal(EMPTY, bitboard(0, 1, 0)));
 console.assert(!equal(EMPTY, bitboard(0, 0, 1)));
 function any(bb) {
-    return bb[0] + bb[1] + bb[2] !== 0;
+    return bb.a + bb.b + bb.c !== 0;
 }
 function is_empty(bb) {
     return !any(bb);
@@ -72,35 +72,35 @@ console.assert(!is_empty(bitboard(0, 1, 0)));
 console.assert(!is_empty(bitboard(0, 0, 1)));
 
 function not(bb) {
-    return bitboard(~bb[0] & USED_BITS, ~bb[1] & USED_BITS, ~bb[2] & USED_BITS);
+    return bitboard(~bb.a & USED_BITS, ~bb.b & USED_BITS, ~bb.c & USED_BITS);
 }
 console.assert(equal(not(FULL), EMPTY));
 console.assert(equal(not(EMPTY), FULL));
 console.assert(count(not(bitboard(1, 1, 1))) === 78);
 
 function and(a, b) {
-    return bitboard(a[0] & b[0], a[1] & b[1], a[2] & b[2]);
+    return bitboard(a.a & b.a, a.b & b.b, a.c & b.c);
 }
 function is_disjoint(a, b) {
-    return (a[0] & b[0]) === 0 && (a[1] & b[1]) === 0 && (a[2] & b[2]) === 0;
+    return (a.a & b.a) === 0 && (a.b & b.b) === 0 && (a.c & b.c) === 0;
 }
 function count_intersection(a, b) {
-    return _popcount(a[0] & b[0]) + _popcount(a[1] & b[1]) + _popcount(a[2] & b[2]);
+    return _popcount(a.a & b.a) + _popcount(a.b & b.b) + _popcount(a.c & b.c);
 }
 function count_diff(a, b) {
-    return _popcount(a[0] & ~b[0]) + _popcount(a[1] & ~b[1]) + _popcount(a[2] & ~b[2]);
+    return _popcount(a.a & ~b.a) + _popcount(a.b & ~b.b) + _popcount(a.c & ~b.c);
 }
 function or(a, b) {
-    return bitboard(a[0] | b[0], a[1] | b[1], a[2] | b[2]);
+    return bitboard(a.a | b.a, a.b | b.b, a.c | b.c);
 }
 function xor(a, b) {
     return and(or(a, b), not(and(a, b)));
 }
 function diff(a, b) {
-    return bitboard(a[0] & ~b[0], a[1] & ~b[1], a[2] & ~b[2]);
+    return bitboard(a.a & ~b.a, a.b & ~b.b, a.c & ~b.c);
 }
 function is_subset(a/*superset*/, b) {
-    return (b[0] & ~a[0]) === 0 && (b[1] & ~a[1]) === 0 && (b[2] & ~a[2]) === 0;
+    return (b.a & ~a.a) === 0 && (b.b & ~a.b) === 0 && (b.c & ~a.c) === 0;
 }
 function bit(r, c) {
     return and(row(r), column(c));
@@ -173,27 +173,27 @@ for (let i = 0; i < 9; ++i) {
 
 
 function shift_right(bb) {
-    return bitboard((bb[0] & ~RIGHT_BITS) << 1, (bb[1] & ~RIGHT_BITS) << 1, (bb[2] & ~RIGHT_BITS) << 1);
+    return bitboard((bb.a & ~RIGHT_BITS) << 1, (bb.b & ~RIGHT_BITS) << 1, (bb.c & ~RIGHT_BITS) << 1);
 }
 console.assert(count(shift_right(FULL)) === 72);
 
 function shift_left(bb) {
-    return bitboard((bb[0] & ~LEFT_BITS) >> 1, (bb[1] & ~LEFT_BITS) >> 1, (bb[2] & ~LEFT_BITS) >> 1);
+    return bitboard((bb.a & ~LEFT_BITS) >> 1, (bb.b & ~LEFT_BITS) >> 1, (bb.c & ~LEFT_BITS) >> 1);
 }
 console.assert(count(shift_left(FULL)) === 72);
 
 function shift_down(bb) {
     return bitboard(
-        (bb[0] << 9) & USED_BITS,
-        ((bb[1] << 9) | ((bb[0] & ROW_2) >> 18)) & USED_BITS,
-        ((bb[2] << 9) | ((bb[1] & ROW_2) >> 18)) & USED_BITS,
+        (bb.a << 9) & USED_BITS,
+        ((bb.b << 9) | ((bb.a & ROW_2) >> 18)) & USED_BITS,
+        ((bb.c << 9) | ((bb.b & ROW_2) >> 18)) & USED_BITS,
     );
 }
 function shift_up(bb) {
     return bitboard(
-        (bb[0] >> 9) | ((bb[1] & ROW_0) << 18),
-        (bb[1] >> 9) | ((bb[2] & ROW_0) << 18),
-        bb[2] >> 9,
+        (bb.a >> 9) | ((bb.b & ROW_0) << 18),
+        (bb.b >> 9) | ((bb.c & ROW_0) << 18),
+        bb.c >> 9,
     );
 }
 
@@ -312,9 +312,9 @@ function rotate(bb) {
 
 console.assert(equal(rotate(EMPTY), EMPTY));
 console.assert(equal(rotate(FULL), FULL));
-console.assert(equal(rotate(PIECES[0]), bit(0, 8)));
-console.assert(equal(rotate(rotate(PIECES[0])), bit(8, 8)));
-console.assert(equal(rotate(rotate(rotate(PIECES[0]))), bit(8, 0)));
+console.assert(equal(rotate(bit(0, 0)), bit(0, 8)));
+console.assert(equal(rotate(rotate(bit(0, 0))), bit(8, 8)));
+console.assert(equal(rotate(rotate(rotate(bit(0, 0)))), bit(8, 0)));
 
 for (const test_piece of PIECES) {
     console.assert(count(rotate(test_piece)) === count(test_piece));
@@ -352,7 +352,7 @@ function mirror(bb) {
 }
 console.assert(equal(mirror(EMPTY), EMPTY));
 console.assert(equal(mirror(FULL), FULL));
-console.assert(!equal(mirror(PIECES[0]), PIECES[0]));
+console.assert(equal(mirror(bit(0, 0)), bit(0, 8)));
 
 for (let test_piece of PIECES) {
     console.assert(count(mirror(test_piece)) === count(test_piece));
@@ -381,7 +381,7 @@ const full_transformations = get_all_transformations(FULL);
 console.assert(full_transformations.length === 8);
 console.assert(full_transformations.every(t => equal(t, FULL)));
 
-const test_piece = PIECES[0];
+const test_piece = bit(0, 0);
 const piece_transformations = get_all_transformations(test_piece);
 console.assert(piece_transformations.length === 8);
 
@@ -460,7 +460,7 @@ for (let i = 0; i < 9; ++i) {
     console.assert(is_empty(perform_clears(cube(i))));
 }
 
-function get_next_boards(board, p, clears_first=false) {
+function get_next_boards(board, p, clears_first = false) {
     if (is_empty(p)) {
         return [[p, board]];
     }
@@ -775,7 +775,7 @@ function get_move_score(previous_was_clear, prev, placement, after) {
 
 
 function* get_piece_set_permutations_optimized(board, piece_set) {
-    piece_set = copy(piece_set);
+    piece_set = [...piece_set];
     piece_set.sort(compare);
     yield piece_set;
     if (!can_clear_with_2_pieces(board, piece_set)) {
@@ -1048,15 +1048,15 @@ function get_fitness_sample() {
 }
 
 function sfc32(a, b, c, d) {
-    return function() {
-      a |= 0; b |= 0; c |= 0; d |= 0;
-      var t = (a + b | 0) + d | 0;
-      d = d + 1 | 0;
-      a = b ^ b >>> 9;
-      b = c + (c << 3) | 0;
-      c = (c << 21 | c >>> 11);
-      c = c + t | 0;
-      return (t >>> 0) / 4294967296;
+    return function () {
+        a |= 0; b |= 0; c |= 0; d |= 0;
+        var t = (a + b | 0) + d | 0;
+        d = d + 1 | 0;
+        a = b ^ b >>> 9;
+        b = c + (c << 3) | 0;
+        c = (c << 21 | c >>> 11);
+        c = c + t | 0;
+        return (t >>> 0) / 4294967296;
     }
 }
 
