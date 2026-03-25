@@ -1086,6 +1086,40 @@ var blokie = {
     isEmpty: is_empty,
     getFitnessSample: get_fitness_sample,
     getPerformanceSample: get_performance_sample,
+    leftTopJustify: left_top_justify_piece,
+    getPieceBounds: function(piece) {
+        const p = left_top_justify_piece(piece);
+        let maxR = 0, maxC = 0;
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (at(p, r, c)) { maxR = Math.max(maxR, r); maxC = Math.max(maxC, c); }
+            }
+        }
+        return { rows: maxR + 1, cols: maxC + 1 };
+    },
+    tryPlacePiece: function(game, piece, dr, dc) {
+        if (dr < 0 || dc < 0) return null;
+        let p = left_top_justify_piece(piece);
+        const origCount = count(p);
+        if (origCount === 0) return null;
+        for (let i = 0; i < dc; i++) p = shift_right(p);
+        for (let i = 0; i < dr; i++) p = shift_down(p);
+        if (count(p) !== origCount) return null;
+        if (!is_disjoint(game.board, p)) return null;
+        const newBoard = perform_clears(or(game.board, p));
+        const moveScore = get_move_score(game.previous_move_was_clear, game.board, p, newBoard);
+        const wasClear = count(newBoard) < count(game.board) + origCount;
+        return {
+            placement: p,
+            newGame: {
+                board: newBoard,
+                previous_piece_placement: p,
+                previous_piece: piece,
+                previous_move_was_clear: wasClear,
+                score: game.score + moveScore,
+            }
+        };
+    },
 };
 
 export { blokie };
