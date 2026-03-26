@@ -274,10 +274,11 @@ function handleDragMove(clientX, clientY) {
         const dy = clientY - drag_info.startY;
         if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
 
-        // Activate drag
+        // Activate drag and pause AI
         drag_info.active = true;
         drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
         state.dragging_piece_index = drag_info.pieceIndex;
+        pauseAI();
     }
 
     updateFloatingPosition(drag_floating_el, clientX, clientY, drag_info.bounds);
@@ -318,6 +319,7 @@ function handleDragEnd(clientX, clientY) {
             }
         }
         cleanupDrag();
+        resetAIOnHumanInterferance();
     } else {
         // Drag never activated - treat as click (edit piece)
         const cell = drag_info.pendingCell;
@@ -369,6 +371,14 @@ function onPieceCellClick(cell) {
 }
 
 let ai_worker = null;
+
+function pauseAI() {
+    if (ai_worker != null) {
+        ai_worker.terminate();
+        ai_worker = null;
+    }
+    state.game_state.queued_game_states = [];
+}
 
 function resetAIOnHumanInterferance() {
     if (ai_worker != null) {
