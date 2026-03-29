@@ -129,14 +129,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
             event.preventDefault();
         } else {
             onPieceCellClick(cell);
-            state.last_dragged_board_cell = cell;
-            state.mouse_down = true;
             event.preventDefault();
-        }
-    });
-    pieces_on_deck_container.addEventListener('touchmove', (event) => {
-        if (!drag_info) {
-            processCellDrag(event, onPieceCellClick);
         }
     });
     pieces_on_deck_container.addEventListener('mousedown', (event) => {
@@ -164,12 +157,6 @@ document.addEventListener("DOMContentLoaded", function (event) {
             state.mouse_down = true;
         } else {
             onPieceCellClick(cell);
-            state.mouse_down = true;
-        }
-    });
-    pieces_on_deck_container.addEventListener('mouseover', (event) => {
-        if (state.mouse_down && !drag_info) {
-            onPieceCellClick(event.target);
         }
     });
     onNewGame();
