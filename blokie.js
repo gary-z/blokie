@@ -1084,6 +1084,7 @@ var blokie = {
     isOver: is_over,
     toggleSquare: (board, r, c) => xor(board, bit(r, c)),
     isEmpty: is_empty,
+    or: or,
     getFitnessSample: get_fitness_sample,
     getPerformanceSample: get_performance_sample,
     leftTopJustify: left_top_justify_piece,

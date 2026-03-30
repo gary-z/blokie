@@ -5,10 +5,6 @@ self.onmessage = (e) => {
     const game_state = e.data.game_state;
 
     function aiPlayGame() {
-        if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
-            game_state.piece_set = blokie.getRandomPieceSet();
-            return false;
-        }
         if (game_state.queued_game_states.length === 0) {
             if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
                 game_state.piece_set = blokie.getRandomPieceSet();

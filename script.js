@@ -389,12 +389,38 @@ function resetAIOnHumanInterferance() {
 
 
 let last_rendered_state_json = '';
+let _prev_board_json = null;
+let _place_anim = null; // { board: pre-clear-board, startTime }
+const PLACE_ANIM_MS = 200;
 function render() {
     const state_json = JSON.stringify(state);
-    if (last_rendered_state_json !== state_json) {
+    const stateChanged = last_rendered_state_json !== state_json;
+    const animExpired = _place_anim && (performance.now() - _place_anim.startTime >= PLACE_ANIM_MS);
+
+    if (stateChanged) {
+        last_rendered_state_json = state_json;
+
+        // Detect board change (a move was applied) to trigger placement animation.
+        const gs = state.game_state;
+        const currentBoardJson = JSON.stringify(gs.game.board);
+        const placement = gs.game.previous_piece_placement;
+
+        if (_prev_board_json && _prev_board_json !== currentBoardJson && !blokie.isEmpty(placement)) {
+            _place_anim = {
+                board: blokie.or(gs.previous_game_state.board, placement),
+                startTime: performance.now(),
+            };
+        } else {
+            _place_anim = null;
+        }
+
+        _prev_board_json = currentBoardJson;
+        renderImpl();
+    } else if (animExpired) {
+        _place_anim = null;
         renderImpl();
     }
-    last_rendered_state_json = state_json;
+
     window.requestAnimationFrame(render);
 }
 window.requestAnimationFrame(render);
@@ -402,6 +428,13 @@ window.requestAnimationFrame(render);
 function renderImpl() {
     let board_table = document.getElementById('game-board');
     let pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
+
+    if (_place_anim) {
+        drawGame(board_table, pieces_on_deck_div, _place_anim.board, blokie.getEmptyPiece(), state.game_state.piece_set);
+        updateScore(state.game_state.game.score);
+        return;
+    }
+
     if (gameIsActive()) {
         if (state.game_state.queued_game_states.length === 0) {
             drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, blokie.getEmptyPiece(), state.game_state.piece_set);
@@ -420,10 +453,6 @@ function renderImpl() {
 
 // returns: true if should rerender at max speed
 function aiPlayGame() {
-    if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
-        state.game_state.piece_set = blokie.getRandomPieceSet();
-        return true;
-    }
     if (state.game_state.queued_game_states.length === 0) {
         if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
             state.game_state.piece_set = blokie.getRandomPieceSet();
@@ -461,19 +490,37 @@ function updateScore(score) {
     score_el.innerText = score;
 }
 
+function _setCell(td, cls) {
+    const old = td.className;
+    if (old === cls) return;
+    if (cls === '' && old.startsWith('shrinking-')) return; // let shrink finish
+
+    if (cls === '' && (old === 'has-piece' || old === 'piece-pending')) {
+        td.className = old === 'has-piece' ? 'shrinking-piece' : 'shrinking-pending';
+        td.addEventListener('animationend', () => {
+            if (td.className.startsWith('shrinking-')) td.className = '';
+        }, { once: true });
+        return;
+    }
+
+    td.className = cls;
+}
+
 function drawGame(board_table, pieces_on_deck_div, board, placement, piece_set) {
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
             const td = board_table.rows[r].cells[c];
+            let cls;
             if (blokie.at(placement, r, c)) {
-                td.className = 'piece-pending';
+                cls = 'piece-pending';
             } else if (blokie.at(board, r, c)) {
-                td.className = 'has-piece';
+                cls = 'has-piece';
             } else if (state.drag_shadow && blokie.at(state.drag_shadow, r, c)) {
-                td.className = 'drag-shadow';
+                cls = 'drag-shadow';
             } else {
-                td.className = null;
+                cls = '';
             }
+            _setCell(td, cls);
         }
     }
 
@@ -482,7 +529,8 @@ function drawGame(board_table, pieces_on_deck_div, board, placement, piece_set) 
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
                 const td = pieces_on_deck_div.children[i].rows[r].cells[c];
-                td.className = (!hidePiece && blokie.at(piece_set[i], r, c)) ? 'has-piece' : null;
+                const cls = (!hidePiece && blokie.at(piece_set[i], r, c)) ? 'has-piece' : '';
+                if (td.className !== cls) td.className = cls;
             }
         }
     }

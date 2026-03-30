@@ -6,8 +6,25 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <script src="script.js" type="module"></script>
     <style>
-        td {
-            transition: background-color 0.2s linear;
+        @keyframes cell-fade-in {
+            from { opacity: 0.45; }
+        }
+        @keyframes cell-shrink-out {
+            to { transform: scale(0); }
+        }
+        td.has-piece,
+        td.piece-pending,
+        td.drag-shadow {
+            animation: cell-fade-in 0.2s ease-out;
+        }
+        #game-board tr:nth-of-type(n):nth-of-type(n) td.shrinking-piece:nth-of-type(n):nth-of-type(n) {
+            background: rgb(54, 112, 232);
+            border: 1px solid black;
+            animation: cell-shrink-out 0.2s ease-in forwards;
+        }
+        #game-board tr:nth-of-type(n):nth-of-type(n) td.shrinking-pending:nth-of-type(n):nth-of-type(n) {
+            background: pink;
+            animation: cell-shrink-out 0.2s ease-in forwards;
         }
 
         body {
