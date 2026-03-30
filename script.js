@@ -289,6 +289,15 @@ function handleDragEnd(clientX, clientY) {
     if (!drag_info) return;
 
     if (drag_info.active) {
+        // If the AI modified the piece set while the drag was starting
+        // (between mousedown and the drag threshold), the piece we captured
+        // may no longer be in its original slot. Cancel the drag in that case.
+        if (state.game_state.piece_set[drag_info.pieceIndex] !== drag_info.piece) {
+            cleanupDrag();
+            resetAIOnHumanInterferance();
+            return;
+        }
+
         // Final position update
         handleDragMove(clientX, clientY);
 
