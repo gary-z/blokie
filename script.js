@@ -32,9 +32,12 @@ const DRAG_THRESHOLD = 8;
 const DRAG_OFFSET_Y = 60;
 
 document.addEventListener("DOMContentLoaded", function (event) {
-    const slider = document.getElementById('speed');
-    slider.addEventListener("input", (event) => {
-        resetAIOnHumanInterferance();
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            resetAIOnHumanInterferance();
+        });
     });
 
     document.addEventListener('mouseup', (event) => {
@@ -476,13 +479,9 @@ function aiPlayGame() {
     return false;
 }
 
-function getSpeedSlider() {
-    return document.getElementById('speed');
-}
-
 function getDelayMs() {
-    const slider = getSpeedSlider();
-    return slider.value == slider.max ? 0 : (2000.0 / 1.5 ** slider.value);
+    const activeBtn = document.querySelector('.speed-btn.active');
+    return parseInt(activeBtn.dataset.delay);
 }
 
 function updateScore(score) {
