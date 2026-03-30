@@ -150,14 +150,40 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 0;
         }
 
-        #speedometer-icon {
-            height: 4vh;
+        .speed-btn {
+            background: #e0e0e0;
+            border: 1px solid #ccc;
+            color: #222;
+            padding: 0.4vh 1.2vw;
+            cursor: pointer;
+            font-size: 2.2vh;
+            font-weight: bold;
+            transition: background 0.15s, color 0.15s;
         }
 
-        #speed {
-            width: 50%;
+        .speed-btn:first-child {
+            border-radius: 4px 0 0 4px;
+        }
+
+        .speed-btn:last-child {
+            border-radius: 0 4px 4px 0;
+        }
+
+        .speed-btn + .speed-btn {
+            border-left: none;
+        }
+
+        .speed-btn.active {
+            background: rgb(54, 112, 232);
+            color: white;
+            border-color: rgb(54, 112, 232);
+        }
+
+        .speed-btn.active + .speed-btn {
+            border-left-color: rgb(54, 112, 232);
         }
     </style>
     <meta property="og:description"
@@ -401,8 +427,10 @@
         </div>
         <div class="footer">
             <div id="speed-container">
-                <img id="speedometer-icon" src="speedometer.svg" />
-                <input title="Engine move speed." name="speed" type="range" id="speed" min="0" max="7" value="3">
+                <button class="speed-btn active" data-delay="600">1x</button>
+                <button class="speed-btn" data-delay="300">2x</button>
+                <button class="speed-btn" data-delay="120">5x</button>
+                <button class="speed-btn" data-delay="0">Max</button>
             </div>
             <p>
                 <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>
