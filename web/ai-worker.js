@@ -1,8 +1,8 @@
 "use strict";
-import { blokie, initPromise } from "../engine/blokie.js";
+import { blokie, init } from "../engine/blokie.js";
 
 self.onmessage = async (e) => {
-    await initPromise;
+    await init();
 
     const game_state = e.data.game_state;
 

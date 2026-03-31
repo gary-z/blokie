@@ -4,6 +4,15 @@
   "version": "1.0.0",
   "description": "A Blockudoku/Woodoku/Block Sudoku Engine",
   "main": "engine/blokie.js",
+  "exports": {
+    ".": "./engine/blokie.js",
+    "./wasm": "./engine/wasm/blokie-solver.wasm"
+  },
+  "files": [
+    "engine/blokie.js",
+    "engine/wasm/blokie-solver.js",
+    "engine/wasm/blokie-solver.wasm"
+  ],
   "homepage": "https://gary-z.github.io/blokie/",
   "scripts": {
     "build:wasm": "bash build-wasm.sh",

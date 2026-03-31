@@ -20,12 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
-
-      - name: Build WASM
-        run: bash build-wasm.sh
-
       - name: Stage site for deployment
         run: |
           mkdir _site

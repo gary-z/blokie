@@ -1,12 +1,52 @@
 "use strict";
 
-import createBlokieSolver from './wasm/blokie-solver.js';
-
-// WASM module - initialized asynchronously.
+// WASM module - initialized via init().
 let solver = null;
-const initPromise = createBlokieSolver().then(module => {
-    solver = module;
-});
+let _initPromise = null;
+
+/**
+ * Initialize the WASM solver. Must be called (and awaited) before using
+ * any AI functions. Accepts an optional config object:
+ *
+ *   - locateFile(filename): a function that returns the URL/path for a
+ *     given filename (e.g. "blokie-solver.wasm"). Useful when the .wasm
+ *     file is served from a CDN or custom asset directory.
+ *
+ *   - wasmBinary: an ArrayBuffer containing the pre-fetched .wasm binary.
+ *     When provided, the loader skips its own fetch entirely.
+ *
+ * Examples:
+ *   // Default – resolve .wasm relative to blokie-solver.js
+ *   await init();
+ *
+ *   // Custom URL
+ *   await init({ locateFile: () => '/assets/blokie-solver.wasm' });
+ *
+ *   // Pre-fetched binary
+ *   const buf = await fetch('/assets/blokie-solver.wasm').then(r => r.arrayBuffer());
+ *   await init({ wasmBinary: buf });
+ */
+async function init(options = {}) {
+    if (_initPromise) return _initPromise;
+
+    _initPromise = (async () => {
+        // Dynamic import so the module path is resolved relative to this file,
+        // and so consumers who only use non-AI helpers can skip loading WASM.
+        const { default: createBlokieSolver } = await import('./wasm/blokie-solver.js');
+
+        const moduleConfig = {};
+        if (options.locateFile) {
+            moduleConfig.locateFile = options.locateFile;
+        }
+        if (options.wasmBinary) {
+            moduleConfig.wasmBinary = options.wasmBinary;
+        }
+
+        solver = await createBlokieSolver(moduleConfig);
+    })();
+
+    return _initPromise;
+}
 
 // === BITBOARD FUNCTIONS
 const USED_BITS = 0x7FFFFFF;
@@ -755,4 +795,4 @@ var blokie = {
     },
 };
 
-export { blokie, initPromise };
+export { blokie, init };

@@ -1,4 +1,3 @@
 engine/cpp/build-wasm/
-engine/wasm/
 node_modules/
 emsdk/

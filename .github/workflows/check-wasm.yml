@@ -1,0 +1,27 @@
+name: Check WASM is up to date
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+
+      - name: Rebuild WASM from source
+        run: bash build-wasm.sh
+
+      - name: Verify committed WASM matches rebuild
+        run: |
+          if ! git diff --quiet engine/wasm/; then
+            echo "::error::Committed WASM files are out of sync with C++ source. Run 'npm run build:wasm' and commit the result."
+            git diff --stat engine/wasm/
+            exit 1
+          fi
+          echo "WASM files are up to date."
