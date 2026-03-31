@@ -5,10 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/engine/cpp/build-wasm"
 OUTPUT_DIR="$SCRIPT_DIR/engine/wasm"
 
-# Verify emscripten is available.
+# Install Emscripten if not available.
 if ! command -v emcmake &> /dev/null; then
-    echo "Error: Emscripten not found. Install it and source emsdk_env.sh first."
-    exit 1
+    echo "Emscripten not found, installing..."
+    EMSDK_DIR="$SCRIPT_DIR/emsdk"
+    git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
+    "$EMSDK_DIR/emsdk" install latest
+    "$EMSDK_DIR/emsdk" activate latest
+    source "$EMSDK_DIR/emsdk_env.sh"
 fi
 
 # Build.
