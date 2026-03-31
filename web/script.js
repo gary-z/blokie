@@ -1,5 +1,5 @@
 "use strict";
-import { blokie } from "./blokie.js";
+import { blokie } from "../engine/blokie.js";
 
 
 function getNewGameState() {
@@ -386,7 +386,7 @@ function resetAIOnHumanInterferance() {
 
     state.game_state.queued_game_states = [];
     state.active_worker_id++;
-    ai_worker = new Worker('ai-worker.js', { type: 'module' });
+    ai_worker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
     ai_worker.postMessage({
         delay_ms: getDelayMs(),
         game_state: state.game_state,

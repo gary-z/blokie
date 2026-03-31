@@ -1,6 +1,6 @@
 "use strict";
 
-import { blokie } from './blokie.js';
+import { blokie } from '../engine/blokie.js';
 import { performance } from 'perf_hooks';
 
 const NUM_MOVES = 10000;
