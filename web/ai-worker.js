@@ -8,6 +8,8 @@ self.onmessage = (e) => {
         if (game_state.queued_game_states.length === 0) {
             if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
                 game_state.piece_set = blokie.getRandomPieceSet();
+                // Show new pieces for one interval before AI starts playing them.
+                return false;
             }
             game_state.queued_game_states = blokie.getAIMove(game_state.game, game_state.piece_set).new_game_states;
             game_state.game.previous_piece_placement = blokie.getEmptyPiece();
