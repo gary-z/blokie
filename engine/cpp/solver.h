@@ -3,6 +3,16 @@
 #include <string>
 #include <vector>
 
+#ifndef NO_SIMD
+#ifdef __SSE2__
+#define USE_SIMD 1
+#include <emmintrin.h>  // SSE2
+#ifdef __SSE4_1__
+#include <smmintrin.h>  // SSE4.1 for _mm_testz_si128, _mm_extract_epi64
+#endif
+#endif
+#endif
+
 class GameState;
 class NextGameStateIterator;
 
@@ -14,11 +24,18 @@ class BitBoard {
 	// The board has 9 3x3 "cubes" indexed with (r, c). 0 <= r,c < 3.
 
 private:
+#if USE_SIMD
+	__m128i data;
+#else
 	uint64_t a, b;
+#endif
 	friend class NextGameStateIterator;
 	friend class GameState;
 public:
 	explicit BitBoard(uint64_t a, uint64_t b);
+#if USE_SIMD
+	explicit BitBoard(__m128i d);
+#endif
 	explicit operator bool() const;
 	bool operator==(BitBoard other) const;
 	bool operator<(BitBoard other) const;
@@ -58,8 +75,8 @@ public:
 
 	std::string str() const;
 
-	uint64_t getA() const { return a; }
-	uint64_t getB() const { return b; }
+	uint64_t getA() const;
+	uint64_t getB() const;
 };
 
 class PieceIteratorGenerator;

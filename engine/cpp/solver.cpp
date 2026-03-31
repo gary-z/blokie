@@ -18,7 +18,179 @@ namespace {
 
 // === BIT BOARD
 
+#if USE_SIMD
+
+BitBoard::BitBoard(uint64_t a, uint64_t b) : data(_mm_set_epi64x(b, a)) {}
+BitBoard::BitBoard(__m128i d) : data(d) {}
+
+uint64_t BitBoard::getA() const {
+#ifdef __SSE4_1__
+	return (uint64_t)_mm_extract_epi64(data, 0);
+#else
+	alignas(16) uint64_t v[2];
+	_mm_store_si128((__m128i*)v, data);
+	return v[0];
+#endif
+}
+
+uint64_t BitBoard::getB() const {
+#ifdef __SSE4_1__
+	return (uint64_t)_mm_extract_epi64(data, 1);
+#else
+	alignas(16) uint64_t v[2];
+	_mm_store_si128((__m128i*)v, data);
+	return v[1];
+#endif
+}
+
+bool BitBoard::operator==(BitBoard other) const {
+	__m128i cmp = _mm_cmpeq_epi64(data, other.data);
+	// Both lanes must match: extract and AND
+	return _mm_movemask_epi8(cmp) == 0xFFFF;
+}
+
+bool BitBoard::operator<(BitBoard other) const {
+	uint64_t ta = getA(), tb = getB();
+	uint64_t oa = other.getA(), ob = other.getB();
+	return ta > oa || (ta == oa && tb > ob);
+}
+
+bool BitBoard::at(unsigned r, unsigned c) const {
+	return (bool)(BitBoard::row(r) & BitBoard::column(c) & (*this));
+}
+
+BitBoard BitBoard::operator|(const BitBoard other) const {
+	return BitBoard(_mm_or_si128(data, other.data));
+}
+
+BitBoard BitBoard::operator&(const BitBoard other) const {
+	return BitBoard(_mm_and_si128(data, other.data));
+}
+
+BitBoard BitBoard::operator-(const BitBoard other) const {
+	// (*this) &~ other = _mm_andnot_si128(other, *this)
+	return BitBoard(_mm_andnot_si128(other.data, data));
+}
+
+BitBoard BitBoard::operator~() const {
+	__m128i mask = _mm_set_epi64x(ALL_ALLOWED_BITS_IN_B, ALL_ALLOWED_BITS_IN_A);
+	return BitBoard(_mm_andnot_si128(data, mask));
+}
+
+BitBoard BitBoard::topDownFlip() const {
+	auto result = BitBoard::empty();
+	for (int r = 0; r < 9; ++r) {
+		auto r_mirror = 8 - r;
+		auto bits = (*this) & BitBoard::row(r_mirror);
+		while (r_mirror != r) {
+			if (r_mirror > r) {
+				r_mirror--;
+				bits = bits.shiftUp();
+			}
+			else {
+				r_mirror++;
+				bits = bits.shiftDown();
+			}
+		}
+		result = result | bits;
+	}
+	return result;
+}
+
+BitBoard BitBoard::empty() {
+	return BitBoard(_mm_setzero_si128());
+}
+
+BitBoard BitBoard::full() {
+	return BitBoard(ALL_ALLOWED_BITS_IN_A, ALL_ALLOWED_BITS_IN_B);
+}
+
+BitBoard BitBoard::row(unsigned r) {
+	assert(r < 9);
+	if (r <= 5) {
+		return BitBoard(ROW_0 << (r * 9), 0);
+	}
+	else {
+		return BitBoard(0, ROW_0 << ((r - 6) * 9));
+	}
+}
+
+BitBoard BitBoard::column(unsigned c) {
+	assert(c < 9);
+	int to_shift = 8 - c;
+	return BitBoard(RIGHT_MOST_COLUMN_A >> to_shift, RIGHT_MOST_COLUMN_B >> to_shift);
+}
+
+BitBoard BitBoard::cube(unsigned r, unsigned c) {
+	assert(c < 3);
+	assert(r < 3);
+	if (r < 2) {
+		return BitBoard(TOP_LEFT_CUBE << (3 * c + 27 * r), 0);
+	}
+	else {
+		return BitBoard(0, TOP_LEFT_CUBE << 3 * c);
+	}
+}
+
+BitBoard BitBoard::shiftRight() const {
+	uint64_t a = getA(), b = getB();
+	return BitBoard((a & ~RIGHT_MOST_COLUMN_A) << 1, (b & ~RIGHT_MOST_COLUMN_B) << 1);
+}
+
+BitBoard BitBoard::shiftLeft() const {
+	uint64_t a = getA(), b = getB();
+	return BitBoard((a & ~LEFT_MOST_COLUMN_A) >> 1, (b & ~LEFT_MOST_COLUMN_B) >> 1);
+}
+
+BitBoard BitBoard::shiftDown() const {
+	uint64_t a = getA(), b = getB();
+	return BitBoard((a << 9) & ALL_ALLOWED_BITS_IN_A,
+		((b << 9) | (a & ROW_5) >> 45) & ALL_ALLOWED_BITS_IN_B);
+}
+
+BitBoard BitBoard::shiftUp() const {
+	uint64_t a = getA(), b = getB();
+	return BitBoard((a >> 9) | ((b & 0x01FFULL) << 45), b >> 9);
+}
+
+BitBoard BitBoard::leastSignificantBit() const {
+	uint64_t a = getA();
+	if (a) {
+		return BitBoard(a & -a, 0);
+	}
+	uint64_t b = getB();
+	return BitBoard(0, b & -b);
+}
+
+int BitBoard::count() const {
+	return (int)__builtin_popcountll(getA()) + (int)__builtin_popcountll(getB());
+}
+
+BitBoard::operator bool() const {
+#ifdef __SSE4_1__
+	return !_mm_testz_si128(data, data);
+#else
+	return getA() | getB();
+#endif
+}
+
+std::string BitBoard::str() const {
+	std::string result;
+	for (int r = 0; r < 9; ++r) {
+		for (int c = 0; c < 9; ++c) {
+			result += at(r, c) ? '#' : '.';
+		}
+		result += "\n";
+	}
+	return result;
+}
+
+#else // !USE_SIMD - original scalar implementation
+
 BitBoard::BitBoard(uint64_t a, uint64_t b) : a(a), b(b) {}
+
+uint64_t BitBoard::getA() const { return a; }
+uint64_t BitBoard::getB() const { return b; }
 
 bool BitBoard::operator==(BitBoard other) const {
 	return a == other.a && b == other.b;
@@ -103,7 +275,6 @@ BitBoard BitBoard::cube(unsigned r, unsigned c) {
 	}
 }
 
-
 BitBoard BitBoard::shiftRight() const {
 	return BitBoard((a & ~RIGHT_MOST_COLUMN_A) << 1, (b & ~RIGHT_MOST_COLUMN_B) << 1);
 }
@@ -146,6 +317,8 @@ std::string BitBoard::str() const {
 	}
 	return result;
 }
+
+#endif // USE_SIMD
 
 // ====== Piece
 Piece::Piece(uint64_t a) : bb(BitBoard(a, 0)) {}
@@ -501,17 +674,19 @@ NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece) :
 
 GameState NextGameStateIterator::operator*() const {
 	const auto after_add = original.getBitBoard() | next;
-	auto to_clear = BitBoard::empty();
+	uint64_t after_a = after_add.getA();
+	uint64_t after_b = after_add.getB();
+	uint64_t clear_a = 0, clear_b = 0;
 
 	// Clear columns that are completely filled.
 	for (int i = 0; i < 9; i++) {
 		{
 			const auto a_col_bits = RIGHT_MOST_COLUMN_A >> i;
 			const auto b_col_bits = RIGHT_MOST_COLUMN_B >> i;
-			if ((after_add.a & a_col_bits) == a_col_bits &&
-				(after_add.b & b_col_bits) == b_col_bits) {
-				to_clear.a |= a_col_bits;
-				to_clear.b |= b_col_bits;
+			if ((after_a & a_col_bits) == a_col_bits &&
+				(after_b & b_col_bits) == b_col_bits) {
+				clear_a |= a_col_bits;
+				clear_b |= b_col_bits;
 			}
 		}
 	}
@@ -519,14 +694,14 @@ GameState NextGameStateIterator::operator*() const {
 	// Clear rows that are completely filled.
 	for (int i = 0; i < 6; ++i) {
 		const auto row_bits = ROW_0 << (9 * i);
-		if ((after_add.a & row_bits) == row_bits) {
-			to_clear.a |= row_bits;
+		if ((after_a & row_bits) == row_bits) {
+			clear_a |= row_bits;
 		}
 	}
 	for (int i = 0; i < 3; ++i) {
 		const auto row_bits = ROW_0 << (9 * i);
-		if ((after_add.b & row_bits) == row_bits) {
-			to_clear.b |= row_bits;
+		if ((after_b & row_bits) == row_bits) {
+			clear_b |= row_bits;
 		}
 	}
 
@@ -534,16 +709,16 @@ GameState NextGameStateIterator::operator*() const {
 	for (int r = 0; r < 2; r++) {
 		for (int c = 0; c < 3; c++) {
 			const auto cube_bits = TOP_LEFT_CUBE << (c * 3 + 27 * r);
-			if ((after_add.a & cube_bits) == cube_bits) {
-				to_clear.a |= cube_bits;
+			if ((after_a & cube_bits) == cube_bits) {
+				clear_a |= cube_bits;
 			}
-			if (r == 0 && (after_add.b & cube_bits) == cube_bits) {
-				to_clear.b |= cube_bits;
+			if (r == 0 && (after_b & cube_bits) == cube_bits) {
+				clear_b |= cube_bits;
 			}
 		}
 	}
 
-	return GameState(after_add - to_clear);
+	return GameState(BitBoard(after_a & ~clear_a, after_b & ~clear_b));
 }
 
 bool NextGameStateIterator::operator!=(NextGameStateIterator other) const {

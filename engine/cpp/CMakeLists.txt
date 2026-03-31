@@ -11,6 +11,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -DNDEBUG")
 add_library(solver STATIC solver.cpp)
 
 if(EMSCRIPTEN)
+	# Enable WASM SIMD
+	target_compile_options(solver PRIVATE -msimd128 -msse2 -msse4.1)
+
 	# WASM build: solver + Emscripten bindings -> blokie-solver.js + blokie-solver.wasm
 	add_executable(blokie-solver bindings.cpp)
 	target_link_libraries(blokie-solver PRIVATE solver)
@@ -28,4 +31,14 @@ if(EMSCRIPTEN)
 		"SHELL:-s ALLOW_MEMORY_GROWTH=1"
 		"SHELL:-s NO_EXIT_RUNTIME=1"
 	)
+	target_compile_options(blokie-solver PRIVATE -msimd128 -msse2 -msse4.1)
+	target_link_options(blokie-solver PRIVATE -msimd128)
+else()
+	# Native build: enable SSE4.1 (includes SSE2)
+	target_compile_options(solver PRIVATE -msse4.1)
+
+	# Native benchmark
+	add_executable(benchmark benchmark.cpp)
+	target_link_libraries(benchmark PRIVATE solver)
+	target_compile_options(benchmark PRIVATE -msse4.1)
 endif()
