@@ -1,5 +1,5 @@
 "use strict";
-import { blokie } from "./blokie.js";
+import { blokie } from "../engine/blokie.js";
 
 self.onmessage = (e) => {
     const game_state = e.data.game_state;
