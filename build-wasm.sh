@@ -5,10 +5,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/engine/cpp/build-wasm"
 OUTPUT_DIR="$SCRIPT_DIR/engine/wasm"
 
+# Install cmake if not available.
+if ! command -v cmake &> /dev/null; then
+    echo "cmake not found, installing..."
+    pip install cmake || { echo "ERROR: Could not install cmake"; exit 1; }
+fi
+
 # Install Emscripten if not available.
 if ! command -v emcmake &> /dev/null; then
     echo "Emscripten not found, installing..."
-    EMSDK_DIR="$SCRIPT_DIR/emsdk"
+    EMSDK_DIR="/tmp/emsdk"
     git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
     "$EMSDK_DIR/emsdk" install latest
     "$EMSDK_DIR/emsdk" activate latest
