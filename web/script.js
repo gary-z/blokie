@@ -1,5 +1,5 @@
 "use strict";
-import { blokie, initPromise } from "../engine/blokie.js";
+import { blokie, init } from "../engine/blokie.js";
 
 
 function getNewGameState() {
