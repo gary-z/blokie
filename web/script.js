@@ -158,10 +158,20 @@ document.addEventListener("DOMContentLoaded", function (event) {
                 pendingCell: cell,
             };
             state.mouse_down = true;
+            event.preventDefault();
         } else {
             onPieceCellClick(cell);
         }
     });
+
+    // If a native drag somehow starts, cancel it and clean up our drag state
+    document.addEventListener('dragend', () => {
+        if (drag_info) {
+            cleanupDrag();
+            resetAIOnHumanInterferance();
+        }
+    });
+
     onNewGame();
 });
 
