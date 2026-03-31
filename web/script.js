@@ -29,7 +29,7 @@ let drag_info = null;       // { pieceIndex, piece, bounds, startX, startY, acti
 let drag_floating_el = null;
 
 const DRAG_THRESHOLD = 8;
-const DRAG_OFFSET_Y = 60;
+const DRAG_OFFSET_Y = 100;
 
 document.addEventListener("DOMContentLoaded", function (event) {
     document.querySelectorAll('.speed-btn').forEach(btn => {
