@@ -29,7 +29,7 @@ let drag_info = null;       // { pieceIndex, piece, bounds, startX, startY, acti
 let drag_floating_el = null;
 
 const DRAG_THRESHOLD = 8;
-const DRAG_OFFSET_Y = 100;
+const FINGER_CLEARANCE = 30;  // px of clearance above the touch point
 
 document.addEventListener("DOMContentLoaded", function (event) {
     document.querySelectorAll('.speed-btn').forEach(btn => {
@@ -240,7 +240,7 @@ function updateFloatingPosition(el, clientX, clientY, bounds) {
     const pieceW = bounds.cols * cellRect.width;
     const pieceH = bounds.rows * cellRect.height;
     el.style.left = (clientX - pieceW / 2) + 'px';
-    el.style.top = (clientY - DRAG_OFFSET_Y - pieceH / 2) + 'px';
+    el.style.top = (clientY - FINGER_CLEARANCE - pieceH) + 'px';
 }
 
 function calcShadowPlacement(clientX, clientY, piece, bounds) {
@@ -249,9 +249,10 @@ function calcShadowPlacement(clientX, clientY, piece, bounds) {
     const cellW = boardRect.width / 9;
     const cellH = boardRect.height / 9;
 
-    // Center of the floating piece (offset above cursor)
+    // Center of the floating piece (bottom edge sits FINGER_CLEARANCE above touch)
     const centerX = clientX;
-    const centerY = clientY - DRAG_OFFSET_Y;
+    const pieceH = bounds.rows * cellH;
+    const centerY = clientY - FINGER_CLEARANCE - pieceH / 2;
 
     // Find where the floating piece's top-left cell center falls on the board,
     // matching the continuous centering used by updateFloatingPosition.
