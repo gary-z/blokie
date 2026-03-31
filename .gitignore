@@ -1,3 +1,6 @@
 engine/cpp/build-wasm/
+engine/cpp/build-wasm-nsimd/
+engine/cpp/build-native/
+engine/cpp/build-native-nsimd/
 node_modules/
 emsdk/
