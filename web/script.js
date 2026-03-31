@@ -243,13 +243,10 @@ function calcShadowPlacement(clientX, clientY, piece, bounds) {
     const centerX = clientX;
     const centerY = clientY - DRAG_OFFSET_Y;
 
-    // Which board cell is the piece center over?
-    const boardCol = Math.floor((centerX - boardRect.left) / cellW);
-    const boardRow = Math.floor((centerY - boardRect.top) / cellH);
-
-    // Position piece so it's centered on that cell
-    const targetRow = boardRow - Math.floor((bounds.rows - 1) / 2);
-    const targetCol = boardCol - Math.floor((bounds.cols - 1) / 2);
+    // Find where the floating piece's top-left cell center falls on the board,
+    // matching the continuous centering used by updateFloatingPosition.
+    const targetCol = Math.floor((centerX - boardRect.left) / cellW - (bounds.cols - 1) / 2);
+    const targetRow = Math.floor((centerY - boardRect.top) / cellH - (bounds.rows - 1) / 2);
 
     const result = blokie.tryPlacePiece(state.game_state.game, piece, targetRow, targetCol);
     if (!result) return null;
