@@ -446,7 +446,10 @@ function renderImpl() {
 
     if (gameIsActive()) {
         if (state.game_state.queued_game_states.length === 0) {
-            drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, blokie.getEmptyPiece(), state.game_state.piece_set);
+            // When all pieces have been placed, skip rendering the on-deck area
+            // so it keeps showing the previous state instead of flashing empty.
+            const piece_set = state.game_state.piece_set.every(p => blokie.isEmpty(p)) ? null : state.game_state.piece_set;
+            drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, blokie.getEmptyPiece(), piece_set);
             updateScore(state.game_state.game.score);
         } else {
             const next_game_state = state.game_state.queued_game_states[0];
@@ -529,13 +532,15 @@ function drawGame(board_table, pieces_on_deck_div, board, placement, piece_set) 
         }
     }
 
-    for (let i = 0; i < 3; ++i) {
-        const hidePiece = state.dragging_piece_index === i;
-        for (let r = 0; r < 5; ++r) {
-            for (let c = 0; c < 5; ++c) {
-                const td = pieces_on_deck_div.children[i].rows[r].cells[c];
-                const cls = (!hidePiece && blokie.at(piece_set[i], r, c)) ? 'has-piece' : '';
-                if (td.className !== cls) td.className = cls;
+    if (piece_set) {
+        for (let i = 0; i < 3; ++i) {
+            const hidePiece = state.dragging_piece_index === i;
+            for (let r = 0; r < 5; ++r) {
+                for (let c = 0; c < 5; ++c) {
+                    const td = pieces_on_deck_div.children[i].rows[r].cells[c];
+                    const cls = (!hidePiece && blokie.at(piece_set[i], r, c)) ? 'has-piece' : '';
+                    if (td.className !== cls) td.className = cls;
+                }
             }
         }
     }
