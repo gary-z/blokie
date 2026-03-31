@@ -30,3 +30,6 @@ The board state evaluation weights were trained using a genetic learning algorit
 
 ## Can I have the computer play for me?
 No.
+
+## Why did I build this?
+Cause a mermaid was better than me at this game.
