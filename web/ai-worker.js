@@ -1,7 +1,9 @@
 "use strict";
-import { blokie } from "../engine/blokie.js";
+import { blokie, initPromise } from "../engine/blokie.js";
 
-self.onmessage = (e) => {
+self.onmessage = async (e) => {
+    await initPromise;
+
     const game_state = e.data.game_state;
 
     function aiPlayGame() {

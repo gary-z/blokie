@@ -6,6 +6,7 @@
   "main": "engine/blokie.js",
   "homepage": "https://gary-z.github.io/blokie/",
   "scripts": {
+    "build:wasm": "bash build-wasm.sh",
     "test:fitness": "node test/fitness-test.js",
     "test:performance": "node test/performance-test.js"
   }
