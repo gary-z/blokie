@@ -318,6 +318,9 @@ function handleDragEnd(clientX, clientY) {
             );
             if (result) {
                 state.game_state.piece_set[drag_info.pieceIndex] = blokie.getEmptyPiece();
+                if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
+                    state.game_state.piece_set = blokie.getRandomPieceSet();
+                }
                 state.game_state.previous_game_state = state.game_state.game;
                 state.game_state.game = result.newGame;
                 cleanupDrag();
@@ -474,9 +477,6 @@ function renderImpl() {
 // returns: true if should rerender at max speed
 function aiPlayGame() {
     if (state.game_state.queued_game_states.length === 0) {
-        if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
-            state.game_state.piece_set = blokie.getRandomPieceSet();
-        }
         state.game_state.queued_game_states = blokie.getAIMove(state.game_state.game, state.game_state.piece_set).new_game_states;
         state.game_state.game.previous_piece_placement = blokie.getEmptyPiece();
         return false;
@@ -490,6 +490,9 @@ function aiPlayGame() {
     const used_piece_index = state.game_state.piece_set.indexOf(piece_used);
     if (used_piece_index >= 0) {
         state.game_state.piece_set[used_piece_index] = blokie.getEmptyPiece();
+    }
+    if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
+        state.game_state.piece_set = blokie.getRandomPieceSet();
     }
     state.game_state.previous_game_state = state.game_state.game;
     state.game_state.game = new_game_state;
