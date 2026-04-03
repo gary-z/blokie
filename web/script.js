@@ -176,8 +176,8 @@ document.addEventListener("DOMContentLoaded", function (event) {
 });
 
 function gameIsActive() {
+    if (blokie.isOver(state.game_state.game)) return false;
     return state.game_state.queued_game_states.length === 0 || !blokie.isOver(state.game_state.queued_game_states[0]);
-
 }
 
 function processCellDrag(event, call) {
@@ -402,10 +402,13 @@ function resetAIOnHumanInterferance() {
     }
 
     state.game_state.queued_game_states = [];
+    requestAIMoves();
+}
+
+function requestAIMoves() {
     state.active_worker_id++;
     ai_worker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
     ai_worker.postMessage({
-        delay_ms: getDelayMs(),
         game_state: state.game_state,
         id: state.active_worker_id,
     });
@@ -420,9 +423,13 @@ function resetAIOnHumanInterferance() {
 let last_rendered_state_json = '';
 
 let _fly_anim = null; // { el, startTime }
-const FLY_ANIM_MS = 300;
 let _prev_preview_json = null; // tracks queued_game_states[0] to detect new previews
 let _fly_landed = false; // true once fly animation finishes for current preview
+
+function getFlyAnimMs() {
+    // Speed setting controls animation duration (faster speed = shorter animation)
+    return getDelayMs();
+}
 
 function startFlyAnimation(pieceIndex, piece, placement) {
     const bounds = blokie.getPieceBounds(piece);
@@ -460,7 +467,8 @@ function startFlyAnimation(pieceIndex, piece, placement) {
 
     el.style.left = startX + 'px';
     el.style.top = startY + 'px';
-    el.style.transition = `left ${FLY_ANIM_MS}ms ease-in-out, top ${FLY_ANIM_MS}ms ease-in-out, opacity ${FLY_ANIM_MS}ms ease-in-out`;
+    const flyMs = getFlyAnimMs();
+    el.style.transition = `left ${flyMs}ms ease-in-out, top ${flyMs}ms ease-in-out, opacity ${flyMs}ms ease-in-out`;
     el.style.opacity = '0.8';
 
     // Force layout before setting target to trigger transition
@@ -473,6 +481,7 @@ function startFlyAnimation(pieceIndex, piece, placement) {
     return {
         el,
         startTime: performance.now(),
+        durationMs: flyMs,
     };
 }
 
@@ -485,39 +494,77 @@ function cleanupFlyAnim() {
 
 function render() {
     const now = performance.now();
-    const state_json = JSON.stringify(state);
-    const stateChanged = last_rendered_state_json !== state_json;
+    const gs = state.game_state;
+    const flyMs = getFlyAnimMs();
 
-    // Clean up finished fly animation and force re-render so blue cells appear immediately
+    // Clean up finished fly animation
     let flyJustLanded = false;
-    if (_fly_anim && (now - _fly_anim.startTime >= FLY_ANIM_MS)) {
+    if (_fly_anim && (now - _fly_anim.startTime >= _fly_anim.durationMs)) {
         cleanupFlyAnim();
         _fly_landed = true;
         flyJustLanded = true;
     }
 
-    // Detect new preview (queued move shown) and start fly animation.
-    // This fires when the red highlight first appears, so the piece flies immediately.
-    const gs = state.game_state;
-    const nextQueued = gs.queued_game_states.length > 0 ? gs.queued_game_states[0] : null;
-    const previewJson = nextQueued ? JSON.stringify(nextQueued.previous_piece_placement) : null;
+    if (gs.queued_game_states.length > 0 && !drag_info && gameIsActive()) {
+        if (flyMs === 0) {
+            // Max speed: advance all queued states immediately, no animation
+            while (gs.queued_game_states.length > 0 && gameIsActive()) {
+                advanceQueuedState();
+            }
+        } else if (flyJustLanded) {
+            // Fly animation completed — advance game state
+            advanceQueuedState();
+        }
 
-    if (previewJson && previewJson !== _prev_preview_json && !drag_info && getDelayMs() >= FLY_ANIM_MS) {
-        const pieceIndex = gs.piece_set.findIndex(p => p === nextQueued.previous_piece);
-        if (pieceIndex >= 0) {
-            cleanupFlyAnim();
-            _fly_landed = false;
-            _fly_anim = startFlyAnimation(pieceIndex, nextQueued.previous_piece, nextQueued.previous_piece_placement);
+        // Start fly animation for the next queued move if idle
+        if (flyMs > 0 && !_fly_anim && !_fly_landed && gs.queued_game_states.length > 0 && gameIsActive()) {
+            const nextQueued = gs.queued_game_states[0];
+            const pieceIndex = gs.piece_set.findIndex(p => p === nextQueued.previous_piece);
+            if (pieceIndex >= 0) {
+                _fly_anim = startFlyAnimation(pieceIndex, nextQueued.previous_piece, nextQueued.previous_piece_placement);
+            }
         }
     }
-    _prev_preview_json = previewJson;
 
+    const state_json = JSON.stringify(state);
+    const stateChanged = last_rendered_state_json !== state_json;
     if (stateChanged || flyJustLanded) {
         last_rendered_state_json = state_json;
         renderImpl();
     }
 
     window.requestAnimationFrame(render);
+}
+
+function advanceQueuedState() {
+    const gs = state.game_state;
+    if (gs.queued_game_states.length === 0) return;
+
+    if (blokie.isOver(gs.queued_game_states[0])) {
+        // Game over — apply the final state
+        gs.game = gs.queued_game_states.shift();
+        return;
+    }
+
+    const new_game_state = gs.queued_game_states.shift();
+    const piece_used = new_game_state.previous_piece;
+    const used_piece_index = gs.piece_set.indexOf(piece_used);
+    gs.last_used_piece_index = used_piece_index;
+    if (used_piece_index >= 0) {
+        gs.piece_set[used_piece_index] = blokie.getEmptyPiece();
+    }
+    if (gs.piece_set.every(p => blokie.isEmpty(p))) {
+        gs.piece_set = blokie.getRandomPieceSet();
+    }
+    gs.previous_game_state = gs.game;
+    gs.game = new_game_state;
+    _fly_landed = false;
+    _prev_preview_json = null;
+
+    // If no more queued states, request the next batch from the AI
+    if (gs.queued_game_states.length === 0) {
+        requestAIMoves();
+    }
 }
 window.requestAnimationFrame(render);
 
@@ -548,31 +595,6 @@ function renderImpl() {
     }
 }
 
-// returns: true if should rerender at max speed
-function aiPlayGame() {
-    if (state.game_state.queued_game_states.length === 0) {
-        state.game_state.queued_game_states = blokie.getAIMove(state.game_state.game, state.game_state.piece_set).new_game_states;
-        state.game_state.game.previous_piece_placement = blokie.getEmptyPiece();
-        return false;
-    }
-    if (blokie.isOver(state.game_state.queued_game_states[0])) {
-        return true;
-    }
-
-    const new_game_state = state.game_state.queued_game_states.shift();
-    const piece_used = new_game_state.previous_piece;
-    const used_piece_index = state.game_state.piece_set.indexOf(piece_used);
-    state.game_state.last_used_piece_index = used_piece_index;
-    if (used_piece_index >= 0) {
-        state.game_state.piece_set[used_piece_index] = blokie.getEmptyPiece();
-    }
-    if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
-        state.game_state.piece_set = blokie.getRandomPieceSet();
-    }
-    state.game_state.previous_game_state = state.game_state.game;
-    state.game_state.game = new_game_state;
-    return false;
-}
 
 function getDelayMs() {
     const activeBtn = document.querySelector('.speed-btn.active');
