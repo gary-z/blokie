@@ -13,7 +13,6 @@
             to { transform: scale(0); }
         }
         td.has-piece,
-        td.piece-pending,
         td.drag-shadow {
             animation: cell-fade-in 0.2s ease-out;
         }
@@ -22,11 +21,6 @@
             border: 1px solid black;
             animation: cell-shrink-out 0.2s ease-in forwards;
         }
-        #game-board tr:nth-of-type(n):nth-of-type(n) td.shrinking-pending:nth-of-type(n):nth-of-type(n) {
-            background: pink;
-            animation: cell-shrink-out 0.2s ease-in forwards;
-        }
-
         body {
             padding: none;
             border: none;
@@ -87,10 +81,6 @@
         #game-board tr:nth-of-type(n):nth-of-type(n) td.has-piece:nth-of-type(n):nth-of-type(n) {
             background: rgb(54, 112, 232);
             border: 1px solid black;
-        }
-
-        #game-board tr:nth-of-type(n):nth-of-type(n) td.piece-pending:nth-of-type(n):nth-of-type(n) {
-            background: pink
         }
 
         #game-board tr:nth-of-type(n):nth-of-type(n) td.drag-shadow:nth-of-type(n):nth-of-type(n) {
