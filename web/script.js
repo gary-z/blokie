@@ -388,9 +388,15 @@ function pauseAI() {
         ai_worker = null;
     }
     state.game_state.queued_game_states = [];
+    cleanupFlyAnim();
+    _prev_preview_json = null;
+    _fly_landed = false;
 }
 
 function resetAIOnHumanInterferance() {
+    cleanupFlyAnim();
+    _prev_preview_json = null;
+    _fly_landed = false;
     if (ai_worker != null) {
         ai_worker.terminate();
     }
@@ -412,35 +418,102 @@ function resetAIOnHumanInterferance() {
 
 
 let last_rendered_state_json = '';
-let _prev_board_json = null;
-let _place_anim = null; // { board: pre-clear-board, startTime }
-const PLACE_ANIM_MS = 200;
+
+let _fly_anim = null; // { el, startTime }
+const FLY_ANIM_MS = 300;
+let _prev_preview_json = null; // tracks queued_game_states[0] to detect new previews
+let _fly_landed = false; // true once fly animation finishes for current preview
+
+function startFlyAnimation(pieceIndex, piece, placement) {
+    const bounds = blokie.getPieceBounds(piece);
+    const el = createFloatingPiece(piece, bounds);
+
+    // Source: center of the on-deck slot
+    const deckTable = document.getElementById('piece-on-deck-' + pieceIndex);
+    const deckRect = deckTable.getBoundingClientRect();
+
+    // Target: top-left of where the piece lands on the board
+    const boardTable = document.getElementById('game-board');
+    const boardRect = boardTable.getBoundingClientRect();
+    const cellW = boardRect.width / 9;
+    const cellH = boardRect.height / 9;
+
+    // Find the top-left occupied cell of the placement
+    let minR = 9, minC = 9;
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (blokie.at(placement, r, c)) {
+                if (r < minR) minR = r;
+                if (c < minC) minC = c;
+            }
+        }
+    }
+
+    const targetX = boardRect.left + minC * cellW;
+    const targetY = boardRect.top + minR * cellH;
+
+    // Start at the on-deck slot, centered
+    const pieceW = bounds.cols * cellW;
+    const pieceH = bounds.rows * cellH;
+    const startX = deckRect.left + (deckRect.width - pieceW) / 2;
+    const startY = deckRect.top + (deckRect.height - pieceH) / 2;
+
+    el.style.left = startX + 'px';
+    el.style.top = startY + 'px';
+    el.style.transition = `left ${FLY_ANIM_MS}ms ease-in-out, top ${FLY_ANIM_MS}ms ease-in-out, opacity ${FLY_ANIM_MS}ms ease-in-out`;
+    el.style.opacity = '0.8';
+
+    // Force layout before setting target to trigger transition
+    el.getBoundingClientRect();
+
+    el.style.left = targetX + 'px';
+    el.style.top = targetY + 'px';
+    el.style.opacity = '1';
+
+    return {
+        el,
+        startTime: performance.now(),
+    };
+}
+
+function cleanupFlyAnim() {
+    if (_fly_anim) {
+        _fly_anim.el.remove();
+        _fly_anim = null;
+    }
+}
+
 function render() {
+    const now = performance.now();
     const state_json = JSON.stringify(state);
     const stateChanged = last_rendered_state_json !== state_json;
-    const animExpired = _place_anim && (performance.now() - _place_anim.startTime >= PLACE_ANIM_MS);
 
-    if (stateChanged) {
-        last_rendered_state_json = state_json;
+    // Clean up finished fly animation and force re-render so blue cells appear immediately
+    let flyJustLanded = false;
+    if (_fly_anim && (now - _fly_anim.startTime >= FLY_ANIM_MS)) {
+        cleanupFlyAnim();
+        _fly_landed = true;
+        flyJustLanded = true;
+    }
 
-        // Detect board change (a move was applied) to trigger placement animation.
-        const gs = state.game_state;
-        const currentBoardJson = JSON.stringify(gs.game.board);
-        const placement = gs.game.previous_piece_placement;
+    // Detect new preview (queued move shown) and start fly animation.
+    // This fires when the red highlight first appears, so the piece flies immediately.
+    const gs = state.game_state;
+    const nextQueued = gs.queued_game_states.length > 0 ? gs.queued_game_states[0] : null;
+    const previewJson = nextQueued ? JSON.stringify(nextQueued.previous_piece_placement) : null;
 
-        if (_prev_board_json && _prev_board_json !== currentBoardJson && !blokie.isEmpty(placement)) {
-            _place_anim = {
-                board: blokie.or(gs.previous_game_state.board, placement),
-                startTime: performance.now(),
-            };
-        } else {
-            _place_anim = null;
+    if (previewJson && previewJson !== _prev_preview_json && !drag_info && getDelayMs() >= FLY_ANIM_MS) {
+        const pieceIndex = gs.piece_set.findIndex(p => p === nextQueued.previous_piece);
+        if (pieceIndex >= 0) {
+            cleanupFlyAnim();
+            _fly_landed = false;
+            _fly_anim = startFlyAnimation(pieceIndex, nextQueued.previous_piece, nextQueued.previous_piece_placement);
         }
+    }
+    _prev_preview_json = previewJson;
 
-        _prev_board_json = currentBoardJson;
-        renderImpl();
-    } else if (animExpired) {
-        _place_anim = null;
+    if (stateChanged || flyJustLanded) {
+        last_rendered_state_json = state_json;
         renderImpl();
     }
 
@@ -452,24 +525,25 @@ function renderImpl() {
     let board_table = document.getElementById('game-board');
     let pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
 
-    if (_place_anim) {
-        drawGame(board_table, pieces_on_deck_div, _place_anim.board, blokie.getEmptyPiece(), state.game_state.piece_set);
-        updateScore(state.game_state.game.score);
-        return;
-    }
-
     if (gameIsActive()) {
         if (state.game_state.queued_game_states.length === 0) {
-            drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, blokie.getEmptyPiece(), state.game_state.piece_set);
+            drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, state.game_state.piece_set);
             updateScore(state.game_state.game.score);
         } else {
             const next_game_state = state.game_state.queued_game_states[0];
             updateScore(next_game_state.score);
             const piece_set_to_render = state.game_state.piece_set.map(p => p === next_game_state.previous_piece ? blokie.getEmptyPiece() : p);
-            drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, next_game_state.previous_piece_placement, piece_set_to_render);
+            if (_fly_landed) {
+                // Fly completed — show destination cells as blue (part of the board)
+                const boardWithPiece = blokie.or(state.game_state.game.board, next_game_state.previous_piece_placement);
+                drawGame(board_table, pieces_on_deck_div, boardWithPiece, piece_set_to_render);
+            } else {
+                // Fly in progress or no fly — don't highlight destination
+                drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, piece_set_to_render);
+            }
         }
     } else {
-        drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, blokie.getEmptyPiece(), state.game_state.piece_set);
+        drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, state.game_state.piece_set);
         updateScore("Final score: " + state.game_state.game.score.toString());
     }
 }
@@ -488,6 +562,7 @@ function aiPlayGame() {
     const new_game_state = state.game_state.queued_game_states.shift();
     const piece_used = new_game_state.previous_piece;
     const used_piece_index = state.game_state.piece_set.indexOf(piece_used);
+    state.game_state.last_used_piece_index = used_piece_index;
     if (used_piece_index >= 0) {
         state.game_state.piece_set[used_piece_index] = blokie.getEmptyPiece();
     }
@@ -514,8 +589,8 @@ function _setCell(td, cls) {
     if (old === cls) return;
     if (cls === '' && old.startsWith('shrinking-')) return; // let shrink finish
 
-    if (cls === '' && (old === 'has-piece' || old === 'piece-pending')) {
-        td.className = old === 'has-piece' ? 'shrinking-piece' : 'shrinking-pending';
+    if (cls === '' && old === 'has-piece') {
+        td.className = 'shrinking-piece';
         td.addEventListener('animationend', () => {
             if (td.className.startsWith('shrinking-')) td.className = '';
         }, { once: true });
@@ -525,14 +600,12 @@ function _setCell(td, cls) {
     td.className = cls;
 }
 
-function drawGame(board_table, pieces_on_deck_div, board, placement, piece_set) {
+function drawGame(board_table, pieces_on_deck_div, board, piece_set) {
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
             const td = board_table.rows[r].cells[c];
             let cls;
-            if (blokie.at(placement, r, c)) {
-                cls = 'piece-pending';
-            } else if (blokie.at(board, r, c)) {
+            if (blokie.at(board, r, c)) {
                 cls = 'has-piece';
             } else if (state.drag_shadow && blokie.at(state.drag_shadow, r, c)) {
                 cls = 'drag-shadow';

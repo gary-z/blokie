@@ -26,6 +26,7 @@ self.onmessage = async (e) => {
         const new_game_state = game_state.queued_game_states.shift();
         const piece_used = new_game_state.previous_piece;
         const used_piece_index = game_state.piece_set.indexOf(piece_used);
+        game_state.last_used_piece_index = used_piece_index;
         if (used_piece_index >= 0) {
             game_state.piece_set[used_piece_index] = blokie.getEmptyPiece();
         }
