@@ -11,17 +11,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Read Emscripten version
+        id: emsdk
+        run: echo "version=$(cat .emscripten-version | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: ${{ steps.emsdk.outputs.version }}
+
+      - name: Checksum committed WASM
+        run: sha256sum engine/wasm/blokie-solver.js engine/wasm/blokie-solver.wasm | tee /tmp/wasm-before.sha
 
       - name: Rebuild WASM from source
         run: bash build-wasm.sh
 
       - name: Verify committed WASM matches rebuild
         run: |
-          if ! git diff --quiet engine/wasm/; then
+          sha256sum engine/wasm/blokie-solver.js engine/wasm/blokie-solver.wasm | tee /tmp/wasm-after.sha
+          if ! diff -q /tmp/wasm-before.sha /tmp/wasm-after.sha > /dev/null 2>&1; then
             echo "::error::Committed WASM files are out of sync with C++ source. Run 'npm run build:wasm' and commit the result."
-            git diff --stat engine/wasm/
+            diff /tmp/wasm-before.sha /tmp/wasm-after.sha || true
             exit 1
           fi
           echo "WASM files are up to date."
