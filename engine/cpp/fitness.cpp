@@ -251,6 +251,131 @@ int runRolloutSurvey(const char* out_path, int num_games, int stride,
     return 0;
 }
 
+// Death-trace mode: for every move of every game, emit (eval_after,
+// squares_cleared, pieces_placed, board_count_after). The user can then
+// inspect per-game trajectories near death to see whether the solver's
+// eval spikes suddenly (the "2-3 bad piece sets in a row" hypothesis) or
+// drifts up gradually before failure.
+struct DeathTraceMove {
+    uint32_t pieces_placed;
+    int32_t  squares_cleared;     // may be negative? No -- always >= 0 in practice.
+    uint64_t eval_after;
+    uint32_t board_count_after;
+};
+
+struct DeathTraceGame {
+    int game_idx;
+    uint64_t seed;
+    bool died;                    // true iff game ended naturally; false = cap
+    uint64_t total_moves;
+    std::vector<DeathTraceMove> moves;
+};
+
+DeathTraceGame playOneGameWithTrace(int game_idx, uint64_t seed,
+                                     const EvalWeights& weights, uint64_t cap) {
+    DeathTraceGame result;
+    result.game_idx = game_idx;
+    result.seed = seed;
+    result.total_moves = 0;
+    result.died = false;
+
+    std::mt19937_64 rng(seed);
+    std::uniform_int_distribution<int> piece_dist(0, Piece::NUM_PIECES - 1);
+
+    GameState game(BitBoard::empty());
+    while (!game.isOver() && (cap == 0 || result.total_moves < cap)) {
+        Piece p0 = Piece::byIndex(piece_dist(rng));
+        Piece p1 = Piece::byIndex(piece_dist(rng));
+        Piece p2 = Piece::byIndex(piece_dist(rng));
+        const int pieces = p0.getBitBoard().count() + p1.getBitBoard().count()
+                         + p2.getBitBoard().count();
+        const int before = game.getBitBoard().count();
+        game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2));
+        const int after = game.getBitBoard().count();
+        ++result.total_moves;
+        DeathTraceMove mv;
+        mv.pieces_placed = (uint32_t)pieces;
+        mv.squares_cleared = (int32_t)(before + pieces - after);
+        mv.eval_after = game.isOver() ? UINT64_MAX : game.simpleEval(weights);
+        mv.board_count_after = (uint32_t)after;
+        result.moves.push_back(mv);
+    }
+    result.died = game.isOver();
+    return result;
+}
+
+int runDeathTrace(const char* out_path, int num_games, uint64_t cap,
+                  const EvalWeights& weights, uint64_t seed_base,
+                  unsigned num_threads) {
+    std::FILE* out = std::fopen(out_path, "w");
+    if (!out) {
+        std::fprintf(stderr, "failed to open %s for write\n", out_path);
+        return 1;
+    }
+    std::fprintf(out, "game_idx,seed,died,total_moves,"
+                     "move_idx,pieces_placed,squares_cleared,eval_after,"
+                     "board_count_after\n");
+
+    std::vector<uint64_t> seeds(num_games);
+    if (seed_base == 0) {
+        std::random_device rd;
+        for (int i = 0; i < num_games; ++i)
+            seeds[i] = ((uint64_t)rd() << 32) | rd();
+    } else {
+        for (int i = 0; i < num_games; ++i) seeds[i] = seed_base + i;
+    }
+
+    std::atomic<int> next{0};
+    std::mutex out_mutex;
+
+    const auto start = std::chrono::steady_clock::now();
+
+    std::vector<std::thread> workers;
+    const unsigned T = std::min<unsigned>(num_threads, (unsigned)num_games);
+    workers.reserve(T);
+    for (unsigned t = 0; t < T; ++t) {
+        workers.emplace_back([&, t]() {
+            while (true) {
+                int id = next.fetch_add(1, std::memory_order_relaxed);
+                if (id >= num_games) return;
+                const auto g_start = std::chrono::steady_clock::now();
+                DeathTraceGame g = playOneGameWithTrace(id, seeds[id], weights, cap);
+                const double g_secs = std::chrono::duration<double>(
+                    std::chrono::steady_clock::now() - g_start).count();
+
+                std::lock_guard<std::mutex> lk(out_mutex);
+                for (uint64_t i = 0; i < g.total_moves; ++i) {
+                    const auto& m = g.moves[i];
+                    std::fprintf(out,
+                                 "%d,%llu,%d,%llu,%llu,%u,%d,%llu,%u\n",
+                                 g.game_idx,
+                                 (unsigned long long)g.seed,
+                                 g.died ? 1 : 0,
+                                 (unsigned long long)g.total_moves,
+                                 (unsigned long long)(i + 1),
+                                 m.pieces_placed, m.squares_cleared,
+                                 (unsigned long long)m.eval_after,
+                                 m.board_count_after);
+                }
+                std::fflush(out);
+                std::fprintf(stderr,
+                             "[t%u] game %d  moves=%llu  %s  (%.1fs)\n",
+                             t, g.game_idx, (unsigned long long)g.total_moves,
+                             g.died ? "DIED" : "capped", g_secs);
+                std::fflush(stderr);
+            }
+        });
+    }
+    for (auto& w : workers) w.join();
+    std::fclose(out);
+
+    const double wall = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+    std::fprintf(stderr, "[death-trace] %d games, wall=%.1fs -> %s\n",
+                 num_games, wall, out_path);
+    return 0;
+}
+
 int runDistill(const char* out_path, int num_games, int stride, int samples,
                uint64_t cap, const EvalWeights& weights, uint64_t seed_base) {
     std::FILE* out = std::fopen(out_path, "w");
@@ -346,6 +471,9 @@ int main(int argc, char** argv) {
     int rollout_n = 200;
     int rollout_depth = 1500;
 
+    const char* death_trace_out = nullptr;
+    int death_trace_games = 40;
+
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
         if (!std::strcmp(a, "--seed-base") && i + 1 < argc) {
@@ -377,6 +505,10 @@ int main(int argc, char** argv) {
             rollout_n = std::atoi(argv[++i]);
         } else if (!std::strcmp(a, "--rollout-depth") && i + 1 < argc) {
             rollout_depth = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--death-trace-out") && i + 1 < argc) {
+            death_trace_out = argv[++i];
+        } else if (!std::strcmp(a, "--death-trace-games") && i + 1 < argc) {
+            death_trace_games = std::atoi(argv[++i]);
         } else {
             int n = std::atoi(a);
             if (n > 0) num_games = n;
@@ -408,6 +540,19 @@ int main(int argc, char** argv) {
         return runRolloutSurvey(rollout_out, rollout_games, rollout_stride,
                                 rollout_n, rollout_depth, cap, weights,
                                 seed_base, hw);
+    }
+
+    if (death_trace_out) {
+        unsigned hw = std::thread::hardware_concurrency();
+        if (hw == 0) hw = 1;
+        std::fprintf(stderr,
+                     "[death-trace] games=%d cap=%llu weights=%s threads=%u "
+                     "-> %s\n",
+                     death_trace_games, (unsigned long long)cap,
+                     weights_overridden ? "custom" : "default",
+                     hw, death_trace_out);
+        return runDeathTrace(death_trace_out, death_trace_games, cap,
+                             weights, seed_base, hw);
     }
 
     unsigned hw_threads = std::thread::hardware_concurrency();
