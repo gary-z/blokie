@@ -28,4 +28,13 @@ if(EMSCRIPTEN)
 		"SHELL:-s ALLOW_MEMORY_GROWTH=1"
 		"SHELL:-s NO_EXIT_RUNTIME=1"
 	)
+else()
+	# Native build: solver + benchmark/fitness drivers.
+	find_package(Threads REQUIRED)
+
+	add_executable(benchmark benchmark.cpp)
+	target_link_libraries(benchmark PRIVATE solver)
+
+	add_executable(fitness fitness.cpp)
+	target_link_libraries(fitness PRIVATE solver Threads::Threads)
 endif()
