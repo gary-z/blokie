@@ -1,0 +1,12 @@
+[distill] games=10 stride=50 samples=20 cap=30000 weights=default -> /workspaces/blokie/bench-results/distill_v3_corpus.csv
+[distill] game 0  moves=10598  rows=211  (33.6s)
+[distill] game 1  moves=9571  rows=191  (30.3s)
+[distill] game 2  moves=30000  rows=600  (89.9s)
+[distill] game 3  moves=565  rows=11  (1.7s)
+[distill] game 4  moves=3632  rows=72  (10.7s)
+[distill] game 5  moves=14524  rows=290  (44.0s)
+[distill] game 6  moves=9435  rows=188  (28.0s)
+[distill] game 7  moves=30000  rows=600  (89.3s)
+[distill] game 8  moves=1524  rows=30  (4.8s)
+[distill] game 9  moves=29225  rows=584  (88.2s)
+[distill] total rows=2777 wall=420.6s -> /workspaces/blokie/bench-results/distill_v3_corpus.csv

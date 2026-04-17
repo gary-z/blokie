@@ -105,6 +105,152 @@ double computeTeacherV3(const GameState& g, const EvalWeights& weights,
     return sum / samples;
 }
 
+// Survival-curve thresholds (move offsets from a sampled board).
+// Fine-grained near the hypothesized "mixing time" (~50-100 moves), coarser
+// after, ending at a depth big enough to see the steady-state hazard signal
+// (~2e-5/move -> need >=1000 moves for ~2% death probability).
+constexpr int SURVIVAL_THRESHOLDS[] = {10, 25, 50, 100, 200, 500, 1000, 1500};
+constexpr int NUM_SURVIVAL_THRESHOLDS =
+    sizeof(SURVIVAL_THRESHOLDS) / sizeof(SURVIVAL_THRESHOLDS[0]);
+
+// Play a single rollout starting from `start` with the given weights.
+// Returns the number of moves before death (>= max_depth if the rollout
+// survived the whole budget).
+int playRolloutFrom(BitBoard start, uint64_t seed, int max_depth,
+                    const EvalWeights& weights) {
+    std::mt19937_64 rng(seed);
+    std::uniform_int_distribution<int> pd(0, Piece::NUM_PIECES - 1);
+    GameState game(start);
+    int m = 0;
+    while (m < max_depth && !game.isOver()) {
+        Piece p0 = Piece::byIndex(pd(rng));
+        Piece p1 = Piece::byIndex(pd(rng));
+        Piece p2 = Piece::byIndex(pd(rng));
+        game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2));
+        ++m;
+    }
+    // On survival, return max_depth+1 so comparisons "alive at thr" correctly
+    // classify thresholds in [1..max_depth] but do NOT pretend we know
+    // survival past max_depth. (Thresholds > max_depth are always considered
+    // uncertain; analysis should ignore them.)
+    if (!game.isOver()) return max_depth + 1;
+    return m;
+}
+
+// Run n_rollouts parallel rollouts from `start` (up to max_depth each) using
+// hw_threads workers. Fills `alive_at[k]` with #rollouts still alive at
+// move offset SURVIVAL_THRESHOLDS[k].
+void surveyBoard(BitBoard start, int n_rollouts, int max_depth,
+                 const EvalWeights& weights, uint64_t seed_base,
+                 unsigned hw_threads, int alive_at[NUM_SURVIVAL_THRESHOLDS]) {
+    std::vector<int> death(n_rollouts, 0);
+    std::atomic<int> next_job{0};
+    std::vector<std::thread> workers;
+    const unsigned T = std::min<unsigned>(hw_threads, (unsigned)n_rollouts);
+    workers.reserve(T);
+    for (unsigned t = 0; t < T; ++t) {
+        workers.emplace_back([&, t]() {
+            while (true) {
+                int i = next_job.fetch_add(1, std::memory_order_relaxed);
+                if (i >= n_rollouts) return;
+                death[i] = playRolloutFrom(start, seed_base + (uint64_t)i,
+                                           max_depth, weights);
+            }
+        });
+    }
+    for (auto& w : workers) w.join();
+
+    for (int k = 0; k < NUM_SURVIVAL_THRESHOLDS; ++k) {
+        const int thr = SURVIVAL_THRESHOLDS[k];
+        int alive = 0;
+        for (int d : death) if (d >= thr) ++alive;
+        alive_at[k] = alive;
+    }
+}
+
+int runRolloutSurvey(const char* out_path, int num_games, int stride,
+                     int rollouts_per_board, int rollout_depth,
+                     uint64_t cap, const EvalWeights& weights,
+                     uint64_t seed_base, unsigned hw_threads) {
+    std::FILE* out = std::fopen(out_path, "w");
+    if (!out) {
+        std::fprintf(stderr, "failed to open %s for write\n", out_path);
+        return 1;
+    }
+    std::fprintf(out, "game_idx,move_idx,f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,"
+                     "f10,f11,f_sideSquare,current_eval,n_rollouts");
+    for (int k = 0; k < NUM_SURVIVAL_THRESHOLDS; ++k) {
+        std::fprintf(out, ",s%d", SURVIVAL_THRESHOLDS[k]);
+    }
+    std::fprintf(out, "\n");
+
+    std::mt19937_64 outer_seeder;
+    if (seed_base == 0) {
+        std::random_device rd;
+        outer_seeder.seed(((uint64_t)rd() << 32) | rd());
+    } else {
+        outer_seeder.seed(seed_base);
+    }
+
+    const auto start = std::chrono::steady_clock::now();
+    int boards_done = 0;
+
+    for (int gi = 0; gi < num_games; ++gi) {
+        const uint64_t game_seed = outer_seeder();
+        std::mt19937_64 game_rng(game_seed);
+        std::uniform_int_distribution<int> piece_dist(0, Piece::NUM_PIECES - 1);
+
+        GameState game(BitBoard::empty());
+        uint64_t move = 0;
+
+        while (!game.isOver() && (cap == 0 || move < cap)) {
+            Piece p0 = Piece::byIndex(piece_dist(game_rng));
+            Piece p1 = Piece::byIndex(piece_dist(game_rng));
+            Piece p2 = Piece::byIndex(piece_dist(game_rng));
+            game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2));
+            ++move;
+            if (move % (uint64_t)stride != 0) continue;
+            if (game.isOver()) break;
+
+            // Survey this board.
+            int64_t feats[NUM_FEATURES];
+            extractFeatures(game, feats);
+            const uint64_t cur = game.simpleEval(weights);
+
+            int alive_at[NUM_SURVIVAL_THRESHOLDS];
+            const auto b_start = std::chrono::steady_clock::now();
+            const uint64_t rseed = (game_seed * 1315423911ULL) ^ (move * 2654435761ULL);
+            surveyBoard(game.getBitBoard(), rollouts_per_board, rollout_depth,
+                        weights, rseed, hw_threads, alive_at);
+            const double b_secs = std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - b_start).count();
+
+            std::fprintf(out, "%d,%llu", gi, (unsigned long long)move);
+            for (int k = 0; k < NUM_FEATURES; ++k)
+                std::fprintf(out, ",%lld", (long long)feats[k]);
+            std::fprintf(out, ",%llu,%d", (unsigned long long)cur, rollouts_per_board);
+            for (int k = 0; k < NUM_SURVIVAL_THRESHOLDS; ++k)
+                std::fprintf(out, ",%d", alive_at[k]);
+            std::fprintf(out, "\n");
+            std::fflush(out);
+            ++boards_done;
+            std::fprintf(stderr,
+                         "[rollout] g%d m%llu  s50=%d/%d s200=%d/%d s1000=%d/%d  (%.1fs)\n",
+                         gi, (unsigned long long)move,
+                         alive_at[2], rollouts_per_board,   // s50
+                         alive_at[4], rollouts_per_board,   // s200
+                         alive_at[6], rollouts_per_board,   // s1000
+                         b_secs);
+        }
+    }
+    std::fclose(out);
+    const double wall = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+    std::fprintf(stderr, "[rollout] surveyed %d boards, wall=%.1fs -> %s\n",
+                 boards_done, wall, out_path);
+    return 0;
+}
+
 int runDistill(const char* out_path, int num_games, int stride, int samples,
                uint64_t cap, const EvalWeights& weights, uint64_t seed_base) {
     std::FILE* out = std::fopen(out_path, "w");
@@ -194,6 +340,12 @@ int main(int argc, char** argv) {
     int distill_stride = 25;     // sample 1 of every N boards visited
     int distill_samples = 30;    // piece-triples per teacher estimate
 
+    const char* rollout_out = nullptr;
+    int rollout_games = 5;
+    int rollout_stride = 1000;
+    int rollout_n = 200;
+    int rollout_depth = 1500;
+
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
         if (!std::strcmp(a, "--seed-base") && i + 1 < argc) {
@@ -215,6 +367,16 @@ int main(int argc, char** argv) {
             distill_stride = std::atoi(argv[++i]);
         } else if (!std::strcmp(a, "--distill-samples") && i + 1 < argc) {
             distill_samples = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--rollout-out") && i + 1 < argc) {
+            rollout_out = argv[++i];
+        } else if (!std::strcmp(a, "--rollout-games") && i + 1 < argc) {
+            rollout_games = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--rollout-stride") && i + 1 < argc) {
+            rollout_stride = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--rollout-n") && i + 1 < argc) {
+            rollout_n = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--rollout-depth") && i + 1 < argc) {
+            rollout_depth = std::atoi(argv[++i]);
         } else {
             int n = std::atoi(a);
             if (n > 0) num_games = n;
@@ -231,6 +393,21 @@ int main(int argc, char** argv) {
                      distill_out);
         return runDistill(distill_out, distill_games, distill_stride,
                           distill_samples, cap, weights, seed_base);
+    }
+
+    if (rollout_out) {
+        unsigned hw = std::thread::hardware_concurrency();
+        if (hw == 0) hw = 1;
+        std::fprintf(stderr,
+                     "[rollout] games=%d stride=%d n=%d depth=%d cap=%llu "
+                     "weights=%s threads=%u -> %s\n",
+                     rollout_games, rollout_stride, rollout_n, rollout_depth,
+                     (unsigned long long)cap,
+                     weights_overridden ? "custom" : "default",
+                     hw, rollout_out);
+        return runRolloutSurvey(rollout_out, rollout_games, rollout_stride,
+                                rollout_n, rollout_depth, cap, weights,
+                                seed_base, hw);
     }
 
     unsigned hw_threads = std::thread::hardware_concurrency();
