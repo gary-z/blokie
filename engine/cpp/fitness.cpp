@@ -65,6 +65,121 @@ bool parseWeights(const char* s, EvalWeights& out) {
     return idx == EvalWeights::NUM_WEIGHTS;
 }
 
+// Feature extraction for weight-tuning via distillation.
+// simpleEval is linear in the 12 tunable weights plus one hardcoded coefficient
+// (OccupiedSideSquare = 2000). So eval(B) = f(B) . [w0..w11, 2000].
+// We recover the 13-component feature vector by probing simpleEval with basis
+// weight vectors: zero gives 2000 * f_sideSquare, then each unit probe gives
+// f_k + 2000 * f_sideSquare. No solver changes required.
+constexpr int NUM_FEATURES = EvalWeights::NUM_WEIGHTS + 1;  // 13
+constexpr int SIDE_SQUARE_COEF = 2000;
+
+void extractFeatures(const GameState& g, int64_t out[NUM_FEATURES]) {
+    EvalWeights zero{};  // all weights 0 by default-init
+    const uint64_t base = g.simpleEval(zero);
+    out[NUM_FEATURES - 1] = (int64_t)(base / SIDE_SQUARE_COEF);
+    for (int k = 0; k < EvalWeights::NUM_WEIGHTS; ++k) {
+        EvalWeights probe{};
+        probe.weights[k] = 1;
+        const uint64_t v = g.simpleEval(probe);
+        out[k] = (int64_t)v - (int64_t)base;
+    }
+}
+
+// Teacher signal: E over random 3-piece draws of eval(result_board), where
+// result_board is what AI::makeMoveSimple picks with the current weights.
+// This is the value produced by one extra round of lookahead. The student
+// (distilled weights) is asked to predict this deeper-search value directly.
+double computeTeacherV3(const GameState& g, const EvalWeights& weights,
+                       int samples, std::mt19937_64& rng) {
+    if (g.isOver()) return (double)g.simpleEval(weights);
+    std::uniform_int_distribution<int> pd(0, Piece::NUM_PIECES - 1);
+    double sum = 0.0;
+    for (int i = 0; i < samples; ++i) {
+        Piece p0 = Piece::byIndex(pd(rng));
+        Piece p1 = Piece::byIndex(pd(rng));
+        Piece p2 = Piece::byIndex(pd(rng));
+        GameState r = AI::makeMoveSimple(weights, g, PieceSet(p0, p1, p2));
+        sum += (double)r.simpleEval(weights);
+    }
+    return sum / samples;
+}
+
+int runDistill(const char* out_path, int num_games, int stride, int samples,
+               uint64_t cap, const EvalWeights& weights, uint64_t seed_base) {
+    std::FILE* out = std::fopen(out_path, "w");
+    if (!out) {
+        std::fprintf(stderr, "failed to open %s for write\n", out_path);
+        return 1;
+    }
+    // Header: 13 features, teacher value, current eval, game_idx, move_idx.
+    std::fprintf(out, "f0,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f_sideSquare,"
+                     "teacher,current_eval,game_idx,move_idx\n");
+
+    // Outer seed stream (non-deterministic unless --seed-base given).
+    std::mt19937_64 outer_seeder;
+    if (seed_base == 0) {
+        std::random_device rd;
+        outer_seeder.seed(((uint64_t)rd() << 32) | rd());
+    } else {
+        outer_seeder.seed(seed_base);
+    }
+
+    const auto start = std::chrono::steady_clock::now();
+    int64_t total_rows = 0;
+
+    for (int gi = 0; gi < num_games; ++gi) {
+        const uint64_t game_seed = outer_seeder();
+        std::mt19937_64 game_rng(game_seed);
+        std::mt19937_64 teacher_rng(game_seed ^ 0x9E3779B97F4A7C15ULL);
+        std::uniform_int_distribution<int> piece_dist(0, Piece::NUM_PIECES - 1);
+
+        GameState game(BitBoard::empty());
+        uint64_t move = 0;
+        int64_t rows_this_game = 0;
+        const auto g_start = std::chrono::steady_clock::now();
+
+        while (!game.isOver() && (cap == 0 || move < cap)) {
+            Piece p0 = Piece::byIndex(piece_dist(game_rng));
+            Piece p1 = Piece::byIndex(piece_dist(game_rng));
+            Piece p2 = Piece::byIndex(piece_dist(game_rng));
+            game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2));
+            ++move;
+
+            if (move % (uint64_t)stride != 0) continue;
+            if (game.isOver()) break;
+
+            int64_t feats[NUM_FEATURES];
+            extractFeatures(game, feats);
+            const uint64_t cur = game.simpleEval(weights);
+            const double teacher = computeTeacherV3(game, weights, samples, teacher_rng);
+
+            for (int k = 0; k < NUM_FEATURES; ++k) {
+                std::fprintf(out, "%lld,", (long long)feats[k]);
+            }
+            std::fprintf(out, "%.3f,%llu,%d,%llu\n",
+                         teacher, (unsigned long long)cur, gi,
+                         (unsigned long long)move);
+            ++rows_this_game;
+        }
+
+        const double g_secs = std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - g_start).count();
+        std::fflush(out);
+        total_rows += rows_this_game;
+        std::fprintf(stderr,
+                     "[distill] game %d  moves=%llu  rows=%lld  (%.1fs)\n",
+                     gi, (unsigned long long)move, (long long)rows_this_game, g_secs);
+    }
+
+    std::fclose(out);
+    const double wall = std::chrono::duration<double>(
+        std::chrono::steady_clock::now() - start).count();
+    std::fprintf(stderr, "[distill] total rows=%lld wall=%.1fs -> %s\n",
+                 (long long)total_rows, wall, out_path);
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -73,6 +188,11 @@ int main(int argc, char** argv) {
     uint64_t cap = 0;         // 0 => no cap
     EvalWeights weights = EvalWeights::getDefault();
     bool weights_overridden = false;
+
+    const char* distill_out = nullptr;
+    int distill_games = 5;
+    int distill_stride = 25;     // sample 1 of every N boards visited
+    int distill_samples = 30;    // piece-triples per teacher estimate
 
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
@@ -87,10 +207,30 @@ int main(int argc, char** argv) {
                 return 1;
             }
             weights_overridden = true;
+        } else if (!std::strcmp(a, "--distill-out") && i + 1 < argc) {
+            distill_out = argv[++i];
+        } else if (!std::strcmp(a, "--distill-games") && i + 1 < argc) {
+            distill_games = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--distill-stride") && i + 1 < argc) {
+            distill_stride = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--distill-samples") && i + 1 < argc) {
+            distill_samples = std::atoi(argv[++i]);
         } else {
             int n = std::atoi(a);
             if (n > 0) num_games = n;
         }
+    }
+
+    if (distill_out) {
+        std::fprintf(stderr,
+                     "[distill] games=%d stride=%d samples=%d cap=%llu "
+                     "weights=%s -> %s\n",
+                     distill_games, distill_stride, distill_samples,
+                     (unsigned long long)cap,
+                     weights_overridden ? "custom" : "default",
+                     distill_out);
+        return runDistill(distill_out, distill_games, distill_stride,
+                          distill_samples, cap, weights, seed_base);
     }
 
     unsigned hw_threads = std::thread::hardware_concurrency();
