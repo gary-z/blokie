@@ -28,4 +28,8 @@ if(EMSCRIPTEN)
 		"SHELL:-s ALLOW_MEMORY_GROWTH=1"
 		"SHELL:-s NO_EXIT_RUNTIME=1"
 	)
+else()
+	# Native build: solver + benchmark driver.
+	add_executable(benchmark benchmark.cpp)
+	target_link_libraries(benchmark PRIVATE solver)
 endif()
