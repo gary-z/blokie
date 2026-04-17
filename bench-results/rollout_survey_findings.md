@@ -73,13 +73,67 @@ That is a ~10x speedup over full-game fitness evaluation (~5 min per
 candidate at cap=25k), which puts proper optimizers (CMA-ES, SLSQP,
 Nelder-Mead) back in the feasible regime.
 
-## Caveat (pending investigation)
+## Early-game follow-up (update)
 
-The full-game MLE showed an elevated "bad start" hazard regime below
-~10,000 moves (~2.7e-5 vs ~2.1e-5 steady-state). This survey did NOT
-include boards from the first 2,000 moves of a game, so it says nothing
-about whether early-game boards also mix to a common hazard, or whether
-some near-empty boards are genuinely chronically risky.
+Repeated the survey with cap=10,000 and stride=500 so we could walk the
+hazard curve across the early-game regime. Data: `bench-results/rollout_early.csv`,
+analysis: `bench-results/rollout_analyze_early.py`. 100 boards x 200 rollouts
+each, 1 hour wall.
 
-Next step: repeat the survey with cap=10,000 and stride=500 to walk the
-hazard curve across the early regime.
+### Pooled hazard by absolute-move position of the sampled board
+
+Rollout window [100, 1500]:
+
+| move bin | boards | pooled hazard |
+|---|---|---|
+| [    0, 1000) |  5 | 2.36e-5 |
+| [ 1000, 2000) | 10 | 2.50e-5 |
+| [ 2000, 3000) | 10 | 2.29e-5 |
+| [ 3000, 4000) | 10 | 2.11e-5 |
+| [ 4000, 5000) | 10 | 1.58e-5 |
+| [ 5000, 6000) | 10 | 2.08e-5 |
+| [ 6000, 7000) | 10 | 2.90e-5 |
+| [ 7000, 8000) | 10 | 2.43e-5 |
+| [ 8000, 9000) | 10 | 2.76e-5 |
+| [ 9000,10000] | 15 | 2.34e-5 |
+
+Pooled lambda across ALL early-game boards = 2.37e-5/move (mean life 42,144).
+Spearman rho(move_idx, per-board hazard) = +0.06 -- essentially zero and
+in the wrong direction for "bad start."
+chi^2(99) = 111.0, p = 0.19 -- cannot reject single-lambda.
+
+### Reframing: the "bad start" regime is SURVIVORSHIP BIAS
+
+The full-game MLE reported earlier showed hazard in moves [0, 10000) of
+~3.18e-5 -- about 35% higher than what the rollout survey measures from
+typical early-game boards (~2.37e-5).
+
+The two agree once we realize they measure different things:
+
+- **Full-game MLE** averages over all games' moves in the 0-10k window.
+  Games that crash-and-burn in those first thousands of moves contribute
+  their entire trajectory to this average. Their per-move hazard pulls
+  the bucket average up.
+
+- **Rollout survey** samples boards from games that SURVIVED to that
+  move. Games that already died are never observed. The surveyed boards
+  are therefore "typical healthy" early-game states.
+
+So the true picture is a mixture, not a two-regime curve:
+
+- **~90% of trajectories**: pure-geometric at ~2.1e-5/move from turn 1.
+- **~10% of trajectories**: crash into an unrecoverable state within a
+  few thousand moves, pulling up the 0-10k bucket when averaged.
+
+### Implications for tuning
+
+1. Short-rollout panel-based tuning remains valid; it measures per-board
+   forward hazard correctly.
+2. The preventable ~10-15% uplift from "fixing the start" is NOT about
+   tweaking weights to play safer on typical sparse boards. It is about
+   preventing the rare catastrophic placement -- a low-frequency event
+   that current weights handle wrong. Those are hard to mine.
+3. Candidate next experiment: collect the ~100 moves BEFORE each
+   early-game death to see what the board+eval trajectory looks like as
+   the solver enters the cliff. That panel could drive tuning that
+   targets the actual failure mode.
