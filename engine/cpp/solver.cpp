@@ -479,6 +479,49 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		}
 	}
 
+	// Near-complete lines (rows, cols, cubes with >= 7 of 9 cells filled).
+	// Encode as a penalty per line that is NOT near-complete: keeps all
+	// contributions non-negative and preserves the "lower eval is better"
+	// invariant. When weights[12] == 0 (default) this term adds nothing.
+	if (weights.getNotNearComplete() != 0) {
+		int near_complete = 0;
+		for (int i = 0; i < 9; ++i) {
+			if ((bb & BitBoard::row(i)).count() >= 7) ++near_complete;
+			if ((bb & BitBoard::column(i)).count() >= 7) ++near_complete;
+		}
+		for (int r = 0; r < 3; ++r) {
+			for (int c = 0; c < 3; ++c) {
+				if ((bb & BitBoard::cube(r, c)).count() >= 7) ++near_complete;
+			}
+		}
+		// 27 total lines (9 rows + 9 cols + 9 cubes).
+		result += (uint64_t)(27 - near_complete) * weights.getNotNearComplete();
+	}
+
+	// Clearable-piece-types: count piece types (of NUM_PIECES) for which
+	// SOME placement on `bb` triggers a clear. Reward boards with high
+	// count. Expensive -- up to ~47 * avg_placements bit-ops per eval --
+	// so only compute when the weight is nonzero.
+	if (weights.getFewClearablePieces() != 0) {
+		const int board_count = bb.count();
+		int clearable = 0;
+		for (const auto piece : Piece::getAll()) {
+			const int expected_after_no_clear = board_count
+				+ piece.getBitBoard().count();
+			bool found = false;
+			GameState g(bb);
+			for (const auto next : g.nextStates(piece)) {
+				if (next.getBitBoard().count() < expected_after_no_clear) {
+					found = true;
+					break;
+				}
+			}
+			if (found) ++clearable;
+		}
+		result += (uint64_t)(Piece::NUM_PIECES - clearable)
+			* weights.getFewClearablePieces();
+	}
+
 	return std::min(result, max);
 }
 
@@ -613,6 +656,8 @@ EvalWeights EvalWeights::getDefault() {
 	r.weights[9] = 3386; // squashed at edge
 	r.weights[10] = 1607; // occupied center square
 	r.weights[11] = 3067; // occupied corner square
+	r.weights[12] = 0;    // not-near-complete line penalty (default off)
+	r.weights[13] = 0;    // per-piece-type-that-cannot-clear penalty (default off)
 	return r;
 }
 int EvalWeights::getOccupiedSideSquare() const {
@@ -655,18 +700,43 @@ int EvalWeights::getOccupiedCenterSquare() const {
 int EvalWeights::getOccupiedCornerSquare() const {
 	return weights[11];
 }
+int EvalWeights::getNotNearComplete() const {
+	return weights[12];
+}
+int EvalWeights::getFewClearablePieces() const {
+	return weights[13];
+}
 
 
 // ====== AI
 GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet piece_set) {
+	// Beam-pruned 4-piece lookahead:
+	//  1) Enumerate all candidate "after_p2" states (same dedup logic as
+	//     makeMoveSimple), compute simpleEval for each.
+	//  2) Keep the top BEAM best-scored candidates.
+	//  3) Expand only those through the 46-piece p3 rollout.
+	//
+	// The top-by-simpleEval assumption: candidates with bad 1-step eval are
+	// unlikely to win on expected next-turn eval. This cuts the p3 rollout
+	// cost from 48k candidates to BEAM (~300x fewer) while retaining most
+	// of the quality signal.
+	constexpr int BEAM = 64;
+	constexpr uint64_t UNPLACEABLE_PENALTY = 1000000000ULL;
+
 	std::sort(piece_set.pieces, piece_set.pieces + 3);
-
-	uint64_t bestScore = UINT64_MAX;
-	auto bestNext = GameState(BitBoard::full());
-
 	const auto can_clear_with_2_pieces = AI::canClearWith2PiecesOrFewer(game, piece_set);
 
-	// Foreach permutation of the pieces.
+	// Phase 1: enumerate candidates.
+	struct Candidate {
+		GameState state;
+		uint64_t eval;
+		Candidate() : state(BitBoard::empty()), eval(0) {}
+		Candidate(GameState s, uint64_t e) : state(s), eval(e) {}
+		bool operator<(const Candidate& o) const { return eval < o.eval; }
+	};
+	std::vector<Candidate> candidates;
+	candidates.reserve(2048);
+
 	bool is_first_permutation = true;
 	do {
 		const auto p0 = piece_set.pieces[0];
@@ -675,54 +745,64 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 		for (const auto after_p0 : game.nextStatesClearsFirst(p0)) {
 			for (const auto after_p1 : after_p0.nextStatesClearsFirst(p1)) {
 				const auto after_p1_max_count = game.getBitBoard().count() +
-					p0.getBitBoard().count() +
-					p1.getBitBoard().count();
+					p0.getBitBoard().count() + p1.getBitBoard().count();
 				if (p1 < p0 && after_p1.getBitBoard().count() == after_p1_max_count) {
-					// Tried this permutation before.
 					continue;
 				}
-
 				for (const auto after_p2 : after_p1.nextStates(p2)) {
 					if (!is_first_permutation &&
 						after_p2.getBitBoard().count() == game.getBitBoard().count()
-						+ p0.getBitBoard().count() +
-						p1.getBitBoard().count() +
-						p2.getBitBoard().count()
-						) {
-						// No clears. This position was seen in a previous permutation.
+						+ p0.getBitBoard().count() + p1.getBitBoard().count()
+						+ p2.getBitBoard().count()) {
 						continue;
 					}
-
-					uint64_t total_after_p2 = 0;
-					bool is_1x1 = true;
-					for (const auto p3 : Piece::getAll()) {
-						if (is_1x1) {
-							// Be pessimistic and pretend we won't get a 1x1.
-							is_1x1 = false;
-							continue;
-						}
-
-						uint64_t best_after_p3 = UINT64_MAX;
-						for (const auto after_p3 : after_p2.nextStates(p3)) {
-							best_after_p3 = std::min(best_after_p3,
-								after_p3.simpleEval(weights));
-						}
-						total_after_p2 += best_after_p3;
-						if (total_after_p2 > bestScore) {
-							// after_p3 is worse than the existing candidate already.
-							break;
-						}
-					}
-
-					if (total_after_p2 < bestScore) {
-						bestScore = total_after_p2;
-						bestNext = after_p2;
-					}
+					candidates.emplace_back(after_p2, after_p2.simpleEval(weights));
 				}
 			}
 		}
 		is_first_permutation = false;
-	} while (can_clear_with_2_pieces && std::next_permutation(piece_set.pieces, piece_set.pieces + 3));
+	} while (can_clear_with_2_pieces
+		&& std::next_permutation(piece_set.pieces, piece_set.pieces + 3));
+
+	if (candidates.empty()) {
+		return GameState(BitBoard::full());
+	}
+
+	// Phase 2: keep top BEAM by simpleEval.
+	if ((int)candidates.size() > BEAM) {
+		std::nth_element(candidates.begin(),
+			candidates.begin() + BEAM, candidates.end());
+		candidates.resize(BEAM);
+	}
+
+	// Phase 3: expand the beam through p3.
+	uint64_t bestScore = UINT64_MAX;
+	auto bestNext = GameState(BitBoard::full());
+
+	for (const auto& cand : candidates) {
+		const GameState& after_p2 = cand.state;
+		uint64_t total_after_p2 = 0;
+		bool is_1x1 = true;
+		for (const auto p3 : Piece::getAll()) {
+			if (is_1x1) {
+				is_1x1 = false;
+				continue;
+			}
+			uint64_t best_after_p3 = UINT64_MAX;
+			for (const auto after_p3 : after_p2.nextStates(p3)) {
+				best_after_p3 = std::min(best_after_p3, after_p3.simpleEval(weights));
+			}
+			if (best_after_p3 == UINT64_MAX) {
+				best_after_p3 = UNPLACEABLE_PENALTY;
+			}
+			total_after_p2 += best_after_p3;
+			if (total_after_p2 > bestScore) break;
+		}
+		if (total_after_p2 < bestScore) {
+			bestScore = total_after_p2;
+			bestNext = after_p2;
+		}
+	}
 
 	return bestNext;
 }

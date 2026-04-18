@@ -21,7 +21,8 @@ struct GameResult {
     bool died;  // true if board filled (natural death); false if capped
 };
 
-GameResult playOneGame(uint64_t seed, const EvalWeights& weights, uint64_t cap) {
+GameResult playOneGame(uint64_t seed, const EvalWeights& weights, uint64_t cap,
+                       bool lookahead) {
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<int> piece_dist(0, Piece::NUM_PIECES - 1);
 
@@ -31,7 +32,9 @@ GameResult playOneGame(uint64_t seed, const EvalWeights& weights, uint64_t cap) 
         Piece p0 = Piece::byIndex(piece_dist(rng));
         Piece p1 = Piece::byIndex(piece_dist(rng));
         Piece p2 = Piece::byIndex(piece_dist(rng));
-        game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2));
+        game = lookahead
+            ? AI::makeMoveLookahead(weights, game, PieceSet(p0, p1, p2))
+            : AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2));
         ++moves;
     }
     return {seed, moves, game.isOver()};
@@ -474,6 +477,8 @@ int main(int argc, char** argv) {
     const char* death_trace_out = nullptr;
     int death_trace_games = 40;
 
+    bool lookahead = false;
+
     for (int i = 1; i < argc; ++i) {
         const char* a = argv[i];
         if (!std::strcmp(a, "--seed-base") && i + 1 < argc) {
@@ -509,6 +514,8 @@ int main(int argc, char** argv) {
             death_trace_out = argv[++i];
         } else if (!std::strcmp(a, "--death-trace-games") && i + 1 < argc) {
             death_trace_games = std::atoi(argv[++i]);
+        } else if (!std::strcmp(a, "--lookahead")) {
+            lookahead = true;
         } else {
             int n = std::atoi(a);
             if (n > 0) num_games = n;
@@ -574,11 +581,12 @@ int main(int argc, char** argv) {
     std::mutex log_mutex;
 
     std::fprintf(stderr,
-                 "Running %d games across %u threads (%s seeds, cap=%llu, weights=%s)...\n",
+                 "Running %d games across %u threads (%s seeds, cap=%llu, weights=%s, ai=%s)...\n",
                  num_games, num_threads,
                  seed_base == 0 ? "random" : "deterministic",
                  (unsigned long long)cap,
-                 weights_overridden ? "custom" : "default");
+                 weights_overridden ? "custom" : "default",
+                 lookahead ? "makeMoveLookahead" : "makeMoveSimple");
 
     const auto start = std::chrono::steady_clock::now();
 
@@ -591,7 +599,7 @@ int main(int argc, char** argv) {
                 if (id >= num_games) return;
 
                 const auto g_start = std::chrono::steady_clock::now();
-                GameResult r = playOneGame(seeds[id], weights, cap);
+                GameResult r = playOneGame(seeds[id], weights, cap, lookahead);
                 const auto g_end = std::chrono::steady_clock::now();
                 const double g_secs =
                     std::chrono::duration<double>(g_end - g_start).count();

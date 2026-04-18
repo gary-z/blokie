@@ -108,7 +108,7 @@ public:
 
 class EvalWeights {
 public:
-	static constexpr int NUM_WEIGHTS = 12;
+	static constexpr int NUM_WEIGHTS = 14;
 	static constexpr int MAX_WEIGHT = 40000;
 
 	int weights[NUM_WEIGHTS] = {0};
@@ -128,6 +128,15 @@ public:
 	int getSquashedEmptyAtEdge() const;
 	int getOccupiedCornerSquare() const;
 	int getOccupiedCenterSquare() const;
+	// Penalty per line (row/col/cube) that is NOT near-complete
+	// (near-complete = >= 7 of 9 cells filled). Sweep showed this hurts
+	// play monotonically; kept for record, default 0.
+	int getNotNearComplete() const;
+	// Penalty per piece type (of Piece::NUM_PIECES) that CANNOT trigger a
+	// clear on the current board. Rewards boards with many clearable next
+	// pieces. Expensive: ~O(47 * avg_placements) bit-ops per eval.
+	// Default 0 = feature off.
+	int getFewClearablePieces() const;
 
 	static EvalWeights getDefault();
 };
