@@ -7,6 +7,7 @@ import { blokie } from "../engine/blokie.js";
 
 const GAME_COOKIE = 'blokie_game';
 const ASSIST_COOKIE = 'blokie_assist';
+const SFX_COOKIE = 'blokie_sfx';
 const COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365;  // a year
 
 // Bump when the field layout changes, so an older cookie is ignored rather
@@ -140,11 +141,24 @@ function loadAssistSetting() {
     return getCookie(ASSIST_COOKIE);
 }
 
+// Whether sound is on, as 'on' or 'off'. Anything else, including no cookie at
+// all, reads as off: a page that starts making noise on its own is a page
+// people close, so it stays quiet until someone asks for it.
+function saveSfxSetting(on) {
+    setCookie(SFX_COOKIE, on ? 'on' : 'off');
+}
+
+function loadSfxSetting() {
+    return getCookie(SFX_COOKIE) === 'on';
+}
+
 export {
     saveGameState,
     loadGameState,
     saveAssistSetting,
     loadAssistSetting,
+    saveSfxSetting,
+    loadSfxSetting,
     encodeGameState,
     decodeGameState,
 };

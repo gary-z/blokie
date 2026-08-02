@@ -1,6 +1,7 @@
 "use strict";
 import { blokie, init } from "../engine/blokie.js";
 import { saveGameState, loadGameState, saveAssistSetting, loadAssistSetting } from "./storage.js";
+import { initSfx, playSfx } from "./sfx.js";
 
 
 // You play the game by dragging pieces onto the board. The AI assist can play
@@ -61,6 +62,8 @@ document.addEventListener("DOMContentLoaded", function (event) {
         onGameStateChanged();
     });
     showWhoIsPlaying();  // the picker may be carrying a restored selection
+
+    initSfx(document.getElementById('sound'));
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
@@ -246,6 +249,20 @@ function calcShadowPlacement(clientX, clientY, piece, bounds) {
     return { placement: result.placement, targetRow, targetCol };
 }
 
+// Whether the piece was over the board when it was let go, using the same
+// geometry updateFloatingPosition draws it with. Dropping it anywhere else is
+// a change of mind rather than a rejected placement, and buzzing at that would
+// punish taking the piece back.
+function droppedOverBoard(clientX, clientY, bounds) {
+    const boardRect = document.getElementById('game-board').getBoundingClientRect();
+    const pieceW = (boardRect.width / 9) * bounds.cols;
+    const pieceH = (boardRect.height / 9) * bounds.rows;
+    const left = clientX - pieceW / 2;
+    const top = clientY - FINGER_CLEARANCE - pieceH;
+    return left < boardRect.right && left + pieceW > boardRect.left
+        && top < boardRect.bottom && top + pieceH > boardRect.top;
+}
+
 function handleDragMove(clientX, clientY) {
     if (!drag_info) return;
 
@@ -259,6 +276,9 @@ function handleDragMove(clientX, clientY) {
         drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
         state.dragging_piece_index = drag_info.pieceIndex;
         stopAI();
+        // Here rather than on mousedown: a tap that never crosses the
+        // threshold is deliberately nothing, and should sound like nothing.
+        playSfx('pickup');
     }
 
     updateFloatingPosition(drag_floating_el, clientX, clientY, drag_info.bounds);
@@ -299,6 +319,10 @@ function handleDragEnd(clientX, clientY) {
                 drag_info.targetCol
             );
             if (result) {
+                playSfx('place');
+                if (result.newGame.previous_move_was_clear) {
+                    playSfx('clear');
+                }
                 state.game_state.piece_set[drag_info.pieceIndex] = blokie.getEmptyPiece();
                 if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
                     state.game_state.piece_set = blokie.getRandomPieceSet();
@@ -309,6 +333,9 @@ function handleDragEnd(clientX, clientY) {
                 onGameStateChanged();
                 return;
             }
+        }
+        if (droppedOverBoard(clientX, clientY, drag_info.bounds)) {
+            playSfx('reject');
         }
         cleanupDrag();
         onGameStateChanged();
@@ -351,10 +378,21 @@ function showWhoIsPlaying() {
     document.getElementById('ai-assist').classList.toggle('assist-on', assistIsOn());
 }
 
+// Whether the assist is playing slowly enough to animate a move, and so to
+// sound it. At Max the moves land faster than either is worth doing.
+function assistShowsMoves() {
+    const delay_ms = getAssistDelayMs();
+    return delay_ms !== null && delay_ms >= FLY_ANIM_MS;
+}
+
 // The game ends when nothing on deck fits anywhere, whoever is placing.
 function refreshGameOver(game_state) {
     game_state.game_over = !blokie.hasValidMove(game_state.game.board, game_state.piece_set);
     return game_state;
+}
+
+function sameBoard(a, b) {
+    return a.board.a === b.board.a && a.board.b === b.board.b && a.board.c === b.board.c;
 }
 
 function stopAI() {
@@ -399,6 +437,13 @@ function onGameStateChanged() {
         // one of these pieces, so drop the sentinel and let them finish.
         if (game_state.queued_game_states.length > 0 && blokie.isOver(game_state.queued_game_states[0])) {
             game_state.queued_game_states = [];
+        }
+        // The assist posts on every tick, including ones where it only planned
+        // ahead. A move actually landed when the board it reports differs from
+        // the one already on screen, and that is when the cells shrink out.
+        if (assistShowsMoves() && game_state.game.previous_move_was_clear
+            && !sameBoard(state.game_state.game, game_state.game)) {
+            playSfx('clear');
         }
         state.game_state = refreshGameOver(game_state);
     };
@@ -482,6 +527,7 @@ function render() {
         cleanupFlyAnim();
         _fly_landed = true;
         flyJustLanded = true;
+        playSfx('place');  // the assist's piece has arrived on the board
     }
 
     // Detect new preview (queued move shown) and start fly animation.
@@ -490,14 +536,13 @@ function render() {
     const nextQueued = gs.queued_game_states.length > 0 ? gs.queued_game_states[0] : null;
     const previewJson = nextQueued ? JSON.stringify(nextQueued.previous_piece_placement) : null;
 
-    const assist_delay_ms = getAssistDelayMs();
-    if (previewJson && previewJson !== _prev_preview_json && !drag_info
-        && assist_delay_ms !== null && assist_delay_ms >= FLY_ANIM_MS) {
+    if (previewJson && previewJson !== _prev_preview_json && !drag_info && assistShowsMoves()) {
         const pieceIndex = gs.piece_set.findIndex(p => p === nextQueued.previous_piece);
         if (pieceIndex >= 0) {
             cleanupFlyAnim();
             _fly_landed = false;
             _fly_anim = startFlyAnimation(pieceIndex, nextQueued.previous_piece, nextQueued.previous_piece_placement);
+            playSfx('pickup');  // the assist has taken a piece off the deck
         }
     }
     _prev_preview_json = previewJson;
