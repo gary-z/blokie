@@ -1,5 +1,6 @@
 "use strict";
 import { blokie, init } from "../engine/blokie.js";
+import { saveGameState, loadGameState, saveAssistSetting, loadAssistSetting } from "./storage.js";
 
 
 // You play the game by dragging pieces onto the board. The AI assist can play
@@ -30,18 +31,36 @@ let state = {
 let drag_info = null;       // { pieceIndex, piece, bounds, startX, startY, active, targetRow, targetCol }
 let drag_floating_el = null;
 
+// Rendering is scheduled before the saved game is read back, so nothing is
+// written until it has been: a frame drawn in between would otherwise save the
+// empty game this file starts with over the one waiting in the cookie.
+let ready_to_save = false;
+
+function saveGame() {
+    if (ready_to_save) {
+        saveGameState(state.game_state);
+    }
+}
+
 const DRAG_THRESHOLD = 8;
 const FINGER_CLEARANCE = 30;  // px of clearance above the touch point
 
 document.addEventListener("DOMContentLoaded", function (event) {
+    // Restore who was playing before anything reads the picker.
+    const ai_assist = document.getElementById('ai-assist');
+    const saved_assist = loadAssistSetting();
+    if (saved_assist !== null && [...ai_assist.options].some(o => o.value === saved_assist)) {
+        ai_assist.value = saved_assist;
+    }
+
     // Switching between manual play and an assist speed restarts the assist
     // from wherever the game currently stands.
-    const ai_assist = document.getElementById('ai-assist');
     ai_assist.addEventListener('change', () => {
+        saveAssistSetting(ai_assist.value);
         showWhoIsPlaying();
         onGameStateChanged();
     });
-    showWhoIsPlaying();  // browsers can restore a previous selection on reload
+    showWhoIsPlaying();  // the picker may be carrying a restored selection
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
@@ -134,7 +153,25 @@ document.addEventListener("DOMContentLoaded", function (event) {
         }
     });
 
-    onNewGame();
+    // A hidden tab stops rendering, and with it saving, while the assist keeps
+    // playing. Put the game where it actually stands before the page can go.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            saveGame();
+        }
+    });
+    window.addEventListener('pagehide', saveGame);
+
+    // Pick the last game back up, or start a fresh one when there is nothing
+    // saved to pick up. Saving starts once that is settled, either way.
+    const saved_game_state = loadGameState();
+    ready_to_save = true;
+    if (saved_game_state !== null) {
+        state.game_state = saved_game_state;
+        onGameStateChanged();
+    } else {
+        onNewGame();
+    }
 });
 
 function gameIsActive() {
@@ -468,6 +505,9 @@ function render() {
     if (stateChanged || flyJustLanded) {
         last_rendered_state_json = state_json;
         renderImpl();
+        // Only the committed game is saved, never a move the assist has merely
+        // lined up, and only when it differs from what is already in the cookie.
+        saveGame();
     }
 
     window.requestAnimationFrame(render);
