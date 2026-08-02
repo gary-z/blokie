@@ -35,7 +35,7 @@
             font-family: roboto;
             font-size: 5vh;
             font-weight: bold;
-            margin-bottom: 3vh;
+            margin-bottom: 2vh;
         }
 
         #for-aspect-ratio {
@@ -80,12 +80,8 @@
         }
 
         @media(hover: hover) and (pointer: fine) {
-            #game-board td:hover {
-                outline: 4px solid orangered;
-            }
-
-            table.pieces-on-deck tr td:hover {
-                outline: 4px solid orangered;
+            table.pieces-on-deck tr td.has-piece {
+                cursor: grab;
             }
         }
 
@@ -128,52 +124,47 @@
             font-size: 2vh;
         }
 
-        #speed-container {
+        #assist-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0;
+            gap: 1.5vw;
+            min-height: 4vh;
         }
 
-        .speed-btn {
-            background: #e0e0e0;
-            border: 1px solid #ccc;
-            color: #222;
-            padding: 1vh 2vw;
+        #ai-assist {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            color: #444;
+            /* A board cell is min(10vw, 6.67vh); size off the same min() so the
+               control stays about a block tall whichever axis is binding. */
+            padding: min(2vw, 1.33vh) min(3vw, 2vh);
             cursor: pointer;
-            font-size: 3vh;
+            font-family: roboto;
+            font-size: min(4.5vw, 3vh);
             font-weight: bold;
-            transition: background 0.15s, color 0.15s;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
         }
 
-        .speed-btn:first-child {
-            border-radius: 6px 0 0 6px;
+        /* Native popups ignore this on some platforms; harmless where they do. */
+        #ai-assist option {
+            font-weight: bold;
         }
 
-        .speed-btn:last-child {
-            border-radius: 0 6px 6px 0;
-        }
-
-        .speed-btn + .speed-btn {
-            border-left: none;
-        }
-
-        .speed-btn.active {
-            background: rgb(54, 112, 232);
-            color: white;
+        /* Tinted while the assist is playing, plain while you are. */
+        #ai-assist.assist-on {
+            background: #e8eefc;
             border-color: rgb(54, 112, 232);
-        }
-
-        .speed-btn.active + .speed-btn {
-            border-left-color: rgb(54, 112, 232);
+            color: #222;
         }
     </style>
     <meta property="og:description"
-        content="Watch an AI solve Blockudoku/Woodoku/Block Sudoku in real time. Sabotage the computer's perfect gameplay by altering the board or pieces, or sit back and watch it play. Learn, be inspired, or vent your frustration." />
+        content="Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration." />
     <meta property="og:image" content="https://gary-z.github.io/blokie/preview.png" />
     <meta name="google-site-verification" content="a62LBKJ5-DBNPPVbH1buHMLMT1CEM5j456tPhU30GCE" />
     <meta name="description"
-        content="Watch an AI solve Blockudoku/Woodoku/Block Sudoku in real time. Sabotage the computer's perfect gameplay by altering the board or pieces, or sit back and watch it play. Learn, be inspired, or vent your frustration." />
+        content="Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration." />
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JSG4CGEK2S"></script>
@@ -189,7 +180,7 @@
     <div id="for-aspect-ratio">
         <div title="score" id="score">0</div>
         <div id="game-table-container">
-            <table title="The Blockudoku/Woodoku/Block Sudoku  game board. Tap a square to add or remove a block."
+            <table title="The Blockudoku/Woodoku/Block Sudoku  game board. Drag a piece here to place it."
                 id="game-board">
                 <tr>
                     <td></td>
@@ -293,7 +284,7 @@
                 </tr>
             </table>
             <div id="pieces-on-deck-container"
-                title="The three pieces you have available. Tap a square to change the piece's shape.">
+                title="The three pieces you have available. Drag one onto the board to place it.">
                 <table class="pieces-on-deck" id="piece-on-deck-0">
                     <tr>
                         <td></td>
@@ -408,11 +399,15 @@
             </div>
         </div>
         <div class="footer">
-            <div id="speed-container">
-                <button class="speed-btn" data-delay="2000">1x</button>
-                <button class="speed-btn active" data-delay="1000">2x</button>
-                <button class="speed-btn" data-delay="400">5x</button>
-                <button class="speed-btn" data-delay="0">Max</button>
+            <div id="assist-container">
+                <select id="ai-assist" class="assist-on" aria-label="Who plays"
+                    title="Play the game yourself, or let the AI assist play it for you.">
+                    <option value="off">&#127918; Manual</option>
+                    <option value="2000" selected>&#10024; 1x</option>
+                    <option value="1000">&#10024; 2x</option>
+                    <option value="400">&#10024; 5x</option>
+                    <option value="0">&#10024; Max</option>
+                </select>
             </div>
             <p>
                 <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>

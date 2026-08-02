@@ -17,6 +17,16 @@ self.onmessage = async (e) => {
             }
             game_state.queued_game_states = blokie.getAIMove(game_state.game, game_state.piece_set).new_game_states;
             game_state.game.previous_piece_placement = blokie.getEmptyPiece();
+
+            // Slots the player already emptied come back as no-op states, and
+            // playing one costs a turn in which nothing happens. Drop them.
+            // When the solver has no move at all it returns nothing but no-ops,
+            // on a full board -- keep those, they are how it says it gave up.
+            const with_placements = game_state.queued_game_states.filter(
+                s => !blokie.isEmpty(s.previous_piece_placement));
+            if (with_placements.length > 0) {
+                game_state.queued_game_states = with_placements;
+            }
             return false;
         }
         if (blokie.isOver(game_state.queued_game_states[0])) {
