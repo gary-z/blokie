@@ -49,8 +49,8 @@
             font-size: 5vh;
             font-weight: bold;
             margin-bottom: 2vh;
-            /* Reserved on both sides so the score stays centred. A long
-               "Final score:" wraps rather than running under the gear. */
+            /* Reserved on both sides so the score stays centred, and so a long
+               one wraps rather than running under the gear. */
             padding: 0 calc(var(--gear-size) + var(--gear-gap));
         }
 
@@ -64,6 +64,9 @@
 
         #game-table-container {
             aspect-ratio: 1 / 1;
+            /* The game-over card is placed against this box, so it covers the
+               board and stops short of the pieces below it. */
+            position: relative;
         }
 
         #game-board {
@@ -135,6 +138,76 @@
         table.pieces-on-deck tr td.has-piece {
             background: rgb(54, 112, 232);
             border: 1px solid black;
+        }
+
+        /* Nothing on deck fits anywhere. The board stays readable under a wash
+           so the position that ended it can still be studied, and the card is
+           the only thing left to press. */
+        #game-over {
+            position: absolute;
+            /* Square, pinned to the top of the container: that is exactly the
+               board. The container itself is taller than its 1/1 ratio, since
+               the pieces on deck hang below the board inside it, and a wash
+               drawn over those would fight the grey they are already given. */
+            top: 0;
+            left: 0;
+            right: 0;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        /* Beats the display above, which would otherwise keep it on screen. */
+        #game-over[hidden] {
+            display: none;
+        }
+
+        #game-over-card {
+            background: white;
+            border: 2px solid rgb(54, 112, 232);
+            border-radius: 10px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+            padding: min(4vw, 2.7vh) min(6vw, 4vh);
+            text-align: center;
+            font-family: roboto;
+        }
+
+        #game-over-card h2 {
+            margin: 0 0 0.2em;
+            font-size: min(7vw, 4.6vh);
+            color: #222;
+        }
+
+        #game-over-summary {
+            margin: 0 0 0.7em;
+            font-size: min(4vw, 2.7vh);
+            color: #555;
+        }
+
+        #game-over-summary b {
+            color: #222;
+            font-size: min(5.5vw, 3.7vh);
+        }
+
+        #new-game {
+            background: rgb(54, 112, 232);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-family: roboto;
+            font-size: min(4.5vw, 3vh);
+            font-weight: bold;
+            padding: min(2.4vw, 1.6vh) min(6vw, 4vh);
+        }
+
+        /* The pieces are still on deck, and that is the point: draining them
+           shows they are out of moves rather than waiting to be dragged. */
+        body.game-over #pieces-on-deck-container {
+            filter: grayscale(1);
+            opacity: 0.45;
         }
 
         /* Sparkles is a colour emoji, drawn gold everywhere, and gold washes out
@@ -308,6 +381,17 @@
                 background: #dbe5fa;
             }
         }
+
+        /* The label swaps to a question and back. The question is carried here
+           too, laid out but never drawn, so the widest of the two is what sets
+           the width and the menu doesn't breathe under the pointer. */
+        #restart-label::after {
+            content: 'Start over?';
+            display: block;
+            height: 0;
+            overflow: hidden;
+            visibility: hidden;
+        }
     </style>
     <meta property="og:description"
         content="Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration." />
@@ -340,6 +424,10 @@
                 </svg>
             </button>
             <div id="settings-menu" hidden>
+                <button type="button" id="restart" title="Start a new game">
+                    <span class="menu-icon" aria-hidden="true">&#8635;</span><span
+                        id="restart-label">New game</span>
+                </button>
                 <button type="button" id="sound" aria-pressed="false">
                     <span class="menu-icon" aria-hidden="true"></span>Sound
                 </button>
@@ -566,6 +654,13 @@
                         <td></td>
                     </tr>
                 </table>
+            </div>
+            <div id="game-over" role="status" hidden>
+                <div id="game-over-card">
+                    <h2>Game over</h2>
+                    <p id="game-over-summary">Final score <b id="final-score"></b></p>
+                    <button type="button" id="new-game">New game</button>
+                </div>
             </div>
         </div>
         <div id="assist-container">
