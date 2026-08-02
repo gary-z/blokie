@@ -33,3 +33,8 @@ No.
 
 ## Why did I build this?
 Cause a mermaid was better than me at this game.
+
+## Disclaimer
+Blokie is an independent, unofficial project. It is not affiliated with, endorsed by, or sponsored by Easybrain, Tripledot Studios, or the developers of Block Sudoku.
+
+Blockudoku is a trademark of Easybrain Ltd. Woodoku is a trademark of Tripledot Studios Limited. All trademarks are the property of their respective owners and are used here only to describe the games this engine is compatible with.
