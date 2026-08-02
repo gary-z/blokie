@@ -541,6 +541,50 @@ function get_next_boards(board, p, clears_first = false) {
     return result;
 }
 
+// Returns true if `piece` fits anywhere on `board`. Mirrors the placement walk
+// in get_next_boards, but short circuits on the first fit instead of building
+// every resulting board.
+function can_place_piece(board, piece) {
+    let p = left_top_justify_piece(piece);
+    if (is_empty(p)) {
+        return false;
+    }
+
+    let left = p;
+    const col8 = column(8);
+    const row8 = row(8);
+    while (true) {
+        if (is_disjoint(board, p)) {
+            return true;
+        }
+        if (!is_disjoint(p, col8)) {
+            if (!is_disjoint(left, row8)) {
+                return false;
+            }
+            left = shift_down(left);
+            p = left;
+        } else {
+            p = shift_right(p);
+        }
+    }
+}
+
+// A human player's game is over once none of the pieces on deck fit.
+function has_valid_move(board, piece_set) {
+    return piece_set.some(p => can_place_piece(board, p));
+}
+
+console.assert(!can_place_piece(EMPTY, EMPTY));
+console.assert(!has_valid_move(EMPTY, [EMPTY, EMPTY, EMPTY]));
+for (const p of PIECES) {
+    console.assert(can_place_piece(EMPTY, p));
+    console.assert(can_place_piece(EMPTY, center_piece(p)));
+    console.assert(!can_place_piece(FULL, p));
+    console.assert(can_place_piece(diff(FULL, p), p));
+    console.assert(has_valid_move(EMPTY, [EMPTY, p, EMPTY]));
+    console.assert(!has_valid_move(FULL, [p, p, p]));
+}
+
 // === SCORING (kept for tryPlacePiece) ===
 
 function get_combo_magnitude(mid_clear) {
@@ -754,6 +798,8 @@ var blokie = {
     getAIMove: ai_make_move,
     at: at,
     isOver: is_over,
+    canPlacePiece: can_place_piece,
+    hasValidMove: has_valid_move,
     toggleSquare: (board, r, c) => xor(board, bit(r, c)),
     isEmpty: is_empty,
     or: or,

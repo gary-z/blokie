@@ -2,6 +2,11 @@ Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/s
 
 <img style="width: 25%; height: 15%" src="/preview.gif?raw=true"/>
 
+## Try it
+[Open it in your browser](https://gary-z.github.io/blokie/). There are two modes:
+  - **Watch AI** — the AI plays on its own, and you can sabotage it by editing the board and the pieces on deck.
+  - **Play** — you play the game yourself by dragging pieces onto the board. No AI, and no editing the board or pieces.
+
 
 ## What can I learn from Blokie to improve at the game?
 

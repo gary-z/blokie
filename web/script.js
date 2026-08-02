@@ -2,16 +2,23 @@
 import { blokie, init } from "../engine/blokie.js";
 
 
+// Watch the AI play (and sabotage it by editing the board/pieces), or play the
+// game yourself with no AI and no editing.
+const MODE_AI = 'ai';
+const MODE_PLAY = 'play';
+
 function getNewGameState() {
     return {
         previous_game_state: blokie.getNewGame(),
         game: blokie.getNewGame(),
         queued_game_states: [],
         piece_set: blokie.getRandomPieceSet(),
+        game_over: false,  // play mode only; the AI signals game over with a full board
     };
 }
 
 let state = {
+    mode: MODE_AI,
     game_state: getNewGameState(),
 
     // UI state
@@ -36,9 +43,15 @@ document.addEventListener("DOMContentLoaded", function (event) {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            resetAIOnHumanInterferance();
+            onGameStateChanged();
         });
     });
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => setMode(btn.dataset.mode));
+    });
+
+    document.getElementById('new-game-btn').addEventListener('click', () => onNewGame());
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
@@ -77,22 +90,27 @@ document.addEventListener("DOMContentLoaded", function (event) {
         }
     });
     board_table.addEventListener("mouseover", (event) => {
-        if (state.mouse_down && !drag_info) {
+        if (editingIsAllowed() && state.mouse_down && !drag_info) {
             onBoardCellClick(event.target);
         }
     });
     board_table.addEventListener("touchmove", (event) => {
-        if (!drag_info) {
+        if (editingIsAllowed() && !drag_info) {
             processCellDrag(event, onBoardCellClick);
         }
     });
     board_table.addEventListener('mousedown', (event) => {
-        if (!drag_info) {
+        if (editingIsAllowed() && !drag_info) {
             onBoardCellClick(event.target);
             state.mouse_down = true;
         }
     });
     board_table.addEventListener('touchstart', (event) => {
+        // Play mode never edits the board, and swallowing the touch here would
+        // suppress the click that starts a new game after a loss.
+        if (!editingIsAllowed()) {
+            return;
+        }
         if (!gameIsActive()) {
             return;
         }
@@ -130,7 +148,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
                 pendingCell: cell,
             };
             event.preventDefault();
-        } else {
+        } else if (editingIsAllowed()) {
             onPieceCellClick(cell);
             event.preventDefault();
         }
@@ -159,7 +177,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
             };
             state.mouse_down = true;
             event.preventDefault();
-        } else {
+        } else if (editingIsAllowed()) {
             onPieceCellClick(cell);
         }
     });
@@ -168,14 +186,47 @@ document.addEventListener("DOMContentLoaded", function (event) {
     document.addEventListener('dragend', () => {
         if (drag_info) {
             cleanupDrag();
-            resetAIOnHumanInterferance();
+            onGameStateChanged();
         }
     });
 
+    updateModeHints();
     onNewGame();
 });
 
+function setMode(mode) {
+    if (state.mode === mode) {
+        return;
+    }
+    state.mode = mode;
+    document.body.classList.toggle('play-mode', mode === MODE_PLAY);
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    updateModeHints();
+    onNewGame();
+}
+
+function updateModeHints() {
+    const board_table = document.getElementById('game-board');
+    const pieces_on_deck_container = document.getElementById('pieces-on-deck-container');
+    if (state.mode === MODE_PLAY) {
+        board_table.title = "The Blockudoku/Woodoku/Block Sudoku game board. Drag a piece here to place it.";
+        pieces_on_deck_container.title = "The three pieces you have available. Drag one onto the board to place it.";
+    } else {
+        board_table.title = "The Blockudoku/Woodoku/Block Sudoku  game board. Tap a square to add or remove a block.";
+        pieces_on_deck_container.title = "The three pieces you have available. Tap a square to change the piece's shape.";
+    }
+}
+
+// Editing the board and the pieces on deck is how you sabotage the AI. There is
+// nothing to sabotage in play mode, so it is disabled there.
+function editingIsAllowed() {
+    return state.mode === MODE_AI;
+}
+
 function gameIsActive() {
+    if (state.mode === MODE_PLAY) {
+        return !state.game_state.game_over;
+    }
     return state.game_state.queued_game_states.length === 0 || !blokie.isOver(state.game_state.queued_game_states[0]);
 
 }
@@ -276,7 +327,7 @@ function handleDragMove(clientX, clientY) {
         drag_info.active = true;
         drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
         state.dragging_piece_index = drag_info.pieceIndex;
-        pauseAI();
+        stopAI();
     }
 
     updateFloatingPosition(drag_floating_el, clientX, clientY, drag_info.bounds);
@@ -302,7 +353,7 @@ function handleDragEnd(clientX, clientY) {
         // may no longer be in its original slot. Cancel the drag in that case.
         if (state.game_state.piece_set[drag_info.pieceIndex] !== drag_info.piece) {
             cleanupDrag();
-            resetAIOnHumanInterferance();
+            onGameStateChanged();
             return;
         }
 
@@ -324,12 +375,12 @@ function handleDragEnd(clientX, clientY) {
                 state.game_state.previous_game_state = state.game_state.game;
                 state.game_state.game = result.newGame;
                 cleanupDrag();
-                resetAIOnHumanInterferance();
+                onGameStateChanged();
                 return;
             }
         }
         cleanupDrag();
-        resetAIOnHumanInterferance();
+        onGameStateChanged();
     } else {
         // Drag never activated - treat as click (edit piece)
         const cell = drag_info.pendingCell;
@@ -352,11 +403,11 @@ function cleanupDrag() {
 
 async function onNewGame() {
     state.game_state = getNewGameState();
-    resetAIOnHumanInterferance();
+    onGameStateChanged();
 }
 
 function onBoardCellClick(cell) {
-    if (!gameIsActive() || cell.nodeName !== 'TD') {
+    if (!editingIsAllowed() || !gameIsActive() || cell.nodeName !== 'TD') {
         return;
     }
     const table = cell.closest('table');
@@ -364,10 +415,10 @@ function onBoardCellClick(cell) {
         return;
     }
     state.game_state.game.board = blokie.toggleSquare(state.game_state.game.board, cell.parentNode.rowIndex, cell.cellIndex);
-    resetAIOnHumanInterferance();
+    onGameStateChanged();
 }
 function onPieceCellClick(cell) {
-    if (!gameIsActive() || cell.nodeName !== 'TD') {
+    if (!editingIsAllowed() || !gameIsActive() || cell.nodeName !== 'TD') {
         return;
     }
     const table = cell.closest('table');
@@ -377,32 +428,35 @@ function onPieceCellClick(cell) {
 
     const piece_table_id = parseInt(cell.closest('table').id.slice(-1));
     state.game_state.piece_set[piece_table_id] = blokie.toggleSquare(state.game_state.piece_set[piece_table_id], cell.parentNode.rowIndex, cell.cellIndex);
-    resetAIOnHumanInterferance();
+    onGameStateChanged();
 }
 
 let ai_worker = null;
 
-function pauseAI() {
+function stopAI() {
     if (ai_worker != null) {
         ai_worker.terminate();
         ai_worker = null;
     }
+    // Bumping the id makes any message already in flight from the terminated
+    // worker get ignored, so it can't clobber the state we just changed.
+    state.active_worker_id++;
     state.game_state.queued_game_states = [];
     cleanupFlyAnim();
     _prev_preview_json = null;
     _fly_landed = false;
 }
 
-function resetAIOnHumanInterferance() {
-    cleanupFlyAnim();
-    _prev_preview_json = null;
-    _fly_landed = false;
-    if (ai_worker != null) {
-        ai_worker.terminate();
+// Called whenever the human changes the game: an edit, a placement, a new game,
+// or a speed change. The AI restarts from the new state; a human player just
+// needs to know whether any of their pieces still fit.
+function onGameStateChanged() {
+    stopAI();
+    if (state.mode === MODE_PLAY) {
+        state.game_state.game_over = !blokie.hasValidMove(state.game_state.game.board, state.game_state.piece_set);
+        return;
     }
 
-    state.game_state.queued_game_states = [];
-    state.active_worker_id++;
     ai_worker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
     ai_worker.postMessage({
         delay_ms: getDelayMs(),
