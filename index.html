@@ -124,6 +124,24 @@
             font-size: 2vh;
         }
 
+        /* Sparkles is a colour emoji, drawn gold everywhere, and gold washes out
+           on the tint the picker wears while the assist is playing. This is the
+           same glyph from Noto Emoji -- the monochrome family -- subset to that
+           one codepoint and inlined so it costs no request. Being an outline
+           font it takes the element's own colour, so it tracks both states.
+           unicode-range keeps it off everything else, the gamepad on Manual
+           included, and if it ever fails to load the colour emoji is still
+           underneath it.
+           Noto Emoji, SIL Open Font License 1.1:
+           https://github.com/googlefonts/noto-emoji */
+        @font-face {
+            font-family: 'sparkle';
+            font-style: normal;
+            font-weight: 700;
+            src: url(data:font/woff2;base64,d09GMgABAAAAAAPAAA8AAAAABqQAAANpAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHB4GYD9TVEFUKgBpEQgKhAiEOQsMAAE2AiQDFAQgBYMSByAXJBgMG8EFyMSHr9Pen8wEPzWmTlNQU0q7ewN97B5hnajk4FjqP1UDZThW3EcEBUUUPj54FL32KsFGOqBNBzgF81rK1wQdqkAAUFiIAyQ2XsiBFCyYQ612bwFLHZklcADnw61XXMRK3iO6hzpGT0ObY4iIMKR2AhAxUa8PWXTQAx9MSE9PAA9epS1pUWkAkhbyDZhJAbKkBSkeMhAO0hIwcPMtwPTXN/Q0MTEtk4RlljqYRTYyCLh2IKr1B0FLgOXIRlXkMoSRIHBSrMTgKdNSSMFMmHRSqLQ3pgwRWiXqF/cfk2+LUvXIELUaNAbOVcIgFfpTcJOUFsC6Zib1LjHL2luYWJjw8mHdwTZtmdZg0V2DkZdH8u8x8ovlhXcYubnIuZ2fU6CXd/fuzdr6a/fy8+W5d+5cqclcv52Tk9cBSH+gTQE9p4bzRlS3146mgvCtewnk7N2bvNdvx+LMnRszg/fujaSVWqmQ/+EGcAMm4AZOp9Y8rkF1VJnC2HiHz72U2R7hiOeoyRarNVusRk2OePYIKbM+94x3KIzX1ZLvGu/8/Dv7PYZVNnWfonQPemw46BGlp7apM6yy37OljK6O0sPrfvr1SWe0S50GI4V69wxdmqFb7x4pOA1ql1LxVVz3D7MZrVQ+M1Ep6JQYrCgxEHQTnfksLcFsZo3ZjLZgnZXknKKryqToJCmtM7VTf3TcFnmSVbky005FVZl2SqtyeRLN/f0hK//pjSmXghbTK9pi13hXGdEqozXebbHpFUGLyiW9MVqjfTwPAiKS+Pv7hwvl2qHfpXJpUeLJHb96/+Trt61z4FRZ1E7i+PItTA/1V9JAncGBo3boNDZxovdooIpMkipQNNN+TnYUVWQB+k9Y/UCV4wYoxr4SOyujYW+8jNkEBrgqR1iKs2CL4I1VbBZW6GNzMEMJWwwLRLK04AsNO4EwA8COdyoftWhEPRrQY2f3oAPB8BCHulGNLjSiAz3U4K7K8dYWuKMdXaiHB9IRDwFpaEcP/HFolR9pQiPcEI12tKAGeahFV5+X2tEGHj5whyc84ScmeaD4jjbfPQQJSEc6EhAyi9bvO6YhBsEODO5Dvce7eHjDE17wAY8EtNPT9WhBLXgIEBDz/1KwuexjTMPwEJ1XsJsC3T/dZGM3KkcuoQqmQHLddOAP) format('woff2');
+            unicode-range: U+2728;
+        }
+
         #assist-container {
             display: flex;
             align-items: center;
@@ -141,7 +159,7 @@
                control stays about a block tall whichever axis is binding. */
             padding: min(2vw, 1.33vh) min(3vw, 2vh);
             cursor: pointer;
-            font-family: roboto;
+            font-family: 'sparkle', roboto;
             font-size: min(4.5vw, 3vh);
             font-weight: bold;
             transition: background 0.15s, border-color 0.15s, color 0.15s;
