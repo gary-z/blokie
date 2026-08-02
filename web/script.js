@@ -33,6 +33,19 @@ let drag_floating_el = null;
 const DRAG_THRESHOLD = 8;
 const FINGER_CLEARANCE = 30;  // px of clearance above the touch point
 
+// Haptics for hand-played moves. Only a drag gets here, and a drag is always
+// the player taking a turn, so the assist's own placements never buzz.
+const HAPTIC_PICKUP_MS = 10;  // light tick as the piece leaves the deck
+const HAPTIC_DROP_MS = 20;    // firmer thunk as it lands on the board
+
+// A no-op wherever the Vibration API is missing (desktop browsers, iOS Safari)
+// or the device has vibration switched off.
+function vibrate(ms) {
+    if (navigator.vibrate) {
+        navigator.vibrate(ms);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function (event) {
     // Switching between manual play and an assist speed restarts the assist
     // from wherever the game currently stands.
@@ -221,6 +234,7 @@ function handleDragMove(clientX, clientY) {
         drag_info.active = true;
         drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
         state.dragging_piece_index = drag_info.pieceIndex;
+        vibrate(HAPTIC_PICKUP_MS);
         stopAI();
     }
 
@@ -262,6 +276,9 @@ function handleDragEnd(clientX, clientY) {
                 drag_info.targetCol
             );
             if (result) {
+                // Only a placement that lands buzzes; a drag that fizzles out
+                // just returns the piece to the deck.
+                vibrate(HAPTIC_DROP_MS);
                 state.game_state.piece_set[drag_info.pieceIndex] = blokie.getEmptyPiece();
                 if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
                     state.game_state.piece_set = blokie.getRandomPieceSet();
