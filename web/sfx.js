@@ -123,12 +123,12 @@ function playSfx(event) {
 // again on every attempt to resume it.
 function setSoundOn(on, button, from_gesture) {
     sound_on = on;
-    button.textContent = on ? '\u{1F50A}' : '\u{1F507}';
+    // Only the icon: the button reads "Sound" beside it either way, and
+    // aria-pressed is what carries the state to a screen reader.
+    button.querySelector('.menu-icon').textContent = on ? '\u{1F50A}' : '\u{1F507}';
     button.classList.toggle('sound-on', on);
     button.setAttribute('aria-pressed', String(on));
-    const label = on ? 'Turn sound off' : 'Turn sound on';
-    button.setAttribute('aria-label', label);
-    button.title = label;
+    button.title = on ? 'Turn sound off' : 'Turn sound on';
     if (on) {
         fetchClips();
         if (from_gesture) {

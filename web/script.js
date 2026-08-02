@@ -63,6 +63,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
     });
     showWhoIsPlaying();  // the picker may be carrying a restored selection
 
+    initSettings();
     initSfx(document.getElementById('sound'));
 
     document.addEventListener('mouseup', (event) => {
@@ -179,6 +180,37 @@ document.addEventListener("DOMContentLoaded", function (event) {
 
 function gameIsActive() {
     return !state.game_state.game_over;
+}
+
+// Sound and the Github link live behind the gear in the corner, so the bar
+// under the board is only ever about who is playing.
+function initSettings() {
+    const settings = document.getElementById('settings');
+    const button = document.getElementById('settings-button');
+    const menu = document.getElementById('settings-menu');
+
+    function setMenuOpen(open) {
+        menu.hidden = !open;
+        button.setAttribute('aria-expanded', String(open));
+    }
+
+    button.addEventListener('click', () => setMenuOpen(menu.hidden));
+
+    // Toggling sound leaves the menu up, so the button can be seen changing
+    // and heard again; following the link out is done with it.
+    document.addEventListener('click', (event) => {
+        if (!menu.hidden && !settings.contains(event.target)) {
+            setMenuOpen(false);
+        }
+    });
+    menu.querySelector('a').addEventListener('click', () => setMenuOpen(false));
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !menu.hidden) {
+            setMenuOpen(false);
+            button.focus();
+        }
+    });
 }
 
 // === Drag and drop ===

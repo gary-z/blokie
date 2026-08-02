@@ -26,6 +26,19 @@
             border: none;
         }
 
+        /* The settings gear is drawn on the same line as the score, either out
+           in the margin beside the board or in the board's own top right
+           corner, depending on how much room the page leaves. The score is
+           sized off these too, so it keeps the gear's width clear of that
+           corner either way. The board's outline is drawn outside its box, so
+           the gear clears that as well to line up with the edge you can see. */
+        :root {
+            --column: min(90vw, calc(90vh / (3/2)));
+            --gear-size: min(5vw, 3.3vh);
+            --gear-gap: min(2vw, 1.33vh);
+            --board-outline: 4px;
+        }
+
         #page-description {
             text-align: center;
         }
@@ -36,12 +49,17 @@
             font-size: 5vh;
             font-weight: bold;
             margin-bottom: 2vh;
+            /* Reserved on both sides so the score stays centred. A long
+               "Final score:" wraps rather than running under the gear. */
+            padding: 0 calc(var(--gear-size) + var(--gear-gap));
         }
 
         #for-aspect-ratio {
             aspect-ratio: 2/3;
-            width: min(90vw, calc(90vh / (3/2)));
+            width: var(--column);
             margin: auto;
+            /* What the gear is positioned against. */
+            position: relative;
         }
 
         #game-table-container {
@@ -51,7 +69,7 @@
         #game-board {
             border-collapse: collapse;
             background: white;
-            outline: 4px solid rgb(180, 185, 190);
+            outline: var(--board-outline) solid rgb(180, 185, 190);
             margin: auto;
             width: 100%;
             height: 100%;
@@ -119,11 +137,6 @@
             border: 1px solid black;
         }
 
-        .footer {
-            text-align: center;
-            font-size: 2vh;
-        }
-
         /* Sparkles is a colour emoji, drawn gold everywhere, and gold washes out
            on the tint the picker wears while the assist is playing. This is the
            same glyph from Noto Emoji -- the monochrome family -- subset to that
@@ -177,22 +190,123 @@
             color: #222;
         }
 
-        /* Square, and the same height as the picker beside it. */
-        #sound {
-            background: #f0f0f0;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            cursor: pointer;
+        /* Sound and the Github link are settings, not part of playing, so they
+           sit behind the gear in the corner rather than under the board. The
+           offsets undo the button's padding, which is there as a target for a
+           finger rather than as anything to look at, so what lines up with the
+           board's corner is the gear itself and not the box around it. */
+        #settings {
+            position: absolute;
+            top: calc(-1 * var(--gear-gap));
+            right: calc(-1 * (var(--board-outline) + var(--gear-gap)));
             font-family: roboto;
-            font-size: min(4.5vw, 3vh);
-            line-height: 1;
-            padding: min(2vw, 1.33vh);
-            transition: background 0.15s, border-color 0.15s;
+            /* Above the page, below the piece being dragged. */
+            z-index: 10;
         }
 
+        /* The board is sized off whichever axis is tighter, so on a wide page
+           it leaves a margin beside it. Once that margin is deep enough to
+           take the gear without it reaching back over the board, the gear goes
+           out to the page's own corner: the offset puts the button's edge on
+           the edge of the page, and the gear a padding's width inside that.
+           Narrower than this the margin is too shallow to hold it, and the
+           rule above leaves it in the board's corner instead.
+
+           Three quarters is the crossover with a little to spare. The board
+           starts leaving a margin at 2:3, but the margin is only worth moving
+           into once it is deeper than the gear, the padding around it, and the
+           board's outline together. */
+        @media(min-aspect-ratio: 3/4) {
+            #settings {
+                right: calc(-1 * (100vw - var(--column)) / 2);
+            }
+        }
+
+        /* No chrome of its own: the gear is the whole control. */
+        #settings-button {
+            display: block;
+            background: none;
+            border: none;
+            color: #444;
+            cursor: pointer;
+            padding: var(--gear-gap);
+            transition: color 0.15s;
+        }
+
+        #settings-button svg {
+            display: block;
+            width: var(--gear-size);
+            height: var(--gear-size);
+            fill: currentColor;
+        }
+
+        #settings-menu {
+            position: absolute;
+            /* Clear of the button's padding on both axes, so it hangs off the
+               gear itself: below it, and opening onto the board rather than
+               off the side of the page. */
+            top: 100%;
+            right: var(--gear-gap);
+            display: flex;
+            flex-direction: column;
+            gap: calc(var(--gear-gap) / 4);
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            padding: calc(var(--gear-gap) / 2);
+        }
+
+        /* display: flex above would otherwise show the menu while it is shut. */
+        #settings-menu[hidden] {
+            display: none;
+        }
+
+        #settings-menu button,
+        #settings-menu a {
+            display: flex;
+            align-items: center;
+            gap: var(--gear-gap);
+            background: none;
+            border: none;
+            border-radius: 4px;
+            color: #444;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: min(3.5vw, 2.33vh);
+            padding: calc(var(--gear-gap) * 0.75) var(--gear-gap);
+            text-align: left;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        /* A column of its own, so the labels line up whatever the icons are. */
+        #settings-menu .menu-icon {
+            width: var(--gear-size);
+            text-align: center;
+        }
+
+        /* The tint the picker wears while the assist plays, for the same
+           reason: it marks the setting that is currently on. */
         #sound.sound-on {
             background: #e8eefc;
-            border-color: rgb(54, 112, 232);
+            color: #222;
+        }
+
+        /* Hover left on a touch screen sticks to whatever was tapped last. */
+        @media(hover: hover) and (pointer: fine) {
+            #settings-button:hover {
+                color: #222;
+            }
+
+            #settings-menu button:hover,
+            #settings-menu a:hover {
+                background: #f0f0f0;
+            }
+
+            #sound.sound-on:hover {
+                background: #dbe5fa;
+            }
         }
     </style>
     <meta property="og:description"
@@ -214,6 +328,26 @@
 
 <body>
     <div id="for-aspect-ratio">
+        <div id="settings">
+            <button type="button" id="settings-button" aria-label="Settings" title="Settings"
+                aria-expanded="false" aria-controls="settings-menu">
+                <!-- Eight teeth on the outer radius, valleys on the root radius,
+                     straight flanks between the two, and a hole punched through
+                     the middle by the even-odd rule. -->
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill-rule="evenodd"
+                        d="M23.32 10.62A11.4 11.4 0 0 1 23.32 13.38L20.43 13.71A8.6 8.6 0 0 1 19.17 16.75L20.98 19.02A11.4 11.4 0 0 1 19.02 20.98L16.75 19.17A8.6 8.6 0 0 1 13.71 20.43L13.38 23.32A11.4 11.4 0 0 1 10.62 23.32L10.29 20.43A8.6 8.6 0 0 1 7.25 19.17L4.98 20.98A11.4 11.4 0 0 1 3.02 19.02L4.83 16.75A8.6 8.6 0 0 1 3.57 13.71L0.68 13.38A11.4 11.4 0 0 1 0.68 10.62L3.57 10.29A8.6 8.6 0 0 1 4.83 7.25L3.02 4.98A11.4 11.4 0 0 1 4.98 3.02L7.25 4.83A8.6 8.6 0 0 1 10.29 3.57L10.62 0.68A11.4 11.4 0 0 1 13.38 0.68L13.71 3.57A8.6 8.6 0 0 1 16.75 4.83L19.02 3.02A11.4 11.4 0 0 1 20.98 4.98L19.17 7.25A8.6 8.6 0 0 1 20.43 10.29L23.32 10.62ZM12 8.3A3.7 3.7 0 1 0 12 15.7A3.7 3.7 0 1 0 12 8.3Z" />
+                </svg>
+            </button>
+            <div id="settings-menu" hidden>
+                <button type="button" id="sound" aria-pressed="false">
+                    <span class="menu-icon" aria-hidden="true"></span>Sound
+                </button>
+                <a target="_blank" href="https://github.com/gary-z/blokie#readme">
+                    <span class="menu-icon" aria-hidden="true">&#128279;</span>Github
+                </a>
+            </div>
+        </div>
         <div title="score" id="score">0</div>
         <div id="game-table-container">
             <table title="The 9x9 block puzzle game board. Drag a piece here to place it."
@@ -434,21 +568,15 @@
                 </table>
             </div>
         </div>
-        <div class="footer">
-            <div id="assist-container">
-                <select id="ai-assist" class="assist-on" aria-label="Who plays"
-                    title="Play the game yourself, or let the AI assist play it for you.">
-                    <option value="off">&#127918; Manual</option>
-                    <option value="2000" selected>&#10024; 1x</option>
-                    <option value="1000">&#10024; 2x</option>
-                    <option value="400">&#10024; 5x</option>
-                    <option value="0">&#10024; Max</option>
-                </select>
-                <button type="button" id="sound" aria-pressed="false"></button>
-            </div>
-            <p>
-                <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>
-            </p>
+        <div id="assist-container">
+            <select id="ai-assist" class="assist-on" aria-label="Who plays"
+                title="Play the game yourself, or let the AI assist play it for you.">
+                <option value="off">&#127918; Manual</option>
+                <option value="2000" selected>&#10024; 1x</option>
+                <option value="1000">&#10024; 2x</option>
+                <option value="400">&#10024; 5x</option>
+                <option value="0">&#10024; Max</option>
+            </select>
         </div>
     </div>
 </body>
