@@ -143,7 +143,13 @@
             cursor: pointer;
             font-family: roboto;
             font-size: min(4.5vw, 3vh);
+            font-weight: bold;
             transition: background 0.15s, border-color 0.15s, color 0.15s;
+        }
+
+        /* Native popups ignore this on some platforms; harmless where they do. */
+        #ai-assist option {
+            font-weight: bold;
         }
 
         /* Tinted while the assist is playing, plain while you are. */
