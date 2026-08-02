@@ -128,22 +128,45 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 2vw;
-            font-family: roboto;
-            font-size: 3vh;
-            font-weight: bold;
+            gap: 1.5vw;
+            min-height: 4vh;
         }
 
-        #ai-assist {
-            background: #e0e0e0;
-            border: 1px solid #ccc;
+        #ai-toggle {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
             border-radius: 6px;
-            color: #222;
-            padding: 1vh 2vw;
+            padding: 0.5vh 2vw;
+            cursor: pointer;
+            font-size: 2.2vh;
+            line-height: 1;
+            /* Off reads as a dimmed, colorless sparkle. */
+            filter: grayscale(1);
+            opacity: 0.55;
+            transition: background 0.15s, opacity 0.15s, filter 0.15s;
+        }
+
+        #ai-toggle[aria-pressed="true"] {
+            background: #e8eefc;
+            border-color: rgb(54, 112, 232);
+            filter: none;
+            opacity: 1;
+        }
+
+        /* The speeds only matter while the assist is running. */
+        #ai-toggle[aria-pressed="false"] ~ #ai-speed {
+            display: none;
+        }
+
+        #ai-speed {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            color: #444;
+            padding: 0.5vh 1vw;
             cursor: pointer;
             font-family: roboto;
-            font-size: 3vh;
-            font-weight: bold;
+            font-size: 2vh;
         }
     </style>
     <meta property="og:description"
@@ -387,9 +410,9 @@
         </div>
         <div class="footer">
             <div id="assist-container">
-                <label for="ai-assist">AI assist</label>
-                <select id="ai-assist" title="Let the AI play for you, or switch it off and play yourself.">
-                    <option value="off">Off</option>
+                <button type="button" id="ai-toggle" aria-pressed="true" aria-label="AI assist"
+                    title="AI assist: let the AI play for you, or switch it off and play yourself.">&#10024;</button>
+                <select id="ai-speed" aria-label="AI assist speed" title="How fast the AI assist plays.">
                     <option value="2000" selected>1x</option>
                     <option value="1000">2x</option>
                     <option value="400">5x</option>

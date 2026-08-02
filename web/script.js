@@ -36,7 +36,12 @@ const FINGER_CLEARANCE = 30;  // px of clearance above the touch point
 document.addEventListener("DOMContentLoaded", function (event) {
     // Switching the assist on, off, or to another speed restarts it from
     // wherever the game currently stands.
-    document.getElementById('ai-assist').addEventListener('change', () => onGameStateChanged());
+    const ai_toggle = document.getElementById('ai-toggle');
+    ai_toggle.addEventListener('click', () => {
+        ai_toggle.setAttribute('aria-pressed', assistIsOn() ? 'false' : 'true');
+        onGameStateChanged();
+    });
+    document.getElementById('ai-speed').addEventListener('change', () => onGameStateChanged());
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
@@ -295,10 +300,13 @@ async function onNewGame() {
 
 let ai_worker = null;
 
+function assistIsOn() {
+    return document.getElementById('ai-toggle').getAttribute('aria-pressed') === 'true';
+}
+
 // The delay between assist moves, or null when the assist is switched off.
 function getAssistDelayMs() {
-    const value = document.getElementById('ai-assist').value;
-    return value === 'off' ? null : parseInt(value);
+    return assistIsOn() ? parseInt(document.getElementById('ai-speed').value) : null;
 }
 
 // The game ends when nothing on deck fits anywhere, whoever is placing.
