@@ -37,6 +37,33 @@
             --gear-size: min(5vw, 3.3vh);
             --gear-gap: min(2vw, 1.33vh);
             --board-outline: 4px;
+
+            /* What the page has to spare under the deck. Everything else on it
+               is the score (5vh of type over a 2vh margin), the picker (6.5vh
+               at its tallest), the board and the deck band (a column and a
+               third of one), and the body's own margin with a little over, so
+               the page keeps a few pixels rather than spending its last one.
+               The picker is shorter than 6.5vh on a narrow page, so where this
+               is wrong it is wrong towards leaving room. */
+            --spare-height: max(0px, calc(85.75vh - 1.334 * var(--column) - 24px));
+
+            /* A 5-tall piece fills its slot top to bottom, so without room
+               around the band it sits on the board's outline above and the
+               picker below. Half a block of clearance either side is enough to
+               part it from both: the board runs the full width of the column,
+               but the picker is only about a slot wide in the middle of the
+               page, so the outer two pieces have next to nothing under them.
+
+               Half either side comes to a cell's worth of clearance less the
+               two margins, so with a slot W/3 square and a cell (W/3 - 2m)/5
+               wide, the spare height caps the cell at (W/3 + spare)/6. Under
+               that cap a cell is the size it always was and the margin works
+               out at the 3px it always was; over it the pieces make up the
+               difference, and where there is nothing spare at all the margin
+               is exactly the half block on its own. */
+            --deck-cell: min(calc((var(--column) / 3 - 6px) / 5),
+                             calc((var(--column) / 3 + var(--spare-height)) / 6));
+            --deck-margin: calc((var(--column) / 3 - 5 * var(--deck-cell)) / 2);
         }
 
         #page-description {
@@ -110,12 +137,18 @@
             border-collapse: collapse;
             aspect-ratio: 3 / 1;
             width: 100%;
+            /* Outside the ratio, which governs the content box, so the slots
+               keep their size and the page carries the padding. */
+            padding: calc(var(--deck-cell) / 2 - var(--deck-margin)) 0;
         }
 
         table.pieces-on-deck {
             border-collapse: collapse;
             border-spacing: 0;
-            margin: 3px;
+            /* Whatever is left of the slot once its five cells are in it. The
+               margin stays uniform, since equal margins take the same amount
+               off both axes and keep the deck cells square. */
+            margin: var(--deck-margin);
         }
 
         table.pieces-on-deck td,
