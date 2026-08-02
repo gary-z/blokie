@@ -35,56 +35,12 @@
             font-family: roboto;
             font-size: 5vh;
             font-weight: bold;
-            margin-bottom: 2vh;
-        }
-
-        #mode-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0;
-            margin-bottom: 1vh;
-        }
-
-        .mode-btn {
-            background: #e0e0e0;
-            border: 1px solid #ccc;
-            color: #222;
-            padding: 0.8vh 4vw;
-            cursor: pointer;
-            font-family: roboto;
-            font-size: 2.4vh;
-            font-weight: bold;
-            transition: background 0.15s, color 0.15s;
-        }
-
-        .mode-btn:first-child {
-            border-radius: 6px 0 0 6px;
-        }
-
-        .mode-btn:last-child {
-            border-radius: 0 6px 6px 0;
-        }
-
-        .mode-btn + .mode-btn {
-            border-left: none;
-        }
-
-        .mode-btn.active {
-            background: rgb(54, 112, 232);
-            color: white;
-            border-color: rgb(54, 112, 232);
-        }
-
-        .mode-btn.active + .mode-btn {
-            border-left-color: rgb(54, 112, 232);
+            margin-bottom: 3vh;
         }
 
         #for-aspect-ratio {
             aspect-ratio: 2/3;
-            /* On short/wide viewports the height budget is what's binding, and
-               the mode toggle spends some of it, so leave it a little room. */
-            width: min(90vw, calc(85vh / (3/2)));
+            width: min(90vw, calc(90vh / (3/2)));
             margin: auto;
         }
 
@@ -124,21 +80,7 @@
         }
 
         @media(hover: hover) and (pointer: fine) {
-            #game-board td:hover {
-                outline: 4px solid orangered;
-            }
-
-            table.pieces-on-deck tr td:hover {
-                outline: 4px solid orangered;
-            }
-
-            /* Play mode has no cell editing, so don't advertise it. */
-            body.play-mode #game-board td:hover,
-            body.play-mode table.pieces-on-deck tr td:hover {
-                outline: none;
-            }
-
-            body.play-mode table.pieces-on-deck tr td.has-piece {
+            table.pieces-on-deck tr td.has-piece {
                 cursor: grab;
             }
         }
@@ -182,53 +124,17 @@
             font-size: 2vh;
         }
 
-        #speed-container {
+        #assist-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0;
-        }
-
-        .speed-btn {
-            background: #e0e0e0;
-            border: 1px solid #ccc;
-            color: #222;
-            padding: 1vh 2vw;
-            cursor: pointer;
+            gap: 2vw;
+            font-family: roboto;
             font-size: 3vh;
             font-weight: bold;
-            transition: background 0.15s, color 0.15s;
         }
 
-        .speed-btn:first-child {
-            border-radius: 6px 0 0 6px;
-        }
-
-        .speed-btn:last-child {
-            border-radius: 0 6px 6px 0;
-        }
-
-        .speed-btn + .speed-btn {
-            border-left: none;
-        }
-
-        .speed-btn.active {
-            background: rgb(54, 112, 232);
-            color: white;
-            border-color: rgb(54, 112, 232);
-        }
-
-        .speed-btn.active + .speed-btn {
-            border-left-color: rgb(54, 112, 232);
-        }
-
-        #play-controls {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #new-game-btn {
+        #ai-assist {
             background: #e0e0e0;
             border: 1px solid #ccc;
             border-radius: 6px;
@@ -239,19 +145,13 @@
             font-size: 3vh;
             font-weight: bold;
         }
-
-        /* Speed only controls the AI; New Game only makes sense while playing. */
-        body.play-mode #speed-container,
-        body:not(.play-mode) #play-controls {
-            display: none;
-        }
     </style>
     <meta property="og:description"
-        content="Watch an AI solve Blockudoku/Woodoku/Block Sudoku in real time. Sabotage the computer's perfect gameplay by altering the board or pieces, or sit back and watch it play. Learn, be inspired, or vent your frustration." />
+        content="Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration." />
     <meta property="og:image" content="https://gary-z.github.io/blokie/preview.png" />
     <meta name="google-site-verification" content="a62LBKJ5-DBNPPVbH1buHMLMT1CEM5j456tPhU30GCE" />
     <meta name="description"
-        content="Watch an AI solve Blockudoku/Woodoku/Block Sudoku in real time. Sabotage the computer's perfect gameplay by altering the board or pieces, or sit back and watch it play. Learn, be inspired, or vent your frustration." />
+        content="Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration." />
 
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JSG4CGEK2S"></script>
@@ -265,13 +165,9 @@
 
 <body>
     <div id="for-aspect-ratio">
-        <div id="mode-container" title="Watch the AI play, or play the game yourself.">
-            <button class="mode-btn active" data-mode="ai">Watch AI</button>
-            <button class="mode-btn" data-mode="play">Play</button>
-        </div>
         <div title="score" id="score">0</div>
         <div id="game-table-container">
-            <table title="The Blockudoku/Woodoku/Block Sudoku  game board. Tap a square to add or remove a block."
+            <table title="The Blockudoku/Woodoku/Block Sudoku  game board. Drag a piece here to place it."
                 id="game-board">
                 <tr>
                     <td></td>
@@ -375,7 +271,7 @@
                 </tr>
             </table>
             <div id="pieces-on-deck-container"
-                title="The three pieces you have available. Tap a square to change the piece's shape.">
+                title="The three pieces you have available. Drag one onto the board to place it.">
                 <table class="pieces-on-deck" id="piece-on-deck-0">
                     <tr>
                         <td></td>
@@ -490,14 +386,15 @@
             </div>
         </div>
         <div class="footer">
-            <div id="speed-container">
-                <button class="speed-btn" data-delay="2000">1x</button>
-                <button class="speed-btn active" data-delay="1000">2x</button>
-                <button class="speed-btn" data-delay="400">5x</button>
-                <button class="speed-btn" data-delay="0">Max</button>
-            </div>
-            <div id="play-controls">
-                <button id="new-game-btn">New Game</button>
+            <div id="assist-container">
+                <label for="ai-assist">AI assist</label>
+                <select id="ai-assist" title="Let the AI play for you, or switch it off and play yourself.">
+                    <option value="off">Off</option>
+                    <option value="2000" selected>1x</option>
+                    <option value="1000">2x</option>
+                    <option value="400">5x</option>
+                    <option value="0">Max</option>
+                </select>
             </div>
             <p>
                 <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>
