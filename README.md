@@ -27,7 +27,7 @@ Internally, the board state is represented as a bitboard using three 32-bit inte
 
 The board state evaluation weights were trained using a genetic learning algorithm written in C++. JavaScript is too slow for training.
 
-## Can I have the computer play for me?
+## Can I have the computer play the phone games for me?
 No.
 
 ## Why did I build this?
