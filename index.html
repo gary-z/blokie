@@ -35,7 +35,7 @@
             font-family: roboto;
             font-size: 5vh;
             font-weight: bold;
-            margin-bottom: 3vh;
+            margin-bottom: 2vh;
         }
 
         #for-aspect-ratio {
@@ -137,10 +137,12 @@
             border: 1px solid #ddd;
             border-radius: 6px;
             color: #444;
-            padding: 0.5vh 1.5vw;
+            /* A board cell is min(10vw, 6.67vh); size off the same min() so the
+               control stays about a block tall whichever axis is binding. */
+            padding: min(2vw, 1.33vh) min(3vw, 2vh);
             cursor: pointer;
             font-family: roboto;
-            font-size: 2vh;
+            font-size: min(4.5vw, 3vh);
             transition: background 0.15s, border-color 0.15s, color 0.15s;
         }
 
