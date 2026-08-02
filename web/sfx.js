@@ -1,13 +1,16 @@
 "use strict";
+import { saveSfxSetting, loadSfxSetting } from "./storage.js";
 
-// Sounds for playing by hand: a piece lifted off the deck, dropped onto the
-// board, refusing to seat, and a row coming apart.
+// A piece lifted off the deck, dropped onto the board, refusing to seat, and a
+// row coming apart. Played whether you or the assist is moving the pieces,
+// except at the assist's top speed, where the moves come too fast to hear as
+// anything but noise.
+//
+// Off until someone turns it on, and remembered after that. Nothing is even
+// downloaded while it is off.
 //
 // Every clip is Kenney's, from the CC0 Impact Sounds pack. See
 // web/sfx/README.md for where they came from and what was done to them.
-//
-// Only manual play makes any sound: these fire from the drag handlers, and the
-// assist places pieces without touching those.
 
 const PICKUP = 'impactWood_light_000';
 
@@ -42,6 +45,7 @@ const CLEAR_DELAY_S = 0.06;
 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
 let audio_ctx = null;
+let sound_on = false;
 const fetched = new Map();   // file name -> Promise<ArrayBuffer>, until decoded
 const decoded = new Map();   // file name -> AudioBuffer, once it is ready
 let decode_failed = false;
@@ -52,12 +56,21 @@ function clipUrl(name) {
     return new URL(`sfx/${name}.wav`, import.meta.url);
 }
 
+// Nothing is fetched until sound is turned on, so a player who leaves it off
+// never pays for the clips at all.
+function fetchClips() {
+    for (const name of CLIPS) {
+        if (!fetched.has(name) && !decoded.has(name)) {
+            fetched.set(name, fetch(clipUrl(name)).then(r => r.arrayBuffer()));
+        }
+    }
+}
+
 // Safe to call on any user gesture, and cheap after the first one. An
 // AudioContext built before one starts out suspended (and complains in the
-// console), so the bytes are fetched up front and decoded once a gesture has
-// actually arrived.
+// console), so it is built here rather than on load.
 function warmUp() {
-    if (decode_failed) return;
+    if (!sound_on || decode_failed) return;
     if (audio_ctx === null) {
         audio_ctx = new AudioContextClass();
     }
@@ -82,7 +95,7 @@ function warmUp() {
 }
 
 function playSfx(event) {
-    if (audio_ctx === null) return;
+    if (!sound_on || audio_ctx === null) return;
     const hits = SOUNDS[event];
     // Still decoding, which only happens for the first sound of a session.
     if (!hits.every(h => decoded.has(h.file))) {
@@ -105,12 +118,37 @@ function playSfx(event) {
     }
 }
 
-function initSfx() {
-    for (const name of CLIPS) {
-        fetched.set(name, fetch(clipUrl(name)).then(r => r.arrayBuffer()));
+// `from_gesture` is what makes it safe to build an AudioContext: doing that
+// without one leaves it suspended and has the browser complain, once here and
+// again on every attempt to resume it.
+function setSoundOn(on, button, from_gesture) {
+    sound_on = on;
+    button.textContent = on ? '\u{1F50A}' : '\u{1F507}';
+    button.classList.toggle('sound-on', on);
+    button.setAttribute('aria-pressed', String(on));
+    const label = on ? 'Turn sound off' : 'Turn sound on';
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    if (on) {
+        fetchClips();
+        if (from_gesture) {
+            warmUp();
+        }
     }
-    // The first gesture anywhere pays for the decode, so the first sound the
-    // game actually asks for is ready by the time it is asked for.
+}
+
+function initSfx(button) {
+    if (button === null) return;
+    // Restoring a setting is not a gesture, so this only starts the download.
+    setSoundOn(loadSfxSetting(), button, false);
+
+    button.addEventListener('click', () => {
+        setSoundOn(!sound_on, button, true);
+        saveSfxSetting(sound_on);
+    });
+
+    // Left on from a previous visit: the clips are already on their way, and
+    // the first gesture anywhere is what pays for the decode.
     document.addEventListener('pointerdown', warmUp, { once: true });
 }
 

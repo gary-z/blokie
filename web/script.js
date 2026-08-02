@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
     });
     showWhoIsPlaying();  // the picker may be carrying a restored selection
 
-    initSfx();
+    initSfx(document.getElementById('sound'));
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
@@ -378,10 +378,21 @@ function showWhoIsPlaying() {
     document.getElementById('ai-assist').classList.toggle('assist-on', assistIsOn());
 }
 
+// Whether the assist is playing slowly enough to animate a move, and so to
+// sound it. At Max the moves land faster than either is worth doing.
+function assistShowsMoves() {
+    const delay_ms = getAssistDelayMs();
+    return delay_ms !== null && delay_ms >= FLY_ANIM_MS;
+}
+
 // The game ends when nothing on deck fits anywhere, whoever is placing.
 function refreshGameOver(game_state) {
     game_state.game_over = !blokie.hasValidMove(game_state.game.board, game_state.piece_set);
     return game_state;
+}
+
+function sameBoard(a, b) {
+    return a.board.a === b.board.a && a.board.b === b.board.b && a.board.c === b.board.c;
 }
 
 function stopAI() {
@@ -426,6 +437,13 @@ function onGameStateChanged() {
         // one of these pieces, so drop the sentinel and let them finish.
         if (game_state.queued_game_states.length > 0 && blokie.isOver(game_state.queued_game_states[0])) {
             game_state.queued_game_states = [];
+        }
+        // The assist posts on every tick, including ones where it only planned
+        // ahead. A move actually landed when the board it reports differs from
+        // the one already on screen, and that is when the cells shrink out.
+        if (assistShowsMoves() && game_state.game.previous_move_was_clear
+            && !sameBoard(state.game_state.game, game_state.game)) {
+            playSfx('clear');
         }
         state.game_state = refreshGameOver(game_state);
     };
@@ -509,6 +527,7 @@ function render() {
         cleanupFlyAnim();
         _fly_landed = true;
         flyJustLanded = true;
+        playSfx('place');  // the assist's piece has arrived on the board
     }
 
     // Detect new preview (queued move shown) and start fly animation.
@@ -517,14 +536,13 @@ function render() {
     const nextQueued = gs.queued_game_states.length > 0 ? gs.queued_game_states[0] : null;
     const previewJson = nextQueued ? JSON.stringify(nextQueued.previous_piece_placement) : null;
 
-    const assist_delay_ms = getAssistDelayMs();
-    if (previewJson && previewJson !== _prev_preview_json && !drag_info
-        && assist_delay_ms !== null && assist_delay_ms >= FLY_ANIM_MS) {
+    if (previewJson && previewJson !== _prev_preview_json && !drag_info && assistShowsMoves()) {
         const pieceIndex = gs.piece_set.findIndex(p => p === nextQueued.previous_piece);
         if (pieceIndex >= 0) {
             cleanupFlyAnim();
             _fly_landed = false;
             _fly_anim = startFlyAnimation(pieceIndex, nextQueued.previous_piece, nextQueued.previous_piece_placement);
+            playSfx('pickup');  // the assist has taken a piece off the deck
         }
     }
     _prev_preview_json = previewJson;

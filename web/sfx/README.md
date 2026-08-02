@@ -1,7 +1,15 @@
 # Sound effects
 
-Four sounds for playing by hand, wired up in `web/sfx.js`. The assist makes none
-of them: they fire from the drag handlers, which it never goes through.
+Four sounds, wired up in `web/sfx.js`.
+
+They play whether you or the assist is moving the pieces, but not at the assist's
+Max speed, where moves land faster than the ear can separate them. That is the same
+condition the fly animation uses — `assistShowsMoves()` in `web/script.js` — so a
+move is sounded exactly when it is slow enough to be shown.
+
+Sound is **off until someone turns it on**, with the button beside the assist
+picker, and the choice is remembered in a cookie. While it is off, none of the
+clips are downloaded at all.
 
 | | clip | centroid | length |
 |---|---|---|---|
@@ -53,5 +61,17 @@ Transcoded to 16-bit mono WAV. Kenney ships `.ogg`, which Safari only learned to
 play in 18.4. AAC was tried first and doesn't survive contact with open-source
 Chromium builds, which have no AAC decoder and so play nothing at all. WAV is the
 one format nothing has an opinion about, and it has no decoder delay to smear a
-short attack. Three clips come to 68 KB, all of it fetched on load and decoded on
-the first pointer event.
+short attack. Three clips come to 68 KB, fetched when sound is switched on and
+decoded on the gesture that switches it.
+
+## Where each one fires
+
+Playing by hand, from the drag handlers in `web/script.js`: the pickup when the
+drag crosses its threshold rather than on mousedown, so a tap that is deliberately
+nothing sounds like nothing; the reject only when the piece was over the board, so
+taking one back to the deck is a change of mind rather than a failure.
+
+Watching the assist, from the same move the fly animation is drawn from: the pickup
+as the piece leaves the deck, the place as it arrives, and the clear when the board
+actually updates and the cells shrink out — which at 1x is a beat later, because
+that is when it happens on screen.

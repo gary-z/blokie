@@ -158,6 +158,24 @@
             border-color: rgb(54, 112, 232);
             color: #222;
         }
+
+        /* Square, and the same height as the picker beside it. */
+        #sound {
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            font-family: roboto;
+            font-size: min(4.5vw, 3vh);
+            line-height: 1;
+            padding: min(2vw, 1.33vh);
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        #sound.sound-on {
+            background: #e8eefc;
+            border-color: rgb(54, 112, 232);
+        }
     </style>
     <meta property="og:description"
         content="Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration." />
@@ -408,6 +426,7 @@
                     <option value="400">&#10024; 5x</option>
                     <option value="0">&#10024; Max</option>
                 </select>
+                <button type="button" id="sound" aria-pressed="false"></button>
             </div>
             <p>
                 <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>
