@@ -5,7 +5,7 @@ Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/s
 ## Try it
 [Open it in your browser](https://gary-z.github.io/blokie/). Drag the pieces on deck onto the board to play.
 
-The sparkle (&#10024;) in the bottom bar toggles the **AI assist**, which plays for you. It starts on at 1x, and a speed picker appears beside it while it is running. Switch it off to play by yourself, or take a turn by hand whenever you like — the assist picks the game back up from wherever you left the board.
+The picker in the bottom bar chooses who plays: **🎮 Manual** is you, and the sparkle-marked speeds (**✨ 1x** through **✨ Max**) hand the game to the **AI assist**. It starts at ✨ 1x. You can take a turn by hand whenever you like — the assist picks the game back up from wherever you left the board.
 
 
 ## What can I learn from Blokie to improve at the game?

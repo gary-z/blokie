@@ -34,14 +34,14 @@ const DRAG_THRESHOLD = 8;
 const FINGER_CLEARANCE = 30;  // px of clearance above the touch point
 
 document.addEventListener("DOMContentLoaded", function (event) {
-    // Switching the assist on, off, or to another speed restarts it from
-    // wherever the game currently stands.
-    const ai_toggle = document.getElementById('ai-toggle');
-    ai_toggle.addEventListener('click', () => {
-        ai_toggle.setAttribute('aria-pressed', assistIsOn() ? 'false' : 'true');
+    // Switching between manual play and an assist speed restarts the assist
+    // from wherever the game currently stands.
+    const ai_assist = document.getElementById('ai-assist');
+    ai_assist.addEventListener('change', () => {
+        showWhoIsPlaying();
         onGameStateChanged();
     });
-    document.getElementById('ai-speed').addEventListener('change', () => onGameStateChanged());
+    showWhoIsPlaying();  // browsers can restore a previous selection on reload
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
@@ -301,12 +301,17 @@ async function onNewGame() {
 let ai_worker = null;
 
 function assistIsOn() {
-    return document.getElementById('ai-toggle').getAttribute('aria-pressed') === 'true';
+    return document.getElementById('ai-assist').value !== 'off';
 }
 
-// The delay between assist moves, or null when the assist is switched off.
+// The delay between assist moves, or null while you are playing by hand.
 function getAssistDelayMs() {
-    return assistIsOn() ? parseInt(document.getElementById('ai-speed').value) : null;
+    return assistIsOn() ? parseInt(document.getElementById('ai-assist').value) : null;
+}
+
+// Tint the picker while the assist is the one playing.
+function showWhoIsPlaying() {
+    document.getElementById('ai-assist').classList.toggle('assist-on', assistIsOn());
 }
 
 // The game ends when nothing on deck fits anywhere, whoever is placing.
