@@ -1,6 +1,7 @@
 "use strict";
 import { blokie, init } from "../engine/blokie.js";
 import { saveGameState, loadGameState, saveAssistSetting, loadAssistSetting } from "./storage.js";
+import { initSfx, playSfx } from "./sfx.js";
 
 
 // You play the game by dragging pieces onto the board. The AI assist can play
@@ -61,6 +62,8 @@ document.addEventListener("DOMContentLoaded", function (event) {
         onGameStateChanged();
     });
     showWhoIsPlaying();  // the picker may be carrying a restored selection
+
+    initSfx();
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
@@ -246,6 +249,20 @@ function calcShadowPlacement(clientX, clientY, piece, bounds) {
     return { placement: result.placement, targetRow, targetCol };
 }
 
+// Whether the piece was over the board when it was let go, using the same
+// geometry updateFloatingPosition draws it with. Dropping it anywhere else is
+// a change of mind rather than a rejected placement, and buzzing at that would
+// punish taking the piece back.
+function droppedOverBoard(clientX, clientY, bounds) {
+    const boardRect = document.getElementById('game-board').getBoundingClientRect();
+    const pieceW = (boardRect.width / 9) * bounds.cols;
+    const pieceH = (boardRect.height / 9) * bounds.rows;
+    const left = clientX - pieceW / 2;
+    const top = clientY - FINGER_CLEARANCE - pieceH;
+    return left < boardRect.right && left + pieceW > boardRect.left
+        && top < boardRect.bottom && top + pieceH > boardRect.top;
+}
+
 function handleDragMove(clientX, clientY) {
     if (!drag_info) return;
 
@@ -259,6 +276,9 @@ function handleDragMove(clientX, clientY) {
         drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
         state.dragging_piece_index = drag_info.pieceIndex;
         stopAI();
+        // Here rather than on mousedown: a tap that never crosses the
+        // threshold is deliberately nothing, and should sound like nothing.
+        playSfx('pickup');
     }
 
     updateFloatingPosition(drag_floating_el, clientX, clientY, drag_info.bounds);
@@ -299,6 +319,10 @@ function handleDragEnd(clientX, clientY) {
                 drag_info.targetCol
             );
             if (result) {
+                playSfx('place');
+                if (result.newGame.previous_move_was_clear) {
+                    playSfx('clear');
+                }
                 state.game_state.piece_set[drag_info.pieceIndex] = blokie.getEmptyPiece();
                 if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
                     state.game_state.piece_set = blokie.getRandomPieceSet();
@@ -309,6 +333,9 @@ function handleDragEnd(clientX, clientY) {
                 onGameStateChanged();
                 return;
             }
+        }
+        if (droppedOverBoard(clientX, clientY, drag_info.bounds)) {
+            playSfx('reject');
         }
         cleanupDrag();
         onGameStateChanged();

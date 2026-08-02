@@ -1,0 +1,57 @@
+# Sound effects
+
+Four sounds for playing by hand, wired up in `web/sfx.js`. The assist makes none
+of them: they fire from the drag handlers, which it never goes through.
+
+| | clip | centroid | length |
+|---|---|---|---|
+| pickup | `impactWood_light_000` | 481 Hz | 0.26s |
+| place | `impactWood_medium_000` | 237 Hz | 0.33s |
+| reject | `impactSoft_medium_000` | 130 Hz | 0.12s |
+| clear | `impactWood_light_000` ×3, pitched | 879 Hz | 0.34s |
+
+Centroid is spectral centroid — roughly where a sound sits on a dull-to-bright
+axis. It is worth checking against for anything new, because it is what ruled out
+the first attempt at these: a set built from Kenney's UI packs, where `mouseclick1`
+measured 9333 Hz against wood's 108–481 Hz and sounded like it.
+
+![The four sounds](preview.png)
+
+## The clear
+
+The clear is the pickup clip struck three times up a major triad — root, third,
+fifth — 70 ms apart and tapering, using `playbackRate`. It is a small marimba
+played on the same piece of wood as everything else, and it needs no file of its
+own. The hits are spaced enough that the three sum to −1 dBFS rather than clip.
+
+Every event is a list of hits for that reason, so any of the others could become a
+run the same way.
+
+## The reject
+
+A dull thud rather than a buzz: an impact that doesn't ring, which reads as the
+piece refusing to seat. It is much quieter about it than an error tone would be, so
+raise `EVENT_GAIN.reject` in `web/sfx.js` if a bad drop goes unnoticed. Balance
+between the four events lives there rather than in the files.
+
+## Where these came from
+
+All three clips are Kenney's, from the [Impact Sounds](https://kenney.nl/assets/impact-sounds)
+pack — **CC0**: public domain, commercial use fine, no attribution required. The
+credit here is for our own benefit, not the licence's.
+
+The pack is mirrored file-by-file at
+[gamesounds.xyz](https://gamesounds.xyz/?dir=Kenney%27s+Sound+Pack/Impact+Sounds),
+which is easier than re-downloading a whole zip to try a different `impactWood`.
+
+## What was done to them
+
+Levelled: each file moved by the gentler of "bring RMS to −18 dB" and "bring peak
+to −1 dB", so no clip has to be compensated for in code.
+
+Transcoded to 16-bit mono WAV. Kenney ships `.ogg`, which Safari only learned to
+play in 18.4. AAC was tried first and doesn't survive contact with open-source
+Chromium builds, which have no AAC decoder and so play nothing at all. WAV is the
+one format nothing has an opinion about, and it has no decoder delay to smear a
+short attack. Three clips come to 68 KB, all of it fetched on load and decoded on
+the first pointer event.
