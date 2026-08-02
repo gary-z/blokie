@@ -92,13 +92,9 @@ document.addEventListener("DOMContentLoaded", function (event) {
         }
     }, { passive: false });
 
-    // The board itself is not interactive: pieces land on it by drag, and the
-    // only click it answers is the one that starts a new game after a loss.
-    document.getElementById('game-board').addEventListener("click", () => {
-        if (!gameIsActive()) {
-            onNewGame();
-        }
-    });
+    // The board itself is not interactive: pieces only land on it by drag.
+    document.getElementById('new-game').addEventListener('click', onNewGame);
+    initRestartButton(document.getElementById('restart'));
 
     const pieces_on_deck_container = document.getElementById('pieces-on-deck-container');
     pieces_on_deck_container.addEventListener('touchstart', (event) => {
@@ -193,6 +189,7 @@ function initSettings() {
         menu.hidden = !open;
         button.setAttribute('aria-expanded', String(open));
     }
+    closeSettingsMenu = () => setMenuOpen(false);
 
     button.addEventListener('click', () => setMenuOpen(menu.hidden));
 
@@ -390,8 +387,50 @@ function cleanupDrag() {
 // === End drag and drop ===
 
 async function onNewGame() {
+    clearRestartConfirm();
+    // Whichever of the two started it, the menu has no more business open: the
+    // board behind it is the thing to look at now.
+    closeSettingsMenu();
     state.game_state = getNewGameState();
     onGameStateChanged();
+}
+
+const RESTART_CONFIRM_MS = 3000;
+let restart_confirm_timer = null;
+// Replaced once the menu holds them; no-ops until then, since the first game is
+// started before anything has been opened.
+let clearRestartConfirm = () => { };
+let closeSettingsMenu = () => { };
+
+// Starting over throws a game away, and the row above it in the menu is one
+// people open the menu to reach, so mid-game it asks before doing it. The
+// question withdraws itself if it goes unanswered, and the menu stays up to be
+// answered, the same way it does while sound is being toggled. Once the game is
+// over there is nothing left to lose and the press goes straight through.
+function initRestartButton(button) {
+    const label = document.getElementById('restart-label');
+    const asked = label.innerText;
+
+    const setLabel = (text, title) => {
+        label.innerText = text;
+        button.title = title;
+    };
+
+    clearRestartConfirm = () => {
+        if (restart_confirm_timer === null) return;
+        clearTimeout(restart_confirm_timer);
+        restart_confirm_timer = null;
+        setLabel(asked, 'Start a new game');
+    };
+
+    button.addEventListener('click', () => {
+        if (restart_confirm_timer !== null || !gameIsActive()) {
+            onNewGame();
+            return;
+        }
+        setLabel('Start over?', 'Start a new game? Press again to confirm.');
+        restart_confirm_timer = setTimeout(clearRestartConfirm, RESTART_CONFIRM_MS);
+    });
 }
 
 let ai_worker = null;
@@ -595,9 +634,11 @@ function renderImpl() {
     let board_table = document.getElementById('game-board');
     let pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
 
+    showGameOver(!gameIsActive(), state.game_state.game.score);
+
     if (!gameIsActive()) {
         drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, state.game_state.piece_set);
-        updateScore("Final score: " + state.game_state.game.score.toString());
+        updateScore(state.game_state.game.score);
         return;
     }
 
@@ -621,9 +662,36 @@ function renderImpl() {
     }
 }
 
+// The score line carries the number and nothing else, at every point in the
+// game. Saying "final" up there as well used to be the whole of the game-over
+// signal; the card says it now, and on a narrow phone the longer line wrapped
+// and shoved the board down at the worst possible moment.
 function updateScore(score) {
     const score_el = document.getElementById('score');
-    score_el.innerText = score;
+    score_el.innerText = score.toLocaleString();
+}
+
+let game_over_shown = false;
+
+// The card over the board, the wash behind it and the drained pieces below are
+// one signal, raised and lowered together.
+function showGameOver(over, score) {
+    if (over === game_over_shown) return;
+    game_over_shown = over;
+
+    const panel = document.getElementById('game-over');
+    document.body.classList.toggle('game-over', over);
+    if (!over) {
+        panel.hidden = true;
+        return;
+    }
+
+    // Revealed before it is filled in: a hidden panel is not in the
+    // accessibility tree, and a live region that isn't there announces nothing.
+    panel.hidden = false;
+    document.getElementById('final-score').innerText = score.toLocaleString();
+    // Puts the way out under the keyboard, and names it for a screen reader.
+    document.getElementById('new-game').focus({ preventScroll: true });
 }
 
 function _setCell(td, cls) {
