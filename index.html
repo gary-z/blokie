@@ -26,6 +26,14 @@
             border: none;
         }
 
+        /* The settings gear is fixed in the top right corner, which is the same
+           line the score is drawn on. Both are sized off these, so the score
+           can keep exactly the gear's width clear of that corner. */
+        :root {
+            --gear-icon: min(4.5vw, 3vh);
+            --gear-pad: min(2vw, 1.33vh);
+        }
+
         #page-description {
             text-align: center;
         }
@@ -36,6 +44,9 @@
             font-size: 5vh;
             font-weight: bold;
             margin-bottom: 2vh;
+            /* Reserved on both sides so the score stays centred. A long
+               "Final score:" wraps rather than running under the gear. */
+            padding: 0 calc(var(--gear-icon) + 3 * var(--gear-pad));
         }
 
         #for-aspect-ratio {
@@ -119,11 +130,6 @@
             border: 1px solid black;
         }
 
-        .footer {
-            text-align: center;
-            font-size: 2vh;
-        }
-
         /* Sparkles is a colour emoji, drawn gold everywhere, and gold washes out
            on the tint the picker wears while the assist is playing. This is the
            same glyph from Noto Emoji -- the monochrome family -- subset to that
@@ -177,22 +183,100 @@
             color: #222;
         }
 
-        /* Square, and the same height as the picker beside it. */
-        #sound {
+        /* Sound and the Github link are settings, not part of playing, so they
+           sit behind the gear in the corner rather than under the board. The
+           gear is fixed to the viewport: the board is sized off the smaller of
+           the two axes and rarely fills the page, so anchoring to it would
+           leave the gear floating somewhere in the middle on wide screens. */
+        #settings {
+            position: fixed;
+            top: var(--gear-pad);
+            right: var(--gear-pad);
+            font-family: roboto;
+            /* Above the page, below the piece being dragged. */
+            z-index: 10;
+        }
+
+        /* Square, and built like the picker in the bottom bar. */
+        #settings-button {
             background: #f0f0f0;
             border: 1px solid #ddd;
             border-radius: 6px;
+            color: #444;
             cursor: pointer;
-            font-family: roboto;
-            font-size: min(4.5vw, 3vh);
+            font-size: var(--gear-icon);
             line-height: 1;
-            padding: min(2vw, 1.33vh);
+            padding: var(--gear-pad);
             transition: background 0.15s, border-color 0.15s;
         }
 
-        #sound.sound-on {
+        #settings-button[aria-expanded="true"] {
             background: #e8eefc;
             border-color: rgb(54, 112, 232);
+        }
+
+        #settings-menu {
+            position: absolute;
+            top: calc(100% + var(--gear-pad) / 2);
+            /* Hangs off the gear's right edge, so it opens onto the page
+               instead of off the side of it. */
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            gap: calc(var(--gear-pad) / 4);
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            padding: calc(var(--gear-pad) / 2);
+        }
+
+        /* display: flex above would otherwise show the menu while it is shut. */
+        #settings-menu[hidden] {
+            display: none;
+        }
+
+        #settings-menu button,
+        #settings-menu a {
+            display: flex;
+            align-items: center;
+            gap: var(--gear-pad);
+            background: none;
+            border: none;
+            border-radius: 4px;
+            color: #444;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: min(3.5vw, 2.33vh);
+            padding: calc(var(--gear-pad) * 0.75) var(--gear-pad);
+            text-align: left;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        /* A column of its own, so the labels line up whatever the icons are. */
+        #settings-menu .menu-icon {
+            width: var(--gear-icon);
+            text-align: center;
+        }
+
+        /* The tint the picker wears while the assist plays, for the same
+           reason: it marks the setting that is currently on. */
+        #sound.sound-on {
+            background: #e8eefc;
+            color: #222;
+        }
+
+        /* Hover left on a touch screen sticks to whatever was tapped last. */
+        @media(hover: hover) and (pointer: fine) {
+            #settings-menu button:hover,
+            #settings-menu a:hover {
+                background: #f0f0f0;
+            }
+
+            #sound.sound-on:hover {
+                background: #dbe5fa;
+            }
         }
     </style>
     <meta property="og:description"
@@ -213,6 +297,18 @@
 </head>
 
 <body>
+    <div id="settings">
+        <button type="button" id="settings-button" aria-label="Settings" title="Settings"
+            aria-expanded="false" aria-controls="settings-menu">&#9881;&#65039;</button>
+        <div id="settings-menu" hidden>
+            <button type="button" id="sound" aria-pressed="false">
+                <span class="menu-icon" aria-hidden="true"></span>Sound
+            </button>
+            <a target="_blank" href="https://github.com/gary-z/blokie#readme">
+                <span class="menu-icon" aria-hidden="true">&#128279;</span>Github
+            </a>
+        </div>
+    </div>
     <div id="for-aspect-ratio">
         <div title="score" id="score">0</div>
         <div id="game-table-container">
@@ -434,21 +530,15 @@
                 </table>
             </div>
         </div>
-        <div class="footer">
-            <div id="assist-container">
-                <select id="ai-assist" class="assist-on" aria-label="Who plays"
-                    title="Play the game yourself, or let the AI assist play it for you.">
-                    <option value="off">&#127918; Manual</option>
-                    <option value="2000" selected>&#10024; 1x</option>
-                    <option value="1000">&#10024; 2x</option>
-                    <option value="400">&#10024; 5x</option>
-                    <option value="0">&#10024; Max</option>
-                </select>
-                <button type="button" id="sound" aria-pressed="false"></button>
-            </div>
-            <p>
-                <a target="_blank" href="https://github.com/gary-z/blokie#readme">Github</a>
-            </p>
+        <div id="assist-container">
+            <select id="ai-assist" class="assist-on" aria-label="Who plays"
+                title="Play the game yourself, or let the AI assist play it for you.">
+                <option value="off">&#127918; Manual</option>
+                <option value="2000" selected>&#10024; 1x</option>
+                <option value="1000">&#10024; 2x</option>
+                <option value="400">&#10024; 5x</option>
+                <option value="0">&#10024; Max</option>
+            </select>
         </div>
     </div>
 </body>
