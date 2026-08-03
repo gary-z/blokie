@@ -359,7 +359,7 @@ function handleDragEnd(clientX, clientY) {
             if (result) {
                 commitMove(drag_info.pieceIndex, result);
                 cleanupDrag();
-                onGameStateChanged();
+                onGameStateChanged({ after_manual_move: true });
                 return;
             }
         }
@@ -533,7 +533,12 @@ function stopAI() {
 
 // Called whenever the game moves on: a placement, a new game, or a change to
 // the assist setting. The assist picks up from the new state, if it is on.
-function onGameStateChanged() {
+//
+// `after_manual_move` marks the one case the assist should not jump straight
+// into: a piece you have just placed by hand. Taking over the instant it lands
+// reads as the move being snatched out of your hand, so there the assist waits
+// out a full pacing interval like it does between its own moves.
+function onGameStateChanged({ after_manual_move = false } = {}) {
     stopAI();
     refreshGameOver(state.game_state);
 
@@ -541,7 +546,7 @@ function onGameStateChanged() {
         return;
     }
 
-    assist_is_starting = true;
+    assist_is_starting = !after_manual_move;
     ai_worker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
     ai_worker.onmessage = (e) => {
         if (e.data.id != state.assist_request_id) {
