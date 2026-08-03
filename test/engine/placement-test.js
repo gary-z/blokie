@@ -7,7 +7,7 @@
 // reading still lands on that square whenever the piece fits there, and finds
 // the closest square it does fit in when it doesn't.
 
-import { blokie } from '../engine/blokie.js';
+import { blokie } from '../../engine/blokie.js';
 
 let failures = 0;
 function check(condition, description) {
