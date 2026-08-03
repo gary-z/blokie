@@ -1,5 +1,5 @@
 "use strict";
-import { blokie } from "../engine/blokie.js";
+import { blokie } from "../engine/js/blokie.js";
 
 // The game lives in cookies so it survives a refresh: the board, score, and
 // pieces on deck go in one cookie, who is playing goes in another. Both are

@@ -5,7 +5,7 @@
 // no such move exists: the assist has to keep playing what does fit, right up
 // to the point the game is genuinely over.
 
-import { blokie, init } from '../engine/blokie.js';
+import { blokie, init } from '../../engine/js/blokie.js';
 
 await init();
 

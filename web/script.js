@@ -1,5 +1,5 @@
 "use strict";
-import { blokie, init } from "../engine/blokie.js";
+import { blokie, init } from "../engine/js/blokie.js";
 import { saveGameState, loadGameState, saveAssistSetting, loadAssistSetting } from "./storage.js";
 import { initSfx, playSfx } from "./sfx.js";
 

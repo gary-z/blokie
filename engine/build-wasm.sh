@@ -2,8 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BUILD_DIR="$SCRIPT_DIR/engine/cpp/build-wasm"
-OUTPUT_DIR="$SCRIPT_DIR/engine/wasm"
+BUILD_DIR="$SCRIPT_DIR/cpp/build-wasm"
+OUTPUT_DIR="$SCRIPT_DIR/wasm"
 EMSDK_VERSION="$(cat "$SCRIPT_DIR/.emscripten-version" | tr -d '[:space:]')"
 
 # Install cmake if not available.

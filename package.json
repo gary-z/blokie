@@ -3,23 +3,23 @@
   "type": "module",
   "version": "1.0.0",
   "description": "A 9x9 block puzzle engine",
-  "main": "engine/blokie.js",
+  "main": "engine/js/blokie.js",
   "exports": {
-    ".": "./engine/blokie.js",
+    ".": "./engine/js/blokie.js",
     "./wasm": "./engine/wasm/blokie-solver.wasm"
   },
   "files": [
-    "engine/blokie.js",
+    "engine/js/blokie.js",
     "engine/wasm/blokie-solver.js",
     "engine/wasm/blokie-solver.wasm"
   ],
   "homepage": "https://gary-z.github.io/blokie/",
   "scripts": {
-    "build:wasm": "bash build-wasm.sh",
-    "test:ai": "node test/ai-plan-test.js",
-    "test:placement": "node test/placement-test.js",
-    "test:fitness": "node test/fitness-test.js",
-    "test:storage": "node test/storage-test.js",
-    "test:performance": "node test/performance-test.js"
+    "build:wasm": "bash engine/build-wasm.sh",
+    "test:ai": "node test/engine/ai-plan-test.js",
+    "test:placement": "node test/engine/placement-test.js",
+    "test:fitness": "node test/engine/fitness-test.js",
+    "test:storage": "node test/web/storage-test.js",
+    "test:performance": "node test/engine/performance-test.js"
   }
 }
