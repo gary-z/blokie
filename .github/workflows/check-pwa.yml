@@ -1,0 +1,21 @@
+name: Check the app still installs
+
+# The deploy workflow runs this against the site it is about to upload, which
+# is the check that counts -- but only after a change has landed on main, and a
+# service worker that fails to install takes offline down silently. Running it
+# here means a pull request that adds a file to the page and not to the
+# precache list says so before it is merged.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the precache list, the manifest, and the page agree
+        run: node test/web/pwa-test.js

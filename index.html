@@ -3,9 +3,33 @@
 
 <head>
     <title>Watch an AI Play Blockudoku/Woodoku/Block Sudoku</title>
+    <!-- The board is sized in vw and vh, which without this are measured
+         against the ~980px page a phone browser pretends to be rather than the
+         screen it actually has. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" type="image/x-icon" href="web/favicon.ico">
     <script src="web/script.js" type="module"></script>
     <link rel="stylesheet" href="web/styles.css">
+
+    <!-- Installed as an app: the manifest names it and points at its icons,
+         the worker registered in web/pwa.js keeps the files for playing with
+         no network. White to match the board, so the bar above a standalone
+         window and the splash behind a cold start are both the same page the
+         game is drawn on.
+
+         Safari came to the manifest late and still prefers what it had
+         already, so the apple- tags say the same things again in the form it
+         reads: the icon (which it picks over the ones in the manifest), the
+         name under it, and that the app wants a window of its own.
+         mobile-web-app-capable is the standard spelling of that last one, and
+         both are here because iOS only answers to its own. -->
+    <link rel="manifest" href="web/manifest.webmanifest">
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="apple-touch-icon" href="web/icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-title" content="Blokie" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta property="og:description"
         content="Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration." />
     <meta property="og:image" content="https://gary-z.github.io/blokie/web/og-image.png" />

@@ -23,11 +23,28 @@ jobs:
       - name: Stage site for deployment
         run: |
           mkdir _site
-          cp index.html _site/
+          cp index.html sw.js _site/
           mkdir -p _site/engine/js _site/engine/wasm
           cp engine/js/blokie.js _site/engine/js/
           cp engine/wasm/* _site/engine/wasm/
           cp -r web/ _site/web/
+
+      # A browser only reinstalls a service worker whose bytes have changed, so
+      # without this an installed app would go on serving the files it cached
+      # the day it was installed. Digesting the site rather than counting
+      # deploys means the worker changes exactly when something it serves does.
+      - name: Stamp the service worker with a build id
+        run: |
+          build_id=$(find _site -type f ! -name sw.js -exec sha256sum {} + \
+            | sort -k 2 | sha256sum | cut -c 1-16)
+          sed -i "s/__BUILD_ID__/$build_id/" _site/sw.js
+          echo "Service worker build id: $build_id"
+
+      # Against the staged copy, not the checkout: a file the worker promises
+      # to cache is just as missing if it was never copied out of here, and one
+      # missing file is enough to fail the install and take offline with it.
+      - name: Check the site can be installed and played offline
+        run: node test/web/pwa-test.js _site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
