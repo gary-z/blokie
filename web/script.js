@@ -449,6 +449,12 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     }
 
     const game_state = state.game_state;
+    // What the move paid, read before the new game replaces the old one below.
+    // Held to the same bar the sounds are: at Max the moves land faster than a
+    // card could be read, and the cards would only stack up over the board.
+    if (!silent && result.newGame.previous_move_was_clear) {
+        showScoreCard(result.newGame.score - game_state.game.score, result.placement);
+    }
     // The engine returns the board after completed rows, columns and boxes have
     // already been removed. Remember this placement until the next render so
     // squares which were placed into a clear can join the shrink animation
@@ -705,6 +711,52 @@ function cleanupFlyAnim() {
         _fly_anim.el.remove();
         _fly_anim = null;
     }
+}
+
+// === Score card ===
+
+// Long enough for the card's animation in the stylesheet to have finished, so
+// what comes off the page is only ever something already invisible on it. A
+// timer rather than the animation's own end event, which a backgrounded tab may
+// never get around to firing.
+const SCORE_CARD_MS = 1100;
+
+// Where a card for this move belongs, in screen pixels: the middle of the
+// squares the piece covered. Read off the board as it stands, the same way the
+// drag and the assist's flight are.
+function getPlacementCenter(placement) {
+    const board = getBoardGeometry();
+    let min_r = 9, min_c = 9, max_r = -1, max_c = -1;
+    for (let r = 0; r < 9; ++r) {
+        for (let c = 0; c < 9; ++c) {
+            if (!blokie.at(placement, r, c)) continue;
+            if (r < min_r) min_r = r;
+            if (c < min_c) min_c = c;
+            if (r > max_r) max_r = r;
+            if (c > max_c) max_c = c;
+        }
+    }
+    return {
+        x: board.rect.left + (min_c + max_c + 1) / 2 * board.cellW,
+        // A piece landing in the top row would put the card over the score and
+        // float it off the top of the page, so cards from up there start a
+        // couple of squares down and stay on the board like the rest.
+        y: Math.max(
+            board.rect.top + 2 * board.cellH,
+            board.rect.top + (min_r + max_r + 1) / 2 * board.cellH,
+        ),
+    };
+}
+
+function showScoreCard(points, placement) {
+    const center = getPlacementCenter(placement);
+    const el = document.createElement('div');
+    el.className = 'score-card';
+    el.innerText = '+' + points.toLocaleString();
+    el.style.left = center.x + 'px';
+    el.style.top = center.y + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), SCORE_CARD_MS);
 }
 
 // The board is drawn from the game as it stands, and only when something about
