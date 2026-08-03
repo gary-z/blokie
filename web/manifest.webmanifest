@@ -1,0 +1,17 @@
+{
+    "name": "Blokie",
+    "short_name": "Blokie",
+    "description": "Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time.",
+    "start_url": "../",
+    "scope": "../",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#3670e8",
+    "icons": [
+        {
+            "src": "icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        }
+    ]
+}
