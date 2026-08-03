@@ -1,0 +1,42 @@
+{
+  "name": "Blokie",
+  "short_name": "Blokie",
+  "description": "Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration.",
+  "lang": "en",
+  "dir": "ltr",
+  "start_url": "../",
+  "scope": "../",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "categories": ["games"],
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "og-image.png",
+      "sizes": "1142x1630",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "A game in progress, with three pieces waiting on the deck"
+    }
+  ]
+}

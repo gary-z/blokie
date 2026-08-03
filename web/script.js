@@ -2,6 +2,7 @@
 import { blokie, init } from "../engine/js/blokie.js";
 import { saveGameState, loadGameState, saveAssistSetting, loadAssistSetting } from "./storage.js";
 import { initSfx, playSfx } from "./sfx.js";
+import { registerServiceWorker } from "./pwa.js";
 
 
 // You play the game by dragging pieces onto the board. The AI assist can play
@@ -64,6 +65,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
 
     initSettings();
     initSfx(document.getElementById('sound'));
+    registerServiceWorker();
 
     document.addEventListener('mouseup', (event) => {
         handleDragEnd(event.clientX, event.clientY);
