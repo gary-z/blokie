@@ -21,6 +21,43 @@
             border: 1px solid black;
             animation: cell-shrink-out 0.2s ease-in forwards;
         }
+
+        /* A clear pays far more than the squares the piece put down, and the
+           score line above the board is too far from the move to connect the
+           two. The card says what the move was worth where it was earned: it
+           pops up over the piece that landed, then drifts off the board.
+
+           Fixed to the page rather than drawn in a cell, so it can float clear
+           of the square it came from instead of being clipped by it, and under
+           the piece being dragged so it can never hide what is in hand. */
+        .score-card {
+            position: fixed;
+            z-index: 900;
+            pointer-events: none;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+            color: rgb(54, 112, 232);
+            font-family: roboto;
+            font-weight: bold;
+            font-size: min(5vw, 3.3vh);
+            line-height: 1;
+            padding: min(2vw, 1.33vh) min(3.5vw, 2.33vh);
+            white-space: nowrap;
+            animation: score-card-float 0.9s ease-out forwards;
+        }
+
+        /* Placed by its middle, so it sits over the piece whichever side of the
+           board that is. It holds still long enough to be read before it goes,
+           and rises about a block and a half: far enough to read as leaving,
+           short enough to stay over the board it came from. */
+        @keyframes score-card-float {
+            0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+            12% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+            28% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, calc(-50% - min(15vw, 10vh))) scale(1); opacity: 0; }
+        }
+
         /* The column is sized off whichever axis is tighter, so on a page
            taller than it needs there is height left over. Left to itself that
            spare all collects under the deck, with the score pinned to the top
