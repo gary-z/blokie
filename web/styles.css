@@ -78,26 +78,19 @@ body {
     justify-content: safe center;
 }
 
-/* The settings gear is drawn on the same line as the score, either out
-   in the margin beside the board or in the board's own top right
-   corner, depending on how much room the page leaves. The score is
-   sized off these too, so it keeps the gear's width clear of that
-   corner either way. The board's outline is drawn outside its box, so
-   the gear clears that as well to line up with the edge you can see.
-
-   The score's line height is spelled out rather than left to the font,
-   because the gear is centred on that line and so needs a height to
-   work off that doesn't move with whatever face the browser lands on. */
+/* Size the whole game from the same constrained column. In particular,
+   the score and settings control should grow and shrink with the board,
+   rather than looking fixed while the rest of the game changes size. */
 :root {
     --column: min(90vw, calc(90vh / (3/2)));
-    --score-size: 5vh;
+    --score-size: calc(var(--column) / 12);
     --score-line: calc(var(--score-size) * 1.2);
-    --gear-size: min(6vw, 4vh);
-    --gear-gap: min(2vw, 1.33vh);
+    --gear-size: calc(var(--column) / 15);
+    --gear-gap: calc(var(--column) / 45);
     --board-outline: 4px;
 
     /* What the page has to spare under the deck. Everything else on it
-       is the score (5vh of type over a 2vh margin), the picker (6.5vh
+       is the score (up to 5vh of type over a 2vh margin), the picker (6.5vh
        at its tallest), the board and the deck band (a column and a
        third of one), and the body's own padding with a little over, so
        the page keeps a few pixels rather than spending its last one.
@@ -135,9 +128,6 @@ body {
     line-height: var(--score-line);
     font-weight: bold;
     margin-bottom: 2vh;
-    /* Reserved on both sides so the score stays centred, and so a long
-       one wraps rather than running under the gear. */
-    padding: 0 calc(var(--gear-size) + var(--gear-gap));
 }
 
 #for-aspect-ratio {
@@ -147,8 +137,6 @@ body {
        spare height itself and take the centring off justify-content,
        losing the safety with it. */
     margin: 0 auto;
-    /* What the gear is positioned against. */
-    position: relative;
 }
 
 #game-table-container {
@@ -358,41 +346,18 @@ body.game-over #pieces-on-deck-container {
     color: #222;
 }
 
-/* Sound and the Github link are settings, not part of playing, so they
-   sit behind the gear in the corner rather than under the board. The
-   offsets undo the button's padding, which is there as a target for a
-   finger rather than as anything to look at, so what lines up with the
-   board's corner is the gear itself and not the box around it.
-
-   Vertically it is centred on the score's first line: half that line,
-   back off the padding and half the gear. The first line and not the
-   whole element, so that a score long enough to wrap leaves the gear
-   where it was rather than dragging it down the page. */
+/* Settings belong to the screen rather than to the game column. Keeping
+   this fixed in the viewport's top-right corner breaks its former visual
+   alignment with the score and leaves it in a predictable place at every
+   aspect ratio. The button padding provides the inset and touch target;
+   safe-area insets keep both usable around a phone's display cutouts. */
 #settings {
-    position: absolute;
-    top: calc(var(--score-line) / 2 - var(--gear-gap) - var(--gear-size) / 2);
-    right: calc(-1 * (var(--board-outline) + var(--gear-gap)));
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    right: env(safe-area-inset-right, 0px);
     font-family: roboto;
     /* Above the page, below the piece being dragged. */
     z-index: 10;
-}
-
-/* The board is sized off whichever axis is tighter, so on a wide page
-   it leaves a margin beside it. Once that margin is deep enough to
-   take the gear without it reaching back over the board, the gear goes
-   out to the page's own corner: the offset puts the button's edge on
-   the edge of the page, and the gear a padding's width inside that.
-   Narrower than this the margin is too shallow to hold it, and the
-   rule above leaves it in the board's corner instead.
-
-   Three quarters is the crossover with a little to spare. The board
-   starts leaving a margin at 2:3, but the margin is only worth moving
-   into once it is deeper than the gear, the padding around it, and the
-   board's outline together. */
-@media(min-aspect-ratio: 3/4) {
-    #settings {
-        right: calc(-1 * (100vw - var(--column)) / 2);
-    }
 }
 
 /* No chrome of its own: the gear is the whole control. */
