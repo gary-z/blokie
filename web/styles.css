@@ -1,0 +1,494 @@
+@keyframes cell-fade-in {
+    from { opacity: 0.45; }
+}
+@keyframes cell-shrink-out {
+    to { transform: scale(0); }
+}
+td.has-piece,
+td.drag-shadow {
+    animation: cell-fade-in 0.2s ease-out;
+}
+#game-board tr:nth-of-type(n):nth-of-type(n) td.shrinking-piece:nth-of-type(n):nth-of-type(n) {
+    background: rgb(54, 112, 232);
+    border: 1px solid black;
+    animation: cell-shrink-out 0.2s ease-in forwards;
+}
+
+/* A clear pays far more than the squares the piece put down, and the
+   score line above the board is too far from the move to connect the
+   two. The card says what the move was worth where it was earned: it
+   pops up over the piece that landed, then drifts off the board.
+
+   Fixed to the page rather than drawn in a cell, so it can float clear
+   of the square it came from instead of being clipped by it, and under
+   the piece being dragged so it can never hide what is in hand. */
+.score-card {
+    position: fixed;
+    z-index: 900;
+    pointer-events: none;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+    color: rgb(54, 112, 232);
+    font-family: roboto;
+    font-weight: bold;
+    font-size: min(5vw, 3.3vh);
+    line-height: 1;
+    padding: min(2vw, 1.33vh) min(3.5vw, 2.33vh);
+    white-space: nowrap;
+    animation: score-card-float 0.9s ease-out forwards;
+}
+
+/* Placed by its middle, so it sits over the piece whichever side of the
+   board that is. It holds still long enough to be read before it goes,
+   and rises about a block and a half: far enough to read as leaving,
+   short enough to stay over the board it came from. */
+@keyframes score-card-float {
+    0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
+    12% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+    28% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, calc(-50% - min(15vw, 10vh))) scale(1); opacity: 0; }
+}
+
+/* The column is sized off whichever axis is tighter, so on a page
+   taller than it needs there is height left over. Left to itself that
+   spare all collects under the deck, with the score pinned to the top
+   of the screen -- worst on a phone, where the width binds long before
+   the height does. Centring the column hands half of it back above the
+   score.
+
+   The padding is what the margin used to be, kept so the column still
+   has room around it on a page with nothing to spare, and inside the
+   height so it doesn't add a scrollbar to one that has. Small viewport
+   units where they are understood: the toolbar is up when the page is
+   opened, and a column centred against the taller viewport would sit
+   low until it goes away. */
+body {
+    margin: 0;
+    padding: 8px 0;
+    box-sizing: border-box;
+    min-height: 100vh;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    /* Safe where it is understood, so a column with nothing to spare
+       overflows downwards, where it can be scrolled to, rather than
+       splitting the overflow across a top edge that cannot be. */
+    justify-content: center;
+    justify-content: safe center;
+}
+
+/* The settings gear is drawn on the same line as the score, either out
+   in the margin beside the board or in the board's own top right
+   corner, depending on how much room the page leaves. The score is
+   sized off these too, so it keeps the gear's width clear of that
+   corner either way. The board's outline is drawn outside its box, so
+   the gear clears that as well to line up with the edge you can see.
+
+   The score's line height is spelled out rather than left to the font,
+   because the gear is centred on that line and so needs a height to
+   work off that doesn't move with whatever face the browser lands on. */
+:root {
+    --column: min(90vw, calc(90vh / (3/2)));
+    --score-size: 5vh;
+    --score-line: calc(var(--score-size) * 1.2);
+    --gear-size: min(6vw, 4vh);
+    --gear-gap: min(2vw, 1.33vh);
+    --board-outline: 4px;
+
+    /* What the page has to spare under the deck. Everything else on it
+       is the score (5vh of type over a 2vh margin), the picker (6.5vh
+       at its tallest), the board and the deck band (a column and a
+       third of one), and the body's own padding with a little over, so
+       the page keeps a few pixels rather than spending its last one.
+       The picker is shorter than 6.5vh on a narrow page, so where this
+       is wrong it is wrong towards leaving room. */
+    --spare-height: max(0px, calc(85.75vh - 1.334 * var(--column) - 24px));
+
+    /* A 5-tall piece fills its slot top to bottom, so without room
+       around the band it sits on the board's outline above and the
+       picker below. Half a block of clearance either side is enough to
+       part it from both: the board runs the full width of the column,
+       but the picker is only about a slot wide in the middle of the
+       page, so the outer two pieces have next to nothing under them.
+
+       Half either side comes to a cell's worth of clearance less the
+       two margins, so with a slot W/3 square and a cell (W/3 - 2m)/5
+       wide, the spare height caps the cell at (W/3 + spare)/6. Under
+       that cap a cell is the size it always was and the margin works
+       out at the 3px it always was; over it the pieces make up the
+       difference, and where there is nothing spare at all the margin
+       is exactly the half block on its own. */
+    --deck-cell: min(calc((var(--column) / 3 - 6px) / 5),
+                     calc((var(--column) / 3 + var(--spare-height)) / 6));
+    --deck-margin: calc((var(--column) / 3 - 5 * var(--deck-cell)) / 2);
+}
+
+#page-description {
+    text-align: center;
+}
+
+#score {
+    text-align: center;
+    font-family: roboto;
+    font-size: var(--score-size);
+    line-height: var(--score-line);
+    font-weight: bold;
+    margin-bottom: 2vh;
+    /* Reserved on both sides so the score stays centred, and so a long
+       one wraps rather than running under the gear. */
+    padding: 0 calc(var(--gear-size) + var(--gear-gap));
+}
+
+#for-aspect-ratio {
+    aspect-ratio: 2/3;
+    width: var(--column);
+    /* Across only: an auto margin down the block axis would eat the
+       spare height itself and take the centring off justify-content,
+       losing the safety with it. */
+    margin: 0 auto;
+    /* What the gear is positioned against. */
+    position: relative;
+}
+
+#game-table-container {
+    aspect-ratio: 1 / 1;
+    /* The game-over card is placed against this box, so it covers the
+       board and stops short of the pieces below it. */
+    position: relative;
+}
+
+#game-board {
+    border-collapse: collapse;
+    background: white;
+    outline: var(--board-outline) solid rgb(180, 185, 190);
+    margin: auto;
+    width: 100%;
+    height: 100%;
+}
+
+#game-board tr td {
+    width: 10%;
+    height: 10%;
+    border: 1px solid rgb(180, 185, 190);
+}
+
+#game-board tr:nth-of-type(-n+3) td:nth-child(n+4):nth-child(-n+6),
+#game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(-n+3),
+#game-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(n+7):nth-child(-n+9),
+#game-board tr:nth-child(n+7):nth-child(-n+9) td:nth-child(n+4):nth-child(-n+6) {
+    background: rgb(228, 233, 238)
+}
+
+#game-board tr:nth-of-type(n):nth-of-type(n) td.has-piece:nth-of-type(n):nth-of-type(n) {
+    background: rgb(54, 112, 232);
+    border: 2px solid black;
+}
+
+#game-board tr:nth-of-type(n):nth-of-type(n) td.drag-shadow:nth-of-type(n):nth-of-type(n) {
+    background: rgba(128, 128, 128, 0.45);
+}
+
+@media(hover: hover) and (pointer: fine) {
+    table.pieces-on-deck tr td.has-piece {
+        cursor: grab;
+    }
+}
+
+#pieces-on-deck-container {
+    display: flex;
+    margin-left: auto;
+    margin-right: auto;
+    border-collapse: collapse;
+    aspect-ratio: 3 / 1;
+    width: 100%;
+    /* Outside the ratio, which governs the content box, so the slots
+       keep their size and the page carries the padding. */
+    padding: calc(var(--deck-cell) / 2 - var(--deck-margin)) 0;
+}
+
+table.pieces-on-deck {
+    border-collapse: collapse;
+    border-spacing: 0;
+    /* Whatever is left of the slot once its five cells are in it. The
+       margin stays uniform, since equal margins take the same amount
+       off both axes and keep the deck cells square. */
+    margin: var(--deck-margin);
+}
+
+table.pieces-on-deck td,
+table.pieces-on-deck th {
+    padding: 0;
+}
+
+table.pieces-on-deck {
+    width: 33%
+}
+
+table.pieces-on-deck tr td {
+    width: 20%;
+    height: 20%;
+}
+
+table.pieces-on-deck tr td.has-piece {
+    background: rgb(54, 112, 232);
+    border: 1px solid black;
+}
+
+/* Nothing on deck fits anywhere. The board stays readable under a wash
+   so the position that ended it can still be studied, and the card is
+   the only thing left to press. */
+#game-over {
+    position: absolute;
+    /* Square, pinned to the top of the container: that is exactly the
+       board. The container itself is taller than its 1/1 ratio, since
+       the pieces on deck hang below the board inside it, and a wash
+       drawn over those would fight the grey they are already given. */
+    top: 0;
+    left: 0;
+    right: 0;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.72);
+}
+
+/* Beats the display above, which would otherwise keep it on screen. */
+#game-over[hidden] {
+    display: none;
+}
+
+#game-over-card {
+    background: white;
+    border: 2px solid rgb(54, 112, 232);
+    border-radius: 10px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+    padding: min(4vw, 2.7vh) min(6vw, 4vh);
+    text-align: center;
+    font-family: roboto;
+}
+
+#game-over-card h2 {
+    margin: 0 0 0.2em;
+    font-size: min(7vw, 4.6vh);
+    color: #222;
+}
+
+#game-over-summary {
+    margin: 0 0 0.7em;
+    font-size: min(4vw, 2.7vh);
+    color: #555;
+}
+
+#game-over-summary b {
+    color: #222;
+    font-size: min(5.5vw, 3.7vh);
+}
+
+#new-game {
+    background: rgb(54, 112, 232);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    font-family: roboto;
+    font-size: min(4.5vw, 3vh);
+    font-weight: bold;
+    padding: min(2.4vw, 1.6vh) min(6vw, 4vh);
+}
+
+/* The pieces are still on deck, and that is the point: draining them
+   shows they are out of moves rather than waiting to be dragged. */
+body.game-over #pieces-on-deck-container {
+    filter: grayscale(1);
+    opacity: 0.45;
+}
+
+/* Sparkles is a colour emoji, drawn gold everywhere, and gold washes out
+   on the tint the picker wears while the assist is playing. This is the
+   same glyph from Noto Emoji -- the monochrome family -- subset to that
+   one codepoint and inlined so it costs no request. Being an outline
+   font it takes the element's own colour, so it tracks both states.
+   unicode-range keeps it off everything else, the gamepad on Manual
+   included, and if it ever fails to load the colour emoji is still
+   underneath it.
+   Noto Emoji, SIL Open Font License 1.1:
+   https://github.com/googlefonts/noto-emoji */
+@font-face {
+    font-family: 'sparkle';
+    font-style: normal;
+    font-weight: 700;
+    src: url(data:font/woff2;base64,d09GMgABAAAAAAPAAA8AAAAABqQAAANpAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHB4GYD9TVEFUKgBpEQgKhAiEOQsMAAE2AiQDFAQgBYMSByAXJBgMG8EFyMSHr9Pen8wEPzWmTlNQU0q7ewN97B5hnajk4FjqP1UDZThW3EcEBUUUPj54FL32KsFGOqBNBzgF81rK1wQdqkAAUFiIAyQ2XsiBFCyYQ612bwFLHZklcADnw61XXMRK3iO6hzpGT0ObY4iIMKR2AhAxUa8PWXTQAx9MSE9PAA9epS1pUWkAkhbyDZhJAbKkBSkeMhAO0hIwcPMtwPTXN/Q0MTEtk4RlljqYRTYyCLh2IKr1B0FLgOXIRlXkMoSRIHBSrMTgKdNSSMFMmHRSqLQ3pgwRWiXqF/cfk2+LUvXIELUaNAbOVcIgFfpTcJOUFsC6Zib1LjHL2luYWJjw8mHdwTZtmdZg0V2DkZdH8u8x8ovlhXcYubnIuZ2fU6CXd/fuzdr6a/fy8+W5d+5cqclcv52Tk9cBSH+gTQE9p4bzRlS3146mgvCtewnk7N2bvNdvx+LMnRszg/fujaSVWqmQ/+EGcAMm4AZOp9Y8rkF1VJnC2HiHz72U2R7hiOeoyRarNVusRk2OePYIKbM+94x3KIzX1ZLvGu/8/Dv7PYZVNnWfonQPemw46BGlp7apM6yy37OljK6O0sPrfvr1SWe0S50GI4V69wxdmqFb7x4pOA1ql1LxVVz3D7MZrVQ+M1Ep6JQYrCgxEHQTnfksLcFsZo3ZjLZgnZXknKKryqToJCmtM7VTf3TcFnmSVbky005FVZl2SqtyeRLN/f0hK//pjSmXghbTK9pi13hXGdEqozXebbHpFUGLyiW9MVqjfTwPAiKS+Pv7hwvl2qHfpXJpUeLJHb96/+Trt61z4FRZ1E7i+PItTA/1V9JAncGBo3boNDZxovdooIpMkipQNNN+TnYUVWQB+k9Y/UCV4wYoxr4SOyujYW+8jNkEBrgqR1iKs2CL4I1VbBZW6GNzMEMJWwwLRLK04AsNO4EwA8COdyoftWhEPRrQY2f3oAPB8BCHulGNLjSiAz3U4K7K8dYWuKMdXaiHB9IRDwFpaEcP/HFolR9pQiPcEI12tKAGeahFV5+X2tEGHj5whyc84ScmeaD4jjbfPQQJSEc6EhAyi9bvO6YhBsEODO5Dvce7eHjDE17wAY8EtNPT9WhBLXgIEBDz/1KwuexjTMPwEJ1XsJsC3T/dZGM3KkcuoQqmQHLddOAP) format('woff2');
+    unicode-range: U+2728;
+}
+
+#assist-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5vw;
+    min-height: 4vh;
+}
+
+#ai-assist {
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #444;
+    /* A board cell is min(10vw, 6.67vh); size off the same min() so the
+       control stays about a block tall whichever axis is binding. */
+    padding: min(2vw, 1.33vh) min(3vw, 2vh);
+    cursor: pointer;
+    font-family: 'sparkle', roboto;
+    font-size: min(4.5vw, 3vh);
+    font-weight: bold;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+/* Native popups ignore this on some platforms; harmless where they do. */
+#ai-assist option {
+    font-weight: bold;
+}
+
+/* Tinted while the assist is playing, plain while you are. */
+#ai-assist.assist-on {
+    background: #e8eefc;
+    border-color: rgb(54, 112, 232);
+    color: #222;
+}
+
+/* Sound and the Github link are settings, not part of playing, so they
+   sit behind the gear in the corner rather than under the board. The
+   offsets undo the button's padding, which is there as a target for a
+   finger rather than as anything to look at, so what lines up with the
+   board's corner is the gear itself and not the box around it.
+
+   Vertically it is centred on the score's first line: half that line,
+   back off the padding and half the gear. The first line and not the
+   whole element, so that a score long enough to wrap leaves the gear
+   where it was rather than dragging it down the page. */
+#settings {
+    position: absolute;
+    top: calc(var(--score-line) / 2 - var(--gear-gap) - var(--gear-size) / 2);
+    right: calc(-1 * (var(--board-outline) + var(--gear-gap)));
+    font-family: roboto;
+    /* Above the page, below the piece being dragged. */
+    z-index: 10;
+}
+
+/* The board is sized off whichever axis is tighter, so on a wide page
+   it leaves a margin beside it. Once that margin is deep enough to
+   take the gear without it reaching back over the board, the gear goes
+   out to the page's own corner: the offset puts the button's edge on
+   the edge of the page, and the gear a padding's width inside that.
+   Narrower than this the margin is too shallow to hold it, and the
+   rule above leaves it in the board's corner instead.
+
+   Three quarters is the crossover with a little to spare. The board
+   starts leaving a margin at 2:3, but the margin is only worth moving
+   into once it is deeper than the gear, the padding around it, and the
+   board's outline together. */
+@media(min-aspect-ratio: 3/4) {
+    #settings {
+        right: calc(-1 * (100vw - var(--column)) / 2);
+    }
+}
+
+/* No chrome of its own: the gear is the whole control. */
+#settings-button {
+    display: block;
+    background: none;
+    border: none;
+    color: #444;
+    cursor: pointer;
+    padding: var(--gear-gap);
+    transition: color 0.15s;
+}
+
+#settings-button svg {
+    display: block;
+    width: var(--gear-size);
+    height: var(--gear-size);
+    fill: currentColor;
+}
+
+#settings-menu {
+    position: absolute;
+    /* Clear of the button's padding on both axes, so it hangs off the
+       gear itself: below it, and opening onto the board rather than
+       off the side of the page. */
+    top: 100%;
+    right: var(--gear-gap);
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--gear-gap) / 4);
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    padding: calc(var(--gear-gap) / 2);
+}
+
+/* display: flex above would otherwise show the menu while it is shut. */
+#settings-menu[hidden] {
+    display: none;
+}
+
+#settings-menu button,
+#settings-menu a {
+    display: flex;
+    align-items: center;
+    gap: var(--gear-gap);
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: #444;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: min(3.5vw, 2.33vh);
+    padding: calc(var(--gear-gap) * 0.75) var(--gear-gap);
+    text-align: left;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+/* A column of its own, so the labels line up whatever the icons are. */
+#settings-menu .menu-icon {
+    width: var(--gear-size);
+    text-align: center;
+}
+
+/* The tint the picker wears while the assist plays, for the same
+   reason: it marks the setting that is currently on. */
+#sound.sound-on {
+    background: #e8eefc;
+    color: #222;
+}
+
+/* Hover left on a touch screen sticks to whatever was tapped last. */
+@media(hover: hover) and (pointer: fine) {
+    #settings-button:hover {
+        color: #222;
+    }
+
+    #settings-menu button:hover,
+    #settings-menu a:hover {
+        background: #f0f0f0;
+    }
+
+    #sound.sound-on:hover {
+        background: #dbe5fa;
+    }
+}
+
+/* The label swaps to a question and back. The question is carried here
+   too, laid out but never drawn, so the widest of the two is what sets
+   the width and the menu doesn't breathe under the pointer. */
+#restart-label::after {
+    content: 'Start over?';
+    display: block;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+}
