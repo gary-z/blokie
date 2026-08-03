@@ -78,16 +78,20 @@ body {
     justify-content: safe center;
 }
 
-/* The settings gear is drawn on the same line as the score, either out
-   in the margin beside the board or in the board's own top right
-   corner, depending on how much room the page leaves. The score is
-   sized off these too, so it keeps the gear's width clear of that
-   corner either way. The board's outline is drawn outside its box, so
-   the gear clears that as well to line up with the edge you can see.
+/* The settings gear is drawn in the screen's top right corner, either
+   at the page's own edge or in from it by the margin the board leaves
+   beside it, depending on how much room the page has. The board's
+   outline is drawn outside its box, so the gear clears that as well to
+   line up with the edge you can see.
+
+   The score is sized off these too. On a page with no height to spare
+   it starts at the top of the screen and so shares that line with the
+   gear, and the width it keeps clear either side is what stops a long
+   score running under it.
 
    The score's line height is spelled out rather than left to the font,
-   because the gear is centred on that line and so needs a height to
-   work off that doesn't move with whatever face the browser lands on. */
+   so that what the page has spare under it is a known quantity and not
+   one that moves with whatever face the browser lands on. */
 :root {
     --column: min(90vw, calc(90vh / (3/2)));
     --score-size: 5vh;
@@ -147,8 +151,6 @@ body {
        spare height itself and take the centring off justify-content,
        losing the safety with it. */
     margin: 0 auto;
-    /* What the gear is positioned against. */
-    position: relative;
 }
 
 #game-table-container {
@@ -359,19 +361,27 @@ body.game-over #pieces-on-deck-container {
 }
 
 /* Sound and the Github link are settings, not part of playing, so they
-   sit behind the gear in the corner rather than under the board. The
-   offsets undo the button's padding, which is there as a target for a
-   finger rather than as anything to look at, so what lines up with the
-   board's corner is the gear itself and not the box around it.
+   sit behind the gear in the screen's top corner rather than under the
+   board.
 
-   Vertically it is centred on the score's first line: half that line,
-   back off the padding and half the gear. The first line and not the
-   whole element, so that a score long enough to wrap leaves the gear
-   where it was rather than dragging it down the page. */
+   Fixed to the screen rather than offset off the column, so that the
+   corner it goes to is the page's. The column is centred in whatever
+   height the page has spare, so anything measured off it would ride it
+   down the page, and how far down it starts is the layout's leftovers:
+   it moves with the deck, with the picker, and with which viewport the
+   browser is measuring as its toolbar comes and goes.
+
+   The offsets undo the button's padding, which is there as a target
+   for a finger rather than as anything to look at, so what lines up
+   with the corner is the gear itself and not the box around it. Down
+   the page that is all there is to it. Across, the gear comes in by
+   the margin the board leaves beside it, so that it sits off the
+   board's own corner; the board's outline is drawn outside its box, so
+   the gear clears that as well to line up with the edge you can see. */
 #settings {
-    position: absolute;
-    top: calc(var(--score-line) / 2 - var(--gear-gap) - var(--gear-size) / 2);
-    right: calc(-1 * (var(--board-outline) + var(--gear-gap)));
+    position: fixed;
+    top: 0;
+    right: calc((100vw - var(--column)) / 2 - var(--board-outline) - var(--gear-gap));
     font-family: roboto;
     /* Above the page, below the piece being dragged. */
     z-index: 10;
@@ -380,10 +390,9 @@ body.game-over #pieces-on-deck-container {
 /* The board is sized off whichever axis is tighter, so on a wide page
    it leaves a margin beside it. Once that margin is deep enough to
    take the gear without it reaching back over the board, the gear goes
-   out to the page's own corner: the offset puts the button's edge on
-   the edge of the page, and the gear a padding's width inside that.
-   Narrower than this the margin is too shallow to hold it, and the
-   rule above leaves it in the board's corner instead.
+   the rest of the way out to the page's own edge, a padding's width
+   from it. Narrower than this the margin is too shallow to hold it,
+   and the rule above keeps it off the board's corner instead.
 
    Three quarters is the crossover with a little to spare. The board
    starts leaving a margin at 2:3, but the margin is only worth moving
@@ -391,7 +400,7 @@ body.game-over #pieces-on-deck-container {
    board's outline together. */
 @media(min-aspect-ratio: 3/4) {
     #settings {
-        right: calc(-1 * (100vw - var(--column)) / 2);
+        right: 0;
     }
 }
 
