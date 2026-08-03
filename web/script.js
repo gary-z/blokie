@@ -488,6 +488,7 @@ let assist_plan = [];
 let assist_move_timer = null;   // the next move
 let assist_fly_timer = null;    // the piece currently in the air landing
 let assist_deck_is_new = false; // a fresh deck gets a beat to be looked at
+let assist_is_starting = false; // the first move starts as soon as it is planned
 
 function stopAI() {
     if (ai_worker != null) {
@@ -503,6 +504,7 @@ function stopAI() {
     assist_fly_timer = null;
     assist_plan = [];
     assist_deck_is_new = false;
+    assist_is_starting = false;
     cleanupFlyAnim();
     if (drag_info === null) {
         state.piece_in_hand_index = -1;
@@ -519,6 +521,7 @@ function onGameStateChanged() {
         return;
     }
 
+    assist_is_starting = true;
     ai_worker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
     ai_worker.onmessage = (e) => {
         if (e.data.id != state.assist_request_id) {
@@ -564,6 +567,15 @@ function continueAssist() {
             commitMove(move.piece_index, move.result, { silent: true });
         }
         continueAssist();
+        return;
+    }
+
+    // Starting the assist already spends time waiting for its first plan. Pick
+    // the piece up as soon as that plan arrives rather than adding one full
+    // pacing interval before anything happens on the board.
+    if (assist_is_starting) {
+        assist_is_starting = false;
+        playNextAssistMove();
         return;
     }
 
