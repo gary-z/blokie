@@ -1,6 +1,6 @@
 Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/store/apps/details?id=com.easybrain.block.puzzle.games), [Woodoku](https://play.google.com/store/apps/details?id=com.tripledot.woodoku&hl=en_CA&gl=US), and [Block Sudoku](https://play.google.com/store/apps/details?id=block.puzzle.sudoku.free.game.classic.offline) puzzle games. It can achieve 1.5 million points (roughly 40,000 sets of 3 pieces) on average.
 
-<img style="width: 25%; height: 15%" src="/preview.gif?raw=true"/>
+<img style="width: 25%; height: 15%" src="/docs/preview.gif?raw=true"/>
 
 ## What can I learn from Blokie to improve at the game?
 

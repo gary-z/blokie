@@ -23,7 +23,7 @@ jobs:
       - name: Stage site for deployment
         run: |
           mkdir _site
-          cp index.html favicon.ico preview.png _site/
+          cp index.html _site/
           mkdir -p _site/engine/wasm
           cp engine/blokie.js _site/engine/
           cp engine/wasm/* _site/engine/wasm/
