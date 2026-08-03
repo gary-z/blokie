@@ -36,7 +36,7 @@ const SOUNDS = {
 // The clips are all normalized to one level, so balance between the events
 // lives here instead of in the files. Picking a piece up happens on every drag
 // and wants to sit under the rest of it.
-const EVENT_GAIN = { pickup: 0.45, place: 0.7, reject: 0.6, clear: 0.9 };
+const EVENT_GAIN = { pickup: 0.45, place: 0.9, reject: 0.6, clear: 0.9 };
 
 // Cleared cells shrink out over 0.2s. Landing the sound just after that starts
 // reads as the clear causing it, rather than as part of the placement.
