@@ -9,9 +9,7 @@ import { initSfx, playSfx } from "./sfx.js";
 // or take a turn yourself.
 function getNewGameState() {
     return {
-        previous_game_state: blokie.getNewGame(),
         game: blokie.getNewGame(),
-        queued_game_states: [],
         piece_set: blokie.getRandomPieceSet(),
         game_over: false,  // true once nothing on deck fits anywhere
     };
@@ -21,11 +19,12 @@ let state = {
     game_state: getNewGameState(),
 
     // UI state
-    active_worker_id: 0,
+    assist_request_id: 0,
 
-    // Drag rendering state (in state so JSON.stringify change detection triggers re-render)
-    drag_shadow: null,         // bitboard or null - shadow cells on board
-    dragging_piece_index: -1,  // which piece deck slot is being dragged (-1 = none)
+    // Rendering state (in state so JSON.stringify change detection triggers re-render)
+    drag_shadow: null,        // bitboard or null - shadow cells on board
+    piece_in_hand_index: -1,  // deck slot whose piece is off the deck: being
+                              // dragged, or flying to the board (-1 = none)
 };
 
 // Drag state kept outside `state` (contains DOM refs, not serializable)
@@ -300,11 +299,13 @@ function handleDragMove(clientX, clientY) {
         const dy = clientY - drag_info.startY;
         if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
 
-        // Activate drag and pause AI
+        // Activate drag and pause AI. Stopping the assist first, since it puts
+        // down whatever piece it had in the air, and this one is taking its
+        // place.
         drag_info.active = true;
-        drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
-        state.dragging_piece_index = drag_info.pieceIndex;
         stopAI();
+        drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
+        state.piece_in_hand_index = drag_info.pieceIndex;
         // Here rather than on mousedown: a tap that never crosses the
         // threshold is deliberately nothing, and should sound like nothing.
         playSfx('pickup');
@@ -348,16 +349,7 @@ function handleDragEnd(clientX, clientY) {
                 drag_info.targetCol
             );
             if (result) {
-                playSfx('place');
-                if (result.newGame.previous_move_was_clear) {
-                    playSfx('clear');
-                }
-                state.game_state.piece_set[drag_info.pieceIndex] = blokie.getEmptyPiece();
-                if (state.game_state.piece_set.every(p => blokie.isEmpty(p))) {
-                    state.game_state.piece_set = blokie.getRandomPieceSet();
-                }
-                state.game_state.previous_game_state = state.game_state.game;
-                state.game_state.game = result.newGame;
+                commitMove(drag_info.pieceIndex, result);
                 cleanupDrag();
                 onGameStateChanged();
                 return;
@@ -381,7 +373,7 @@ function cleanupDrag() {
     }
     drag_info = null;
     state.drag_shadow = null;
-    state.dragging_piece_index = -1;
+    state.piece_in_hand_index = -1;
 }
 
 // === End drag and drop ===
@@ -433,7 +425,30 @@ function initRestartButton(button) {
     });
 }
 
-let ai_worker = null;
+// A piece lands on the board. The only place the board, the deck, the score and
+// the sounds move on, whoever put the piece there: a drop ends here, and so
+// does the end of the assist's fly animation. `result` is what
+// blokie.placePiece gave back for the move.
+//
+// `silent` is for the assist at Max, where the moves land faster than the
+// sounds could be heard as anything but noise.
+function commitMove(piece_index, result, { silent = false } = {}) {
+    if (!silent) {
+        playSfx('place');
+        if (result.newGame.previous_move_was_clear) {
+            playSfx('clear');
+        }
+    }
+
+    const game_state = state.game_state;
+    game_state.piece_set[piece_index] = blokie.getEmptyPiece();
+    if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
+        game_state.piece_set = blokie.getRandomPieceSet();
+        assist_deck_is_new = true;
+    }
+    game_state.game = result.newGame;
+    refreshGameOver(game_state);
+}
 
 function assistIsOn() {
     return document.getElementById('ai-assist').value !== 'off';
@@ -462,22 +477,36 @@ function refreshGameOver(game_state) {
     return game_state;
 }
 
-function sameBoard(a, b) {
-    return a.board.a === b.board.a && a.board.b === b.board.b && a.board.c === b.board.c;
-}
+// The worker plans; everything below plays what it comes back with. It is kept
+// alive across plans so the solver is only instantiated once, and thrown away
+// whenever the game moves on without it.
+let ai_worker = null;
+
+// What the assist has left to play of the deck the worker last looked at, as
+// `{ piece_index, placement }` in the order it wants to play them.
+let assist_plan = [];
+let assist_move_timer = null;   // the next move
+let assist_fly_timer = null;    // the piece currently in the air landing
+let assist_deck_is_new = false; // a fresh deck gets a beat to be looked at
 
 function stopAI() {
     if (ai_worker != null) {
         ai_worker.terminate();
         ai_worker = null;
     }
-    // Bumping the id makes any message already in flight from the terminated
-    // worker get ignored, so it can't clobber the state we just changed.
-    state.active_worker_id++;
-    state.game_state.queued_game_states = [];
+    // Bumping the id makes any plan already in flight from the terminated
+    // worker get ignored, so it can't be played onto a board that has moved on.
+    state.assist_request_id++;
+    clearTimeout(assist_move_timer);
+    assist_move_timer = null;
+    clearTimeout(assist_fly_timer);
+    assist_fly_timer = null;
+    assist_plan = [];
+    assist_deck_is_new = false;
     cleanupFlyAnim();
-    _prev_preview_json = null;
-    _fly_landed = false;
+    if (drag_info === null) {
+        state.piece_in_hand_index = -1;
+    }
 }
 
 // Called whenever the game moves on: a placement, a new game, or a change to
@@ -486,47 +515,107 @@ function onGameStateChanged() {
     stopAI();
     refreshGameOver(state.game_state);
 
-    const delay_ms = getAssistDelayMs();
-    if (delay_ms === null || state.game_state.game_over) {
+    if (!assistIsOn() || state.game_state.game_over) {
         return;
     }
 
     ai_worker = new Worker(new URL('./ai-worker.js', import.meta.url), { type: 'module' });
-    ai_worker.postMessage({
-        delay_ms: delay_ms,
-        game_state: state.game_state,
-        id: state.active_worker_id,
-    });
     ai_worker.onmessage = (e) => {
-        if (e.data.id != state.active_worker_id) {
+        if (e.data.id != state.assist_request_id) {
             return;
         }
-        const game_state = e.data.game_state;
-        // The solver only plans moves that place all three pieces, and reports
-        // a full board when it can't. That is the assist running out of ideas,
-        // not the end of the game: the player may still have somewhere to put
-        // one of these pieces, so drop the sentinel and let them finish.
-        if (game_state.queued_game_states.length > 0 && blokie.isOver(game_state.queued_game_states[0])) {
-            game_state.queued_game_states = [];
-        }
-        // The assist posts on every tick, including ones where it only planned
-        // ahead. A move actually landed when the board it reports differs from
-        // the one already on screen, and that is when the cells shrink out.
-        if (assistShowsMoves() && game_state.game.previous_move_was_clear
-            && !sameBoard(state.game_state.game, game_state.game)) {
-            playSfx('clear');
-        }
-        state.game_state = refreshGameOver(game_state);
+        assist_plan = e.data.plan;
+        continueAssist();
     };
+    continueAssist();
+}
+
+function requestAssistPlan() {
+    ai_worker.postMessage({
+        id: state.assist_request_id,
+        game: state.game_state.game,
+        piece_set: state.game_state.piece_set,
+    });
+}
+
+// The assist's loop, re-entered after every move it makes and every plan that
+// comes back. An empty plan means the worker found nowhere to put anything,
+// which is the same thing refreshGameOver has already worked out.
+function continueAssist() {
+    if (ai_worker === null || !assistIsOn() || state.game_state.game_over) {
+        return;
+    }
+    if (assist_plan.length === 0) {
+        requestAssistPlan();
+        return;
+    }
+
+    // At Max there is nothing to watch, so the whole plan goes down in one go
+    // and the next one is asked for immediately. Pacing it with timers instead
+    // would only be slower than the search it is already waiting on: browsers
+    // clamp nested zero-delay timeouts to 4ms.
+    if (!assistShowsMoves()) {
+        while (assist_plan.length > 0 && !state.game_state.game_over) {
+            const move = resolveAssistMove(assist_plan.shift());
+            if (move === null) {
+                onGameStateChanged();
+                return;
+            }
+            commitMove(move.piece_index, move.result, { silent: true });
+        }
+        continueAssist();
+        return;
+    }
+
+    const delay_ms = getAssistDelayMs();
+    // A deck that just came out is worth a look before it starts being played.
+    const wait_ms = assist_deck_is_new ? delay_ms * 2 : delay_ms;
+    assist_deck_is_new = false;
+    assist_move_timer = setTimeout(playNextAssistMove, wait_ms);
+}
+
+// Works out what a planned move does to the game as it stands now. Null means
+// the plan is stale -- the deck moved under it -- and should be thrown away.
+function resolveAssistMove(move) {
+    const piece = state.game_state.piece_set[move.piece_index];
+    const result = blokie.placePiece(state.game_state.game, piece, move.placement);
+    if (result === null) {
+        return null;
+    }
+    return { piece_index: move.piece_index, piece: piece, result: result };
+}
+
+// Shown at a watchable speed, an assist move takes the same three beats a drag
+// does: the piece comes off the deck, travels, and lands. Only the landing
+// commits it, so the board, the score and the deck all move at the moment the
+// piece arrives, exactly as they do under a finger.
+function playNextAssistMove() {
+    assist_move_timer = null;
+    const move = resolveAssistMove(assist_plan.shift());
+    if (move === null) {
+        onGameStateChanged();
+        return;
+    }
+
+    playSfx('pickup');
+    state.piece_in_hand_index = move.piece_index;
+    _fly_anim = startFlyAnimation(move.piece_index, move.piece, move.result.placement);
+    assist_fly_timer = setTimeout(() => {
+        assist_fly_timer = null;
+        cleanupFlyAnim();
+        state.piece_in_hand_index = -1;
+        commitMove(move.piece_index, move.result);
+        continueAssist();
+    }, FLY_ANIM_MS);
 }
 
 
 let last_rendered_state_json = '';
 
-let _fly_anim = null; // { el, startTime }
+// The assist's piece on its way from the deck to the board. Started and taken
+// down by the assist driver above; nothing here decides when a move happens.
+let _fly_anim = null; // { el }
 const FLY_ANIM_MS = 300;
-let _prev_preview_json = null; // tracks queued_game_states[0] to detect new previews
-let _fly_landed = false; // true once fly animation finishes for current preview
 
 function startFlyAnimation(pieceIndex, piece, placement) {
     const bounds = blokie.getPieceBounds(piece);
@@ -574,10 +663,7 @@ function startFlyAnimation(pieceIndex, piece, placement) {
     el.style.top = targetY + 'px';
     el.style.opacity = '1';
 
-    return {
-        el,
-        startTime: performance.now(),
-    };
+    return { el };
 }
 
 function cleanupFlyAnim() {
@@ -587,42 +673,15 @@ function cleanupFlyAnim() {
     }
 }
 
+// The board is drawn from the game as it stands, and only when something about
+// it has changed. Nothing here works out that a move happened: a piece in the
+// air is a piece nobody has played yet, whether a finger or the assist is
+// carrying it, and the state it lands in is the state that gets drawn.
 function render() {
-    const now = performance.now();
     const state_json = JSON.stringify(state);
-    const stateChanged = last_rendered_state_json !== state_json;
-
-    // Clean up finished fly animation and force re-render so blue cells appear immediately
-    let flyJustLanded = false;
-    if (_fly_anim && (now - _fly_anim.startTime >= FLY_ANIM_MS)) {
-        cleanupFlyAnim();
-        _fly_landed = true;
-        flyJustLanded = true;
-        playSfx('place');  // the assist's piece has arrived on the board
-    }
-
-    // Detect new preview (queued move shown) and start fly animation.
-    // This fires when the red highlight first appears, so the piece flies immediately.
-    const gs = state.game_state;
-    const nextQueued = gs.queued_game_states.length > 0 ? gs.queued_game_states[0] : null;
-    const previewJson = nextQueued ? JSON.stringify(nextQueued.previous_piece_placement) : null;
-
-    if (previewJson && previewJson !== _prev_preview_json && !drag_info && assistShowsMoves()) {
-        const pieceIndex = gs.piece_set.findIndex(p => p === nextQueued.previous_piece);
-        if (pieceIndex >= 0) {
-            cleanupFlyAnim();
-            _fly_landed = false;
-            _fly_anim = startFlyAnimation(pieceIndex, nextQueued.previous_piece, nextQueued.previous_piece_placement);
-            playSfx('pickup');  // the assist has taken a piece off the deck
-        }
-    }
-    _prev_preview_json = previewJson;
-
-    if (stateChanged || flyJustLanded) {
+    if (last_rendered_state_json !== state_json) {
         last_rendered_state_json = state_json;
         renderImpl();
-        // Only the committed game is saved, never a move the assist has merely
-        // lined up, and only when it differs from what is already in the cookie.
         saveGame();
     }
 
@@ -631,35 +690,13 @@ function render() {
 window.requestAnimationFrame(render);
 
 function renderImpl() {
-    let board_table = document.getElementById('game-board');
-    let pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
+    const board_table = document.getElementById('game-board');
+    const pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
+    const game_state = state.game_state;
 
-    showGameOver(!gameIsActive(), state.game_state.game.score);
-
-    if (!gameIsActive()) {
-        drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, state.game_state.piece_set);
-        updateScore(state.game_state.game.score);
-        return;
-    }
-
-    if (state.game_state.queued_game_states.length === 0) {
-        drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, state.game_state.piece_set);
-        updateScore(state.game_state.game.score);
-        return;
-    }
-
-    // The assist has a move lined up: show the piece leaving the deck.
-    const next_game_state = state.game_state.queued_game_states[0];
-    updateScore(next_game_state.score);
-    const piece_set_to_render = state.game_state.piece_set.map(p => p === next_game_state.previous_piece ? blokie.getEmptyPiece() : p);
-    if (_fly_landed) {
-        // Fly completed — show destination cells as blue (part of the board)
-        const boardWithPiece = blokie.or(state.game_state.game.board, next_game_state.previous_piece_placement);
-        drawGame(board_table, pieces_on_deck_div, boardWithPiece, piece_set_to_render);
-    } else {
-        // Fly in progress or no fly — don't highlight destination
-        drawGame(board_table, pieces_on_deck_div, state.game_state.game.board, piece_set_to_render);
-    }
+    showGameOver(!gameIsActive(), game_state.game.score);
+    drawGame(board_table, pieces_on_deck_div, game_state.game.board, game_state.piece_set);
+    updateScore(game_state.game.score);
 }
 
 // The score line carries the number and nothing else, at every point in the
@@ -727,7 +764,7 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set) {
     }
 
     for (let i = 0; i < 3; ++i) {
-        const hidePiece = state.dragging_piece_index === i;
+        const hidePiece = state.piece_in_hand_index === i;
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
                 const td = pieces_on_deck_div.children[i].rows[r].cells[c];

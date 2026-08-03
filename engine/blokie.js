@@ -585,7 +585,7 @@ for (const p of PIECES) {
     console.assert(!has_valid_move(FULL, [p, p, p]));
 }
 
-// === SCORING (kept for tryPlacePiece) ===
+// === SCORING AND PLACEMENT ===
 
 function get_combo_magnitude(mid_clear) {
     let result = 0;
@@ -663,6 +663,43 @@ function get_move_score(previous_was_clear, prev, placement, after) {
 }
 
 
+// Lands `piece` on the board, where `placement` is the squares it covers in
+// board coordinates. The one place a move's board, score and clear are worked
+// out, whether a hand or the AI chose it. Returns null if the placement does
+// not fit, which is how a stale plan and a misdropped piece both read.
+function place_piece(game, piece, placement) {
+    if (is_empty(placement)) return null;
+    if (!is_disjoint(game.board, placement)) return null;
+
+    const new_board = perform_clears(or(game.board, placement));
+    const move_score = get_move_score(
+        game.previous_move_was_clear, game.board, placement, new_board);
+    return {
+        placement: placement,
+        newGame: {
+            board: new_board,
+            previous_piece_placement: placement,
+            previous_piece: piece,
+            previous_move_was_clear:
+                count(new_board) < count(game.board) + count(placement),
+            score: game.score + move_score,
+        }
+    };
+}
+
+// The same thing by where the piece's top left corner lands, which is what a
+// drag knows. Returns null if the piece would hang off the board.
+function try_place_piece(game, piece, dr, dc) {
+    if (dr < 0 || dc < 0) return null;
+    let p = left_top_justify_piece(piece);
+    const original_count = count(p);
+    if (original_count === 0) return null;
+    for (let i = 0; i < dc; i++) p = shift_right(p);
+    for (let i = 0; i < dr; i++) p = shift_down(p);
+    if (count(p) !== original_count) return null;
+    return place_piece(game, piece, p);
+}
+
 // === AI (powered by WASM) ===
 
 function ai_make_move(game, original_piece_set) {
@@ -685,12 +722,60 @@ function ai_make_move(game, original_piece_set) {
             return {
                 board: s.board,
                 previous_piece_placement: s.previous_piece_placement,
+                piece_index: s.piece_index,
                 previous_piece: original_piece_set[s.piece_index],
                 previous_move_was_clear: s.previous_move_was_clear,
                 score: s.score,
             };
         }),
     };
+}
+
+// The subsets of `indices`, biggest first. Only ever called with the slots of a
+// three piece deck, so this is at most seven short lists.
+function _subsets_largest_first(indices) {
+    const result = [];
+    for (let mask = 1; mask < (1 << indices.length); ++mask) {
+        result.push(indices.filter((_, i) => mask & (1 << i)));
+    }
+    return result.sort((a, b) => b.length - a.length);
+}
+
+// Where the AI wants to put the pieces on deck, as `{ piece_index, placement }`
+// in the order they should be played. Empty when nothing fits at all, which is
+// the same thing has_valid_move says about the position.
+//
+// The solver only ever plans moves that place every piece it is given, and
+// answers with a full board and nothing placed when it cannot find one. That is
+// not the end of the game -- one or two of the pieces usually still fit -- so
+// ask again for a smaller handful. A blanked slot is a no-op the search steps
+// straight over, which is how a two- or one-piece move gets planned at all.
+function get_ai_plan(game, piece_set) {
+    const held = [0, 1, 2].filter(i => !is_empty(piece_set[i]));
+    let best = null;
+
+    for (const subset of _subsets_largest_first(held)) {
+        // Nothing left to try can place more pieces than we already have.
+        if (best !== null && subset.length <= best.moves.length) {
+            break;
+        }
+        const asked = [0, 1, 2].map(i => subset.includes(i) ? piece_set[i] : getEmpty());
+        const result = ai_make_move(game, asked);
+        const moves = result.new_game_states
+            .filter(s => !is_empty(s.previous_piece_placement))
+            .map(s => ({ piece_index: s.piece_index, placement: s.previous_piece_placement }));
+        if (moves.length === 0) {
+            continue;
+        }
+        // More pieces played beats a tidier board, since the deck only refills
+        // once every slot is empty. Between equals, take the tidier board.
+        if (best === null || moves.length > best.moves.length
+            || (moves.length === best.moves.length && result.evaluation < best.evaluation)) {
+            best = { moves: moves, evaluation: result.evaluation };
+        }
+    }
+
+    return best === null ? [] : best.moves;
 }
 
 // === GAME UTILITIES ===
@@ -746,6 +831,9 @@ for (const p of PIECES) {
     console.assert(equal(p, left_top_justify_piece(center_piece(p))));
 }
 
+// Where the fitness and performance harnesses below stop: they deal a fresh
+// deck every move, so the only thing that can end them is running out of board.
+// A played game ends earlier and for a different reason -- see has_valid_move.
 function is_over(game) {
     return equal(game.board, FULL);
 }
@@ -796,6 +884,7 @@ var blokie = {
     getRandomPieceSet: () => get_random_piece_set().map(p => center_piece(p)),
     getEmptyPiece: getEmpty,
     getAIMove: ai_make_move,
+    getAIPlan: get_ai_plan,
     at: at,
     isOver: is_over,
     canPlacePiece: can_place_piece,
@@ -816,29 +905,8 @@ var blokie = {
         }
         return { rows: maxR + 1, cols: maxC + 1 };
     },
-    tryPlacePiece: function(game, piece, dr, dc) {
-        if (dr < 0 || dc < 0) return null;
-        let p = left_top_justify_piece(piece);
-        const origCount = count(p);
-        if (origCount === 0) return null;
-        for (let i = 0; i < dc; i++) p = shift_right(p);
-        for (let i = 0; i < dr; i++) p = shift_down(p);
-        if (count(p) !== origCount) return null;
-        if (!is_disjoint(game.board, p)) return null;
-        const newBoard = perform_clears(or(game.board, p));
-        const moveScore = get_move_score(game.previous_move_was_clear, game.board, p, newBoard);
-        const wasClear = count(newBoard) < count(game.board) + origCount;
-        return {
-            placement: p,
-            newGame: {
-                board: newBoard,
-                previous_piece_placement: p,
-                previous_piece: piece,
-                previous_move_was_clear: wasClear,
-                score: game.score + moveScore,
-            }
-        };
-    },
+    placePiece: place_piece,
+    tryPlacePiece: try_place_piece,
 };
 
 export { blokie, init };

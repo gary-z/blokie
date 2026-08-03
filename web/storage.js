@@ -82,29 +82,25 @@ function decodeGameState(saved) {
 
     const piece_fields = fields.slice(6);
     if (!piece_fields.every(isBitboardField)) return null;
-    // Every slot gets its own object: the deck is searched by identity, so two
-    // slots holding the same shape still have to be told apart.
+    // Every slot gets its own object, so emptying one can never empty another
+    // that happens to be holding the same shape.
     const piece_set = [0, 1, 2].map(i => ({
         a: piece_fields[i * 3],
         b: piece_fields[i * 3 + 1],
         c: piece_fields[i * 3 + 2],
     }));
 
-    // The move that got here is not saved, only where it left the game.
-    const restoredGame = () => ({
-        board: { a: board_a, b: board_b, c: board_c },
-        previous_piece_placement: blokie.getEmptyPiece(),
-        previous_piece: blokie.getEmptyPiece(),
-        previous_move_was_clear: was_clear === 1,
-        score: score,
-    });
-
     return {
-        previous_game_state: restoredGame(),
-        game: restoredGame(),
-        queued_game_states: [],  // the assist re-plans from the restored board
+        // The move that got here is not saved, only where it left the game.
+        game: {
+            board: { a: board_a, b: board_b, c: board_c },
+            previous_piece_placement: blokie.getEmptyPiece(),
+            previous_piece: blokie.getEmptyPiece(),
+            previous_move_was_clear: was_clear === 1,
+            score: score,
+        },
         piece_set: piece_set,
-        game_over: false,        // recomputed from the board and the deck
+        game_over: false,  // recomputed from the board and the deck
     };
 }
 

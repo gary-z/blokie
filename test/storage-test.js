@@ -23,9 +23,7 @@ function sameBitboard(a, b) {
 
 function newGameState() {
     return {
-        previous_game_state: blokie.getNewGame(),
         game: blokie.getNewGame(),
-        queued_game_states: [],
         piece_set: blokie.getRandomPieceSet(),
         game_over: false,
     };
@@ -74,7 +72,6 @@ for (let i = 0; i < 100; ++i) {
         restored.game.score === original.game.score &&
         restored.game.previous_move_was_clear === original.game.previous_move_was_clear &&
         restored.piece_set.every((p, j) => sameBitboard(p, original.piece_set[j])) &&
-        restored.queued_game_states.length === 0 &&
         restored.game_over === false;
     if (!matches) {
         all_round_tripped = false;
