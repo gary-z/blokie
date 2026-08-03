@@ -700,6 +700,69 @@ function try_place_piece(game, piece, dr, dc) {
     return place_piece(game, piece, p);
 }
 
+// What a piece under a finger should be taken to mean. `row` and `col` say
+// where the piece's top left square is being held, measured in board squares
+// down and right of the board's top left corner, and are fractional because a
+// piece being dragged sits between squares rather than on one.
+//
+// Answers with the legal placement whose corner is nearest to that, so a piece
+// held slightly over an occupied square, or slightly off the edge of the board,
+// lands in the closest square it does fit in instead of nowhere at all. Only
+// the square directly under the piece would be an exact reading of the drag,
+// and it is the one this picks whenever the piece fits there; the rest of the
+// time an exact reading is a placement the player cannot have meant.
+//
+// `max_distance` is how far, in squares, the piece may be pulled to reach a
+// placement. Past it the drag is somewhere else entirely and any placement
+// would be a guess, so the answer is null -- the same as it is for a piece that
+// fits nowhere. Otherwise this returns what place_piece gives back for the
+// square it settled on, exactly as try_place_piece does for a named one.
+function nearest_valid_placement(game, piece, row, col, max_distance) {
+    const justified = left_top_justify_piece(piece);
+    if (is_empty(justified)) {
+        return null;
+    }
+    const bounds = get_piece_bounds(justified);
+
+    // Squared throughout, so the walk below compares distances without paying
+    // for a square root at every square of the board.
+    let best = null;
+    let best_distance_squared = max_distance * max_distance;
+
+    // Every placement of the piece that is on the board at all, which is every
+    // corner it can sit in without hanging off an edge.
+    let row_start = justified;
+    for (let r = 0; r + bounds.rows <= 9; ++r) {
+        const dr = r - row;
+        let p = row_start;
+        for (let c = 0; c + bounds.cols <= 9; ++c) {
+            const dc = c - col;
+            const distance_squared = dr * dr + dc * dc;
+            if (distance_squared <= best_distance_squared && is_disjoint(game.board, p)) {
+                best = p;
+                best_distance_squared = distance_squared;
+            }
+            p = shift_right(p);
+        }
+        row_start = shift_down(row_start);
+    }
+
+    return best === null ? null : place_piece(game, piece, best);
+}
+
+// Held over a square it fits in, a piece goes in that square. Held over one it
+// does not, it is nudged into the nearest square it does. Held nowhere near a
+// square it fits in, it goes nowhere.
+console.assert(equal(
+    nearest_valid_placement(get_new_game(), PIECES[0], 4.1, 3.9, 1.5).placement, bit(4, 4)));
+console.assert(is_disjoint(
+    nearest_valid_placement({ ...get_new_game(), board: bit(4, 4) }, PIECES[0], 4, 4, 1.5).placement,
+    bit(4, 4)));
+console.assert(equal(
+    nearest_valid_placement(get_new_game(), PIECES[0], -0.8, 0, 1.5).placement, bit(0, 0)));
+console.assert(nearest_valid_placement(get_new_game(), PIECES[0], 4, 12, 1.5) === null);
+console.assert(nearest_valid_placement(get_new_game(), getEmpty(), 4, 4, 1.5) === null);
+
 // === AI (powered by WASM) ===
 
 function ai_make_move(game, original_piece_set) {
@@ -824,11 +887,36 @@ function left_top_justify_piece(p) {
     return p;
 }
 
+// How many rows and columns of the board a piece covers, wherever it is drawn
+// in the 5x5 box a piece on deck is held in.
+function get_piece_bounds(piece) {
+    const p = left_top_justify_piece(piece);
+    let rows = 0;
+    let cols = 0;
+    for (let i = 0; i < 9; ++i) {
+        if (any(and(p, row(i)))) {
+            rows = i + 1;
+        }
+        if (any(and(p, column(i)))) {
+            cols = i + 1;
+        }
+    }
+    return { rows: rows, cols: cols };
+}
+
 for (const p of PIECES) {
     const centered = center_piece(p);
     console.assert(count(p) === count(centered));
     console.assert(equal(p, left_top_justify_piece(p)));
     console.assert(equal(p, left_top_justify_piece(center_piece(p))));
+
+    // The box is the smallest one the piece fits in, whether the piece comes in
+    // justified or centered on deck.
+    const bounds = get_piece_bounds(p);
+    console.assert(bounds.rows === get_piece_bounds(centered).rows);
+    console.assert(bounds.cols === get_piece_bounds(centered).cols);
+    console.assert(any(and(p, row(bounds.rows - 1))) && is_empty(and(p, row(bounds.rows))));
+    console.assert(any(and(p, column(bounds.cols - 1))) && is_empty(and(p, column(bounds.cols))));
 }
 
 // Where the fitness and performance harnesses below stop: they deal a fresh
@@ -895,18 +983,10 @@ var blokie = {
     getFitnessSample: get_fitness_sample,
     getPerformanceSample: get_performance_sample,
     leftTopJustify: left_top_justify_piece,
-    getPieceBounds: function(piece) {
-        const p = left_top_justify_piece(piece);
-        let maxR = 0, maxC = 0;
-        for (let r = 0; r < 9; r++) {
-            for (let c = 0; c < 9; c++) {
-                if (at(p, r, c)) { maxR = Math.max(maxR, r); maxC = Math.max(maxC, c); }
-            }
-        }
-        return { rows: maxR + 1, cols: maxC + 1 };
-    },
+    getPieceBounds: get_piece_bounds,
     placePiece: place_piece,
     tryPlacePiece: try_place_piece,
+    nearestValidPlacement: nearest_valid_placement,
 };
 
 export { blokie, init };

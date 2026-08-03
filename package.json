@@ -17,6 +17,7 @@
   "scripts": {
     "build:wasm": "bash build-wasm.sh",
     "test:ai": "node test/ai-plan-test.js",
+    "test:placement": "node test/placement-test.js",
     "test:fitness": "node test/fitness-test.js",
     "test:storage": "node test/storage-test.js",
     "test:performance": "node test/performance-test.js"
