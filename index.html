@@ -21,9 +21,32 @@
             border: 1px solid black;
             animation: cell-shrink-out 0.2s ease-in forwards;
         }
+        /* The column is sized off whichever axis is tighter, so on a page
+           taller than it needs there is height left over. Left to itself that
+           spare all collects under the deck, with the score pinned to the top
+           of the screen -- worst on a phone, where the width binds long before
+           the height does. Centring the column hands half of it back above the
+           score.
+
+           The padding is what the margin used to be, kept so the column still
+           has room around it on a page with nothing to spare, and inside the
+           height so it doesn't add a scrollbar to one that has. Small viewport
+           units where they are understood: the toolbar is up when the page is
+           opened, and a column centred against the taller viewport would sit
+           low until it goes away. */
         body {
-            padding: none;
-            border: none;
+            margin: 0;
+            padding: 8px 0;
+            box-sizing: border-box;
+            min-height: 100vh;
+            min-height: 100svh;
+            display: flex;
+            flex-direction: column;
+            /* Safe where it is understood, so a column with nothing to spare
+               overflows downwards, where it can be scrolled to, rather than
+               splitting the overflow across a top edge that cannot be. */
+            justify-content: center;
+            justify-content: safe center;
         }
 
         /* The settings gear is drawn on the same line as the score, either out
@@ -47,7 +70,7 @@
             /* What the page has to spare under the deck. Everything else on it
                is the score (5vh of type over a 2vh margin), the picker (6.5vh
                at its tallest), the board and the deck band (a column and a
-               third of one), and the body's own margin with a little over, so
+               third of one), and the body's own padding with a little over, so
                the page keeps a few pixels rather than spending its last one.
                The picker is shorter than 6.5vh on a narrow page, so where this
                is wrong it is wrong towards leaving room. */
@@ -91,7 +114,10 @@
         #for-aspect-ratio {
             aspect-ratio: 2/3;
             width: var(--column);
-            margin: auto;
+            /* Across only: an auto margin down the block axis would eat the
+               spare height itself and take the centring off justify-content,
+               losing the safety with it. */
+            margin: 0 auto;
             /* What the gear is positioned against. */
             position: relative;
         }
