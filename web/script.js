@@ -28,7 +28,7 @@ let state = {
 };
 
 // Drag state kept outside `state` (contains DOM refs, not serializable)
-let drag_info = null;       // { pieceIndex, piece, bounds, startX, startY, active, targetRow, targetCol }
+let drag_info = null;       // { pieceIndex, piece, bounds, startX, startY, active }
 let drag_floating_el = null;
 
 // Rendering is scheduled before the saved game is read back, so nothing is
@@ -115,8 +115,6 @@ document.addEventListener("DOMContentLoaded", function (event) {
             startX: touch.clientX,
             startY: touch.clientY,
             active: false,
-            targetRow: -1,
-            targetCol: -1,
         };
         event.preventDefault();
     });
@@ -138,8 +136,6 @@ document.addEventListener("DOMContentLoaded", function (event) {
             startX: event.clientX,
             startY: event.clientY,
             active: false,
-            targetRow: -1,
-            targetCol: -1,
         };
         event.preventDefault();
     });
@@ -211,9 +207,10 @@ function initSettings() {
 
 // === Drag and drop ===
 
+// The piece drawn at board scale rather than deck scale, since the board is
+// where it is headed and where it has to be lined up by eye.
 function createFloatingPiece(piece, bounds) {
-    const boardTable = document.getElementById('game-board');
-    const cellRect = boardTable.rows[0].cells[0].getBoundingClientRect();
+    const board = getBoardGeometry();
 
     const el = document.createElement('div');
     el.style.position = 'fixed';
@@ -229,8 +226,8 @@ function createFloatingPiece(piece, bounds) {
         const tr = document.createElement('tr');
         for (let c = 0; c < bounds.cols; c++) {
             const td = document.createElement('td');
-            td.style.width = cellRect.width + 'px';
-            td.style.height = cellRect.height + 'px';
+            td.style.width = board.cellW + 'px';
+            td.style.height = board.cellH + 'px';
             td.style.padding = '0';
             td.style.border = '0';
             if (blokie.at(p, r, c)) {
@@ -247,48 +244,66 @@ function createFloatingPiece(piece, bounds) {
     return el;
 }
 
+// The board on screen, and the size of one of its squares. Read fresh every
+// time: the board is sized off the viewport, so it moves with the window.
+function getBoardGeometry() {
+    const rect = document.getElementById('game-board').getBoundingClientRect();
+    return { rect: rect, cellW: rect.width / 9, cellH: rect.height / 9 };
+}
+
+// Where the piece being dragged is drawn, in screen pixels: centered on the
+// finger and lifted clear of it. The one place this is worked out, so the piece
+// you see, the shadow under it and the square it lands in can't disagree.
+function getFloatingPieceRect(clientX, clientY, bounds) {
+    const board = getBoardGeometry();
+    const width = bounds.cols * board.cellW;
+    const height = bounds.rows * board.cellH;
+    return {
+        left: clientX - width / 2,
+        top: clientY - FINGER_CLEARANCE - height,
+        width: width,
+        height: height,
+        board: board,
+    };
+}
+
 function updateFloatingPosition(el, clientX, clientY, bounds) {
-    const boardTable = document.getElementById('game-board');
-    const cellRect = boardTable.rows[0].cells[0].getBoundingClientRect();
-    const pieceW = bounds.cols * cellRect.width;
-    const pieceH = bounds.rows * cellRect.height;
-    el.style.left = (clientX - pieceW / 2) + 'px';
-    el.style.top = (clientY - FINGER_CLEARANCE - pieceH) + 'px';
+    const piece_rect = getFloatingPieceRect(clientX, clientY, bounds);
+    el.style.left = piece_rect.left + 'px';
+    el.style.top = piece_rect.top + 'px';
 }
 
+// How far, in board squares, a piece may be pulled from where it is being held
+// to reach a square it fits in. Nothing is pulled while the piece is over a
+// square it fits in, so this is slack for the times it isn't: the piece
+// overlapping a block by a corner, or hanging off the edge of the board. Enough
+// to forgive a square's worth of aim, and short enough that the piece always
+// lands somewhere you were pointing.
+const SNAP_RADIUS_SQUARES = 1.5;
+
+// The placement the drag is asking for: the one nearest to where the piece is
+// drawn, which is the same square an exact reading would give whenever the
+// piece fits there. Null when it is not being held near anywhere it fits.
 function calcShadowPlacement(clientX, clientY, piece, bounds) {
-    const boardTable = document.getElementById('game-board');
-    const boardRect = boardTable.getBoundingClientRect();
-    const cellW = boardRect.width / 9;
-    const cellH = boardRect.height / 9;
-
-    // Center of the floating piece (bottom edge sits FINGER_CLEARANCE above touch)
-    const centerX = clientX;
-    const pieceH = bounds.rows * cellH;
-    const centerY = clientY - FINGER_CLEARANCE - pieceH / 2;
-
-    // Find where the floating piece's top-left cell center falls on the board,
-    // matching the continuous centering used by updateFloatingPosition.
-    const targetCol = Math.floor((centerX - boardRect.left) / cellW - (bounds.cols - 1) / 2);
-    const targetRow = Math.floor((centerY - boardRect.top) / cellH - (bounds.rows - 1) / 2);
-
-    const result = blokie.tryPlacePiece(state.game_state.game, piece, targetRow, targetCol);
-    if (!result) return null;
-    return { placement: result.placement, targetRow, targetCol };
+    const piece_rect = getFloatingPieceRect(clientX, clientY, bounds);
+    const board = piece_rect.board;
+    return blokie.nearestValidPlacement(
+        state.game_state.game,
+        piece,
+        (piece_rect.top - board.rect.top) / board.cellH,
+        (piece_rect.left - board.rect.left) / board.cellW,
+        SNAP_RADIUS_SQUARES,
+    );
 }
 
-// Whether the piece was over the board when it was let go, using the same
-// geometry updateFloatingPosition draws it with. Dropping it anywhere else is
-// a change of mind rather than a rejected placement, and buzzing at that would
-// punish taking the piece back.
+// Whether the piece was over the board when it was let go. Dropping it anywhere
+// else is a change of mind rather than a rejected placement, and buzzing at
+// that would punish taking the piece back.
 function droppedOverBoard(clientX, clientY, bounds) {
-    const boardRect = document.getElementById('game-board').getBoundingClientRect();
-    const pieceW = (boardRect.width / 9) * bounds.cols;
-    const pieceH = (boardRect.height / 9) * bounds.rows;
-    const left = clientX - pieceW / 2;
-    const top = clientY - FINGER_CLEARANCE - pieceH;
-    return left < boardRect.right && left + pieceW > boardRect.left
-        && top < boardRect.bottom && top + pieceH > boardRect.top;
+    const piece_rect = getFloatingPieceRect(clientX, clientY, bounds);
+    const board = piece_rect.board.rect;
+    return piece_rect.left < board.right && piece_rect.left + piece_rect.width > board.left
+        && piece_rect.top < board.bottom && piece_rect.top + piece_rect.height > board.top;
 }
 
 function handleDragMove(clientX, clientY) {
@@ -314,15 +329,7 @@ function handleDragMove(clientX, clientY) {
     updateFloatingPosition(drag_floating_el, clientX, clientY, drag_info.bounds);
 
     const shadow = calcShadowPlacement(clientX, clientY, drag_info.piece, drag_info.bounds);
-    if (shadow) {
-        state.drag_shadow = shadow.placement;
-        drag_info.targetRow = shadow.targetRow;
-        drag_info.targetCol = shadow.targetCol;
-    } else {
-        state.drag_shadow = null;
-        drag_info.targetRow = -1;
-        drag_info.targetCol = -1;
-    }
+    state.drag_shadow = shadow === null ? null : shadow.placement;
 }
 
 function handleDragEnd(clientX, clientY) {
@@ -341,12 +348,13 @@ function handleDragEnd(clientX, clientY) {
         // Final position update
         handleDragMove(clientX, clientY);
 
-        if (state.drag_shadow && drag_info.targetRow >= 0) {
-            const result = blokie.tryPlacePiece(
+        // The shadow is what the piece was promised, so it is what gets played,
+        // rather than anything worked out again from where the finger ended up.
+        if (state.drag_shadow) {
+            const result = blokie.placePiece(
                 state.game_state.game,
                 drag_info.piece,
-                drag_info.targetRow,
-                drag_info.targetCol
+                state.drag_shadow,
             );
             if (result) {
                 commitMove(drag_info.pieceIndex, result);
@@ -626,10 +634,7 @@ function startFlyAnimation(pieceIndex, piece, placement) {
     const deckRect = deckTable.getBoundingClientRect();
 
     // Target: top-left of where the piece lands on the board
-    const boardTable = document.getElementById('game-board');
-    const boardRect = boardTable.getBoundingClientRect();
-    const cellW = boardRect.width / 9;
-    const cellH = boardRect.height / 9;
+    const board = getBoardGeometry();
 
     // Find the top-left occupied cell of the placement
     let minR = 9, minC = 9;
@@ -642,12 +647,12 @@ function startFlyAnimation(pieceIndex, piece, placement) {
         }
     }
 
-    const targetX = boardRect.left + minC * cellW;
-    const targetY = boardRect.top + minR * cellH;
+    const targetX = board.rect.left + minC * board.cellW;
+    const targetY = board.rect.top + minR * board.cellH;
 
     // Start at the on-deck slot, centered
-    const pieceW = bounds.cols * cellW;
-    const pieceH = bounds.rows * cellH;
+    const pieceW = bounds.cols * board.cellW;
+    const pieceH = bounds.rows * board.cellH;
     const startX = deckRect.left + (deckRect.width - pieceW) / 2;
     const startY = deckRect.top + (deckRect.height - pieceH) / 2;
 
