@@ -204,6 +204,16 @@ if (theme !== null && manifest !== null) {
         `the page and the manifest agree on it (${theme[1]})`);
 }
 
+// The name that ends up under the icon on a home screen. iOS takes it from
+// the page and everywhere else takes it from the manifest, so the two saying
+// different things is an app called one thing on half the phones it is on.
+const ios_name = html.match(/<meta[^>]+name="apple-mobile-web-app-title"[^>]+content="([^"]+)"/);
+check(ios_name !== null, 'the page names the app for iOS');
+if (ios_name !== null && manifest !== null) {
+    check(ios_name[1] === manifest.short_name,
+        `and calls it what the manifest calls it ("${ios_name[1]}")`);
+}
+
 // The page is where registration starts. Without this the worker is a file
 // nobody ever asks for, and everything above it is decoration.
 check(/registerServiceWorker\(\)/.test(read('web/script.js')),
