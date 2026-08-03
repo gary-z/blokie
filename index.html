@@ -31,10 +31,16 @@
            corner, depending on how much room the page leaves. The score is
            sized off these too, so it keeps the gear's width clear of that
            corner either way. The board's outline is drawn outside its box, so
-           the gear clears that as well to line up with the edge you can see. */
+           the gear clears that as well to line up with the edge you can see.
+
+           The score's line height is spelled out rather than left to the font,
+           because the gear is centred on that line and so needs a height to
+           work off that doesn't move with whatever face the browser lands on. */
         :root {
             --column: min(90vw, calc(90vh / (3/2)));
-            --gear-size: min(5vw, 3.3vh);
+            --score-size: 5vh;
+            --score-line: calc(var(--score-size) * 1.2);
+            --gear-size: min(6vw, 4vh);
             --gear-gap: min(2vw, 1.33vh);
             --board-outline: 4px;
         }
@@ -46,7 +52,8 @@
         #score {
             text-align: center;
             font-family: roboto;
-            font-size: 5vh;
+            font-size: var(--score-size);
+            line-height: var(--score-line);
             font-weight: bold;
             margin-bottom: 2vh;
             /* Reserved on both sides so the score stays centred, and so a long
@@ -267,10 +274,15 @@
            sit behind the gear in the corner rather than under the board. The
            offsets undo the button's padding, which is there as a target for a
            finger rather than as anything to look at, so what lines up with the
-           board's corner is the gear itself and not the box around it. */
+           board's corner is the gear itself and not the box around it.
+
+           Vertically it is centred on the score's first line: half that line,
+           back off the padding and half the gear. The first line and not the
+           whole element, so that a score long enough to wrap leaves the gear
+           where it was rather than dragging it down the page. */
         #settings {
             position: absolute;
-            top: calc(-1 * var(--gear-gap));
+            top: calc(var(--score-line) / 2 - var(--gear-gap) - var(--gear-size) / 2);
             right: calc(-1 * (var(--board-outline) + var(--gear-gap)));
             font-family: roboto;
             /* Above the page, below the piece being dragged. */
