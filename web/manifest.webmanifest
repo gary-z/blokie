@@ -1,7 +1,7 @@
 {
   "name": "Blokie",
   "short_name": "Blokie",
-  "description": "Play Blockudoku/Woodoku/Block Sudoku in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration.",
+  "description": "Play a block puzzle game in your browser, or let an AI assist play it for you in real time. Take over from the computer whenever you like. Learn, be inspired, or vent your frustration.",
   "lang": "en",
   "dir": "ltr",
   "start_url": "../",
