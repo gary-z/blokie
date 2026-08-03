@@ -24,8 +24,8 @@ jobs:
         run: |
           mkdir _site
           cp index.html _site/
-          mkdir -p _site/engine/wasm
-          cp engine/blokie.js _site/engine/
+          mkdir -p _site/engine/js _site/engine/wasm
+          cp engine/js/blokie.js _site/engine/js/
           cp engine/wasm/* _site/engine/wasm/
           cp -r web/ _site/web/
 

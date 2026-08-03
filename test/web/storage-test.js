@@ -4,7 +4,7 @@
 // but the encoding either survives a refresh or quietly loses someone's game,
 // so it is worth checking here.
 
-import { blokie } from '../../engine/blokie.js';
+import { blokie } from '../../engine/js/blokie.js';
 import { encodeGameState, decodeGameState } from '../../web/storage.js';
 
 let failures = 0;

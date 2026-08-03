@@ -1,5 +1,5 @@
 "use strict";
-import { blokie, init } from "../engine/blokie.js";
+import { blokie, init } from "../engine/js/blokie.js";
 
 // The assist's only job over here is working out where the pieces on deck
 // should go. Playing them -- the board, the deck, the score, the animation and

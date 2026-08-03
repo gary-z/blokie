@@ -1,6 +1,6 @@
 "use strict";
 
-import { blokie, init } from '../../engine/blokie.js';
+import { blokie, init } from '../../engine/js/blokie.js';
 
 await init();
 const sample = blokie.getFitnessSample();

@@ -32,7 +32,7 @@ async function init(options = {}) {
     _initPromise = (async () => {
         // Dynamic import so the module path is resolved relative to this file,
         // and so consumers who only use non-AI helpers can skip loading WASM.
-        const { default: createBlokieSolver } = await import('./wasm/blokie-solver.js');
+        const { default: createBlokieSolver } = await import('../wasm/blokie-solver.js');
 
         const moduleConfig = {};
         if (options.locateFile) {

@@ -3,13 +3,13 @@
   "type": "module",
   "version": "1.0.0",
   "description": "A 9x9 block puzzle engine",
-  "main": "engine/blokie.js",
+  "main": "engine/js/blokie.js",
   "exports": {
-    ".": "./engine/blokie.js",
+    ".": "./engine/js/blokie.js",
     "./wasm": "./engine/wasm/blokie-solver.wasm"
   },
   "files": [
-    "engine/blokie.js",
+    "engine/js/blokie.js",
     "engine/wasm/blokie-solver.js",
     "engine/wasm/blokie-solver.wasm"
   ],
