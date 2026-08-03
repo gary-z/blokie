@@ -449,6 +449,13 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     }
 
     const game_state = state.game_state;
+    // The engine returns the board after completed rows, columns and boxes have
+    // already been removed. Remember this placement until the next render so
+    // squares which were placed into a clear can join the shrink animation
+    // instead of appearing never to have landed.
+    pending_clear_placement = result.newGame.previous_move_was_clear
+        ? result.placement
+        : null;
     game_state.piece_set[piece_index] = blokie.getEmptyPiece();
     if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
         game_state.piece_set = blokie.getRandomPieceSet();
@@ -457,6 +464,11 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     game_state.game = result.newGame;
     refreshGameOver(game_state);
 }
+
+// A one-render bridge between the engine's already-cleared board and the DOM.
+// This deliberately stays outside saved state: restoring a game should not
+// replay the last move's animation.
+let pending_clear_placement = null;
 
 function assistIsOn() {
     return document.getElementById('ai-assist').value !== 'off';
@@ -712,7 +724,14 @@ function renderImpl() {
     const game_state = state.game_state;
 
     showGameOver(!gameIsActive(), game_state.game.score);
-    drawGame(board_table, pieces_on_deck_div, game_state.game.board, game_state.piece_set);
+    drawGame(
+        board_table,
+        pieces_on_deck_div,
+        game_state.game.board,
+        game_state.piece_set,
+        pending_clear_placement,
+    );
+    pending_clear_placement = null;
     updateScore(game_state.game.score);
 }
 
@@ -753,7 +772,7 @@ function _setCell(td, cls) {
     if (old === cls) return;
     if (cls === '' && old.startsWith('shrinking-')) return; // let shrink finish
 
-    if (cls === '' && old === 'has-piece') {
+    if ((cls === '' && old === 'has-piece') || cls === 'shrinking-piece') {
         td.className = 'shrinking-piece';
         td.addEventListener('animationend', () => {
             if (td.className.startsWith('shrinking-')) td.className = '';
@@ -764,13 +783,18 @@ function _setCell(td, cls) {
     td.className = cls;
 }
 
-function drawGame(board_table, pieces_on_deck_div, board, piece_set) {
+function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_placement) {
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
             const td = board_table.rows[r].cells[c];
             let cls;
             if (blokie.at(board, r, c)) {
                 cls = 'has-piece';
+            } else if (clearing_placement && blokie.at(clearing_placement, r, c)) {
+                // This square was both added and cleared in the same engine
+                // update, so it never existed in `board`. Draw it directly in
+                // the same outgoing state as the older squares being cleared.
+                cls = 'shrinking-piece';
             } else if (state.drag_shadow && blokie.at(state.drag_shadow, r, c)) {
                 cls = 'drag-shadow';
             } else {
