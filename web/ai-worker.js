@@ -1,77 +1,18 @@
 "use strict";
 import { blokie, init } from "../engine/blokie.js";
 
+// The assist's only job over here is working out where the pieces on deck
+// should go. Playing them -- the board, the deck, the score, the animation and
+// the sounds -- happens on the main thread, down the same path a dropped piece
+// takes, so that there is one of each rather than two.
+//
+// The search is what needs a worker: it is slow enough to be felt as a stutter
+// on the thread drawing the board. This one stays alive between plans, so the
+// WASM solver is only ever instantiated once per run of the assist.
 self.onmessage = async (e) => {
     await init();
-
-    const game_state = e.data.game_state;
-
-    let show_new_pieces = false;
-
-    function aiPlayGame() {
-        if (game_state.queued_game_states.length === 0) {
-            if (show_new_pieces) {
-                // Show new pieces for one interval before AI starts playing them.
-                show_new_pieces = false;
-                return false;
-            }
-            game_state.queued_game_states = blokie.getAIMove(game_state.game, game_state.piece_set).new_game_states;
-            game_state.game.previous_piece_placement = blokie.getEmptyPiece();
-
-            // Slots the player already emptied come back as no-op states, and
-            // playing one costs a turn in which nothing happens. Drop them.
-            // When the solver has no move at all it returns nothing but no-ops,
-            // on a full board -- keep those, they are how it says it gave up.
-            const with_placements = game_state.queued_game_states.filter(
-                s => !blokie.isEmpty(s.previous_piece_placement));
-            if (with_placements.length > 0) {
-                game_state.queued_game_states = with_placements;
-            }
-            return false;
-        }
-        if (blokie.isOver(game_state.queued_game_states[0])) {
-            return true;
-        }
-
-        const new_game_state = game_state.queued_game_states.shift();
-        const piece_used = new_game_state.previous_piece;
-        const used_piece_index = game_state.piece_set.indexOf(piece_used);
-        game_state.last_used_piece_index = used_piece_index;
-        if (used_piece_index >= 0) {
-            game_state.piece_set[used_piece_index] = blokie.getEmptyPiece();
-        }
-        // Generate new pieces immediately so the on-deck section is never empty.
-        if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
-            game_state.piece_set = blokie.getRandomPieceSet();
-            show_new_pieces = true;
-        }
-        game_state.previous_game_state = game_state.game;
-        game_state.game = new_game_state;
-        return false;
-    }
-
-    if (e.data.delay_ms === 0) {
-        // If there is no delay, don't do intervals.
-        let is_over = false;
-        do {
-            is_over = aiPlayGame();
-            self.postMessage({
-                game_state: game_state,
-                id: e.data.id,
-            });
-        } while (!is_over);
-        self.close();
-    } else {
-        setInterval(() => {
-            const is_over = aiPlayGame();
-            self.postMessage({
-                game_state: game_state,
-                id: e.data.id,
-            });
-
-            if (is_over) {
-                self.close();
-            }
-        }, e.data.delay_ms);
-    }
-}
+    self.postMessage({
+        id: e.data.id,
+        plan: blokie.getAIPlan(e.data.game, e.data.piece_set),
+    });
+};
