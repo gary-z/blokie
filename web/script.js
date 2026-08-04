@@ -872,7 +872,12 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_pl
         for (let c = 0; c < 9; ++c) {
             const td = board_table.rows[r].cells[c];
             let cls;
-            if (state.clear_preview && blokie.at(state.clear_preview, r, c)) {
+            // The landing cells remain the ordinary grey drag shadow even
+            // when they participate in a clear. Only squares already on the
+            // board get the lighter clear treatment.
+            if (state.drag_shadow && blokie.at(state.drag_shadow, r, c)) {
+                cls = 'drag-shadow';
+            } else if (state.clear_preview && blokie.at(state.clear_preview, r, c)) {
                 cls = 'clear-preview';
             } else if (blokie.at(board, r, c)) {
                 cls = 'has-piece';
@@ -881,8 +886,6 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_pl
                 // update, so it never existed in `board`. Draw it directly in
                 // the same outgoing state as the older squares being cleared.
                 cls = 'shrinking-piece';
-            } else if (state.drag_shadow && blokie.at(state.drag_shadow, r, c)) {
-                cls = 'drag-shadow';
             } else {
                 cls = '';
             }
