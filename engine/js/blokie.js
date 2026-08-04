@@ -651,11 +651,15 @@ for (let k = 0; k < 9; ++k) {
 }
 
 
+function get_placement_combo_magnitude(prev, placement) {
+    return get_combo_magnitude(or(prev, placement));
+}
+
 function get_move_score(previous_was_clear, prev, placement, after) {
     console.assert(is_empty(and(prev, placement)));
     // 1 point for each block placed that was not cleared.
     let result = count(diff(after, prev));
-    const combo = get_combo_magnitude(or(prev, placement));
+    const combo = get_placement_combo_magnitude(prev, placement);
     if (combo === 0) {
         return result;
     }
@@ -1001,6 +1005,7 @@ var blokie = {
     getPerformanceSample: get_performance_sample,
     leftTopJustify: left_top_justify_piece,
     getPieceBounds: get_piece_bounds,
+    getPlacementComboMagnitude: get_placement_combo_magnitude,
     placePiece: place_piece,
     tryPlacePiece: try_place_piece,
     nearestValidPlacement: nearest_valid_placement,

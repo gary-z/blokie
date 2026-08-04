@@ -474,7 +474,11 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     // Held to the same bar the sounds are: at Max the moves land faster than a
     // card could be read, and the cards would only stack up over the board.
     if (!silent && result.newGame.previous_move_was_clear) {
-        showScoreCard(result.newGame.score - game_state.game.score, result.placement);
+        showMoveScoreCard(result.newGame.score - game_state.game.score, result.placement);
+        const combo = blokie.getPlacementComboMagnitude(game_state.game.board, result.placement);
+        if (combo > 1) {
+            showComboCard(combo, result.placement);
+        }
     }
     // The engine returns the board after completed rows, columns and boxes have
     // already been removed. Remember this placement until the next render so
@@ -769,15 +773,23 @@ function getPlacementCenter(placement) {
     };
 }
 
-function showScoreCard(points, placement) {
+function showScoreCard(text, placement) {
     const center = getPlacementCenter(placement);
     const el = document.createElement('div');
     el.className = 'score-card';
-    el.innerText = '+' + points.toLocaleString();
+    el.innerText = text;
     el.style.left = center.x + 'px';
     el.style.top = center.y + 'px';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), SCORE_CARD_MS);
+}
+
+function showMoveScoreCard(points, placement) {
+    showScoreCard('+' + points.toLocaleString(), placement);
+}
+
+function showComboCard(combo, placement) {
+    setTimeout(() => showScoreCard(combo.toLocaleString() + 'x Combo!', placement), SCORE_CARD_MS);
 }
 
 // The board is drawn from the game as it stands, and only when something about
