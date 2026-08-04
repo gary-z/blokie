@@ -14,6 +14,11 @@ namespace {
 	const uint64_t LEFT_MOST_COLUMN_A = RIGHT_MOST_COLUMN_A >> 8;
 	const uint64_t LEFT_MOST_COLUMN_B = RIGHT_MOST_COLUMN_B >> 8;
 	const uint64_t ROW_5 = 0x1FFULL << (5 * 9);
+
+	// Stands in for the evaluation of a position a piece does not fit in at
+	// all. Small enough that one per piece still cannot overflow a uint64_t,
+	// large enough to outweigh any real board evaluation.
+	const uint64_t GAME_OVER_PENALTY = UINT64_MAX / (Piece::NUM_PIECES + 1);
 }
 
 // === BIT BOARD
@@ -660,6 +665,7 @@ int EvalWeights::getOccupiedCornerSquare() const {
 // ====== AI
 GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet piece_set) {
 	std::sort(piece_set.pieces, piece_set.pieces + 3);
+	const int num_pieces = AI::countPieces(piece_set);
 
 	uint64_t bestScore = UINT64_MAX;
 	auto bestNext = GameState(BitBoard::full());
@@ -677,19 +683,23 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 				const auto after_p1_max_count = game.getBitBoard().count() +
 					p0.getBitBoard().count() +
 					p1.getBitBoard().count();
+				// Nothing cleared, so these two placements land on the same
+				// board played the other way round, in an ordering that
+				// next_permutation also walks. See makeMoveSimple.
 				if (p1 < p0 && after_p1.getBitBoard().count() == after_p1_max_count) {
-					// Tried this permutation before.
 					continue;
 				}
 
 				for (const auto after_p2 : after_p1.nextStates(p2)) {
+					// No clears anywhere, so this board is the union of three
+					// disjoint placements and the first (sorted) ordering
+					// already reached it.
 					if (!is_first_permutation &&
 						after_p2.getBitBoard().count() == game.getBitBoard().count()
 						+ p0.getBitBoard().count() +
 						p1.getBitBoard().count() +
 						p2.getBitBoard().count()
 						) {
-						// No clears. This position was seen in a previous permutation.
 						continue;
 					}
 
@@ -707,6 +717,13 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 							best_after_p3 = std::min(best_after_p3,
 								after_p3.simpleEval(weights));
 						}
+						if (best_after_p3 == UINT64_MAX) {
+							// p3 does not fit anywhere, which is the game
+							// ending. Charge a large but finite penalty:
+							// summing UINT64_MAX would wrap around and make
+							// the position look like the best one on offer.
+							best_after_p3 = GAME_OVER_PENALTY;
+						}
 						total_after_p2 += best_after_p3;
 						if (total_after_p2 > bestScore) {
 							// after_p3 is worse than the existing candidate already.
@@ -722,14 +739,18 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 			}
 		}
 		is_first_permutation = false;
-	} while (can_clear_with_2_pieces && std::next_permutation(piece_set.pieces, piece_set.pieces + 3));
+	} while (can_clear_with_2_pieces &&
+		std::next_permutation(piece_set.pieces, piece_set.pieces + num_pieces));
 
 	return bestNext;
 }
 
 GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet piece_set) {
 	std::sort(piece_set.pieces, piece_set.pieces + 3);
-	const bool is_two_piece_set = piece_set.pieces[2].getBitBoard() == BitBoard::empty();
+	// Blank slots sort to the end and are placed by doing nothing, so where
+	// they fall in the order cannot change a board. Permuting only the pieces
+	// that are really there keeps a two piece deck to two orderings.
+	const int num_pieces = AI::countPieces(piece_set);
 
 	const auto can_clear_with_2_pieces = AI::canClearWith2PiecesOrFewer(game, piece_set);
 
@@ -746,15 +767,22 @@ GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet
 				const auto after_p1_max_count = game.getBitBoard().count() +
 					p0.getBitBoard().count() +
 					p1.getBitBoard().count();
+				// Nothing cleared, so these two placements land on the same
+				// board played the other way round -- and the other way round
+				// is an ordering next_permutation also walks, in which p0 and
+				// p1 are the right way up and this test does not fire. Skip the
+				// half of those pairs that are back to front.
 				if (p1 < p0 && after_p1.getBitBoard().count() == after_p1_max_count) {
-					// Tried this permutation before.
 					continue;
 				}
 				for (const auto after_p2 : after_p1.nextStates(p2)) {
+					// Nothing cleared at any point, so all three placements are
+					// disjoint and this board is their union however they were
+					// ordered. The pieces start sorted, so the first ordering
+					// reaches every one of those boards with nothing skipped.
 					if (!is_first_permutation &&
 						after_p2.getBitBoard().count() == after_p1_max_count + p2.getBitBoard().count()
 						) {
-						// Tried this permutation before.
 						continue;
 					}
 					const auto score = after_p2.simpleEval(weights, bestScore);
@@ -767,17 +795,35 @@ GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet
 		}
 		is_first_permutation = false;
 	} while (can_clear_with_2_pieces &&
-		std::next_permutation(piece_set.pieces, piece_set.pieces + (is_two_piece_set ? 2 : 3))
+		std::next_permutation(piece_set.pieces, piece_set.pieces + num_pieces)
 	);
 
 	return bestNext;
+}
+
+int AI::countPieces(const PieceSet &piece_set) {
+	int num_pieces = 3;
+	while (num_pieces > 0 &&
+		piece_set.pieces[num_pieces - 1].getBitBoard() == BitBoard::empty()) {
+		num_pieces--;
+	}
+	return num_pieces;
 }
 
 bool AI::canClearWith2PiecesOrFewer(GameState game, PieceSet piece_set) {
 	// Determine if we need to check permutations.
 	for (int i = 0; i < 3; ++i) {
 		const auto p0 = piece_set.pieces[i];
+		const auto block_count_if_p0_does_not_clear =
+			game.getBitBoard().count() + p0.getBitBoard().count();
 		for (const auto after_p0 : game.nextStates(p0)) {
+			// A piece that clears on its own counts, whether or not any of the
+			// other two still fit afterwards. Leaving this to the inner loop
+			// would miss the case where the clear is the only thing that makes
+			// room, but nothing is left that fits in it.
+			if (after_p0.getBitBoard().count() < block_count_if_p0_does_not_clear) {
+				return true;
+			}
 			for (int j = 0; j < 3; ++j) {
 				if (i == j) {
 					continue;

@@ -18,6 +18,7 @@
     "build:wasm": "bash engine/build-wasm.sh",
     "build:icons": "node web/icons/make-icons.js",
     "test:ai": "node test/engine/ai-plan-test.js",
+    "test:enumeration": "node test/engine/enumeration-test.js",
     "test:placement": "node test/engine/placement-test.js",
     "test:fitness": "node test/engine/fitness-test.js",
     "test:storage": "node test/web/storage-test.js",

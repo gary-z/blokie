@@ -127,6 +127,9 @@ static val aiMakeMove(
 
     PieceSet ps(sorted_pieces[0], sorted_pieces[1], sorted_pieces[2]);
     bool can_clear = AI::canClearWith2PiecesOrFewer(game, ps);
+    // Blank slots sort last and are placed by doing nothing, so only the slots
+    // that hold a piece are worth reordering.
+    const int num_pieces = AI::countPieces(ps);
 
     uint64_t bestEval = UINT64_MAX;
 
@@ -144,10 +147,17 @@ static val aiMakeMove(
             for (const auto &s1 : getNextStatesWithPlacements(s0.state, p1, true)) {
                 const int after_p1_max_count = game.getBitBoard().count() +
                     p0.getBitBoard().count() + p1.getBitBoard().count();
+                // Nothing cleared, so this pair of placements lands on the same
+                // board played the other way round -- an ordering the loop also
+                // walks, and one this test does not fire in. See makeMoveSimple
+                // in solver.cpp for the argument in full.
                 if (p1 < p0 && s1.state.getBitBoard().count() == after_p1_max_count) {
                     continue;
                 }
                 for (const auto &s2 : getNextStatesWithPlacements(s1.state, p2, false)) {
+                    // No clears anywhere: this board is the union of three
+                    // disjoint placements, which the first (sorted) ordering
+                    // already reached.
                     if (!is_first_permutation &&
                         s2.state.getBitBoard().count() == after_p1_max_count +
                         p2.getBitBoard().count()) {
@@ -168,7 +178,7 @@ static val aiMakeMove(
         }
         is_first_permutation = false;
     } while (can_clear &&
-        std::next_permutation(ps.pieces, ps.pieces + 3));
+        std::next_permutation(ps.pieces, ps.pieces + num_pieces));
 
     // === Phase 2: Optimize score by trying all permutations of the original pieces ===
     // We look for paths that reach the same end board as phase 1, maximizing the game score.
@@ -218,12 +228,21 @@ static val aiMakeMove(
 
                     if (!(s2.state.getBitBoard() == targetBoard)) continue;
 
-                    bool p0_was_clear = s0.state.getBitBoard().count() <
-                        boardBB.count() + pp0.getBitBoard().count();
-                    bool p1_was_clear = s1.state.getBitBoard().count() <
-                        s0.state.getBitBoard().count() + pp1.getBitBoard().count();
-                    bool p2_was_clear = s2.state.getBitBoard().count() <
-                        s1.state.getBitBoard().count() + pp2.getBitBoard().count();
+                    // A blank slot is not a move: it neither clears nor breaks
+                    // the streak the move before it started. Reading it as a
+                    // move that failed to clear would cost the 9 point streak
+                    // bonus on the move after it.
+                    auto was_clear = [](bool before, BitBoard piece, int count_before,
+                                        int count_after) {
+                        if (piece == BitBoard::empty()) return before;
+                        return count_after < count_before + piece.count();
+                    };
+                    bool p0_was_clear = was_clear(previous_move_was_clear, pp0.getBitBoard(),
+                        boardBB.count(), s0.state.getBitBoard().count());
+                    bool p1_was_clear = was_clear(p0_was_clear, pp1.getBitBoard(),
+                        s0.state.getBitBoard().count(), s1.state.getBitBoard().count());
+                    bool p2_was_clear = was_clear(p1_was_clear, pp2.getBitBoard(),
+                        s1.state.getBitBoard().count(), s2.state.getBitBoard().count());
 
                     int score0 = game_score + getMoveScore(previous_move_was_clear,
                         boardBB, s0.placement, s0.state.getBitBoard());

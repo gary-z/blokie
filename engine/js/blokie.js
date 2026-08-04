@@ -532,13 +532,30 @@ function get_next_boards(board, p, clears_first = false) {
             p = shift_right(p);
         }
     }
-    function is_clear(placement_pair) {
-        return is_subset(placement_pair.board, placement_pair.placement);
+    // A clear always takes the square that completed the line with it, so a
+    // placement still standing whole on the board it produced is one that
+    // cleared nothing.
+    function cleared(placement_pair) {
+        return !is_subset(placement_pair.board, placement_pair.placement);
     }
     if (clears_first) {
-        result.sort((a, b) => is_clear(b) - is_clear(a));
+        result.sort((a, b) => cleared(b) - cleared(a));
     }
     return result;
+}
+
+// Left to itself the walk starts at the top left, so a clear at the bottom of
+// the board comes last; asked for clears first, it leads.
+{
+    const row_8_missing_one = diff(row(8), bit(8, 4));
+    const natural = get_next_boards(row_8_missing_one, PIECES[0]);
+    console.assert(equal(natural[0].placement, bit(0, 0)));
+    console.assert(!is_empty(natural[0].board));
+
+    const clears_leading = get_next_boards(row_8_missing_one, PIECES[0], true);
+    console.assert(equal(clears_leading[0].placement, bit(8, 4)));
+    console.assert(is_empty(clears_leading[0].board));
+    console.assert(clears_leading.length === natural.length);
 }
 
 // Returns true if `piece` fits anywhere on `board`. Mirrors the placement walk

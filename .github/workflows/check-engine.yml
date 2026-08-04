@@ -1,0 +1,30 @@
+name: Check the engine
+
+# The solver is the part of this repo with no way to eyeball whether it is
+# right: a move search that quietly stops considering half the orderings still
+# returns a legal move, and the only thing that notices is a score that drifts
+# down over thousands of games. These run the checks that would catch it.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Placement rules
+        run: node test/engine/placement-test.js
+
+      - name: Move planning
+        run: node test/engine/ai-plan-test.js
+
+      - name: Move search against a brute force
+        run: node test/engine/enumeration-test.js
