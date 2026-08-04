@@ -318,16 +318,6 @@ function calcClearPreview(piece, placement) {
     return preview;
 }
 
-// Whether the piece was over the board when it was let go. Dropping it anywhere
-// else is a change of mind rather than a rejected placement, and buzzing at
-// that would punish taking the piece back.
-function droppedOverBoard(clientX, clientY, bounds) {
-    const piece_rect = getFloatingPieceRect(clientX, clientY, bounds);
-    const board = piece_rect.board.rect;
-    return piece_rect.left < board.right && piece_rect.left + piece_rect.width > board.left
-        && piece_rect.top < board.bottom && piece_rect.top + piece_rect.height > board.top;
-}
-
 function handleDragMove(clientX, clientY) {
     if (!drag_info) return;
 
@@ -389,9 +379,10 @@ function handleDragEnd(clientX, clientY) {
                 return;
             }
         }
-        if (droppedOverBoard(clientX, clientY, drag_info.bounds)) {
-            playSfx('reject');
-        }
+        // Every lift that doesn't become a move ends the same way, whether the
+        // piece was refused by the board or taken back to the deck. The pickup
+        // has already sounded by this point, so anything else leaves it hanging.
+        playSfx('reject');
         cleanupDrag();
         // The player still took control long enough to stop the assist. Give
         // them the same full pacing interval when they return the piece to

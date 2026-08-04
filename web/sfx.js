@@ -1,8 +1,8 @@
 "use strict";
 import { saveSfxSetting, loadSfxSetting } from "./storage.js";
 
-// A piece lifted off the deck, dropped onto the board, refusing to seat, and a
-// row coming apart. Played whether you or the assist is moving the pieces,
+// A piece lifted off the deck, dropped onto the board, going back down unplayed,
+// and a row coming apart. Played whether you or the assist is moving the pieces,
 // except at the assist's top speed, where the moves come too fast to hear as
 // anything but noise.
 //
@@ -36,7 +36,13 @@ const SOUNDS = {
 // The clips are all normalized to one level, so balance between the events
 // lives here instead of in the files. Picking a piece up happens on every drag
 // and wants to sit under the rest of it.
-const EVENT_GAIN = { pickup: 0.45, place: 0.9, reject: 0.6, clear: 0.9 };
+//
+// The reject is the exception to that normalization being enough: it levelled
+// to -18 dB RMS before it reached -1 dB peak, and it is a third the length of
+// the wood at a fifth of the pitch, all of which the ear counts. It needs to be
+// louder than the others on paper to land beside them, and at 1.0 it measures
+// within a third of a dB of the place. Peak is still 0.58, so nothing clips.
+const EVENT_GAIN = { pickup: 0.45, place: 0.9, reject: 1.0, clear: 0.9 };
 
 // Cleared cells shrink out over 0.2s. Landing the sound just after that starts
 // reads as the clear causing it, rather than as part of the placement.

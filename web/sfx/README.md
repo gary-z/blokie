@@ -38,9 +38,22 @@ run the same way.
 ## The reject
 
 A dull thud rather than a buzz: an impact that doesn't ring, which reads as the
-piece refusing to seat. It is much quieter about it than an error tone would be, so
-raise `EVENT_GAIN.reject` in `web/sfx.js` if a bad drop goes unnoticed. Balance
-between the four events lives there rather than in the files.
+piece coming to rest without being played. Balance between the four events lives in
+`EVENT_GAIN` in `web/sfx.js` rather than in the files.
+
+It fires on every lift that doesn't become a move — refused by the board and taken
+back to the deck alike. Those were split once, on the reasoning that a change of
+mind is not a failure and shouldn't be buzzed at, but the thud is soft enough not
+to read as a scolding, and the pickup has already sounded by then: leaving the
+change of mind silent left that sound unanswered.
+
+This is the one clip the levelling below doesn't leave on equal footing. It reached
+−18 dB RMS before it reached −1 dB peak, so it sits 3.7 dB lower in peak than the
+two wood clips; it is a third their length; and at 130 Hz it is where the ear is
+least sensitive and where a phone speaker gives up. Measured K-weighted over a
+400 ms window, it came out 4.7 dB under the place at the gains that were set — as
+quiet as the pickup, which is deliberately under everything. `EVENT_GAIN.reject` is
+1.0 to put it level with the place, and it can go to 1.7 before the clip peaks.
 
 ## Where these came from
 
@@ -68,8 +81,8 @@ decoded on the gesture that switches it.
 
 Playing by hand, from the drag handlers in `web/script.js`: the pickup when the
 drag crosses its threshold rather than on mousedown, so a tap that is deliberately
-nothing sounds like nothing; the reject only when the piece was over the board, so
-taking one back to the deck is a change of mind rather than a failure.
+nothing sounds like nothing; the reject on any drag that ends without a move, which
+pairs it one-to-one with the pickup that started that drag.
 
 Watching the assist, from the same move the fly animation is drawn from: the pickup
 as the piece leaves the deck, the place as it arrives, and the clear when the board
