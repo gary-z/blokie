@@ -24,6 +24,7 @@ let state = {
 
     // Rendering state (in state so JSON.stringify change detection triggers re-render)
     drag_shadow: null,        // bitboard or null - shadow cells on board
+    clear_preview: null,      // squares a valid manual placement would clear
     piece_in_hand_index: -1,  // deck slot whose piece is off the deck: being
                               // dragged, or flying to the board (-1 = none)
 };
@@ -215,10 +216,10 @@ function createFloatingPiece(piece, bounds) {
     const board = getBoardGeometry();
 
     const el = document.createElement('div');
+    el.className = 'floating-piece';
     el.style.position = 'fixed';
     el.style.pointerEvents = 'none';
     el.style.zIndex = '1000';
-    el.style.opacity = '0.8';
 
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
@@ -298,6 +299,25 @@ function calcShadowPlacement(clientX, clientY, piece, bounds) {
     );
 }
 
+// Return every occupied square which would disappear if this placement were
+// committed. Asking the engine for the prospective game keeps the preview in
+// lockstep with the actual row, column and box clearing rules.
+function calcClearPreview(piece, placement) {
+    const result = blokie.placePiece(state.game_state.game, piece, placement);
+    if (result === null || !result.newGame.previous_move_was_clear) return null;
+
+    const before_clear = blokie.or(state.game_state.game.board, placement);
+    let preview = blokie.getEmptyPiece();
+    for (let r = 0; r < 9; ++r) {
+        for (let c = 0; c < 9; ++c) {
+            if (blokie.at(before_clear, r, c) && !blokie.at(result.newGame.board, r, c)) {
+                preview = blokie.toggleSquare(preview, r, c);
+            }
+        }
+    }
+    return preview;
+}
+
 // Whether the piece was over the board when it was let go. Dropping it anywhere
 // else is a change of mind rather than a rejected placement, and buzzing at
 // that would punish taking the piece back.
@@ -332,6 +352,10 @@ function handleDragMove(clientX, clientY) {
 
     const shadow = calcShadowPlacement(clientX, clientY, drag_info.piece, drag_info.bounds);
     state.drag_shadow = shadow === null ? null : shadow.placement;
+    state.clear_preview = shadow === null
+        ? null
+        : calcClearPreview(drag_info.piece, shadow.placement);
+    drag_floating_el.classList.toggle('clear-preview', state.clear_preview !== null);
 }
 
 function handleDragEnd(clientX, clientY) {
@@ -383,6 +407,7 @@ function cleanupDrag() {
     }
     drag_info = null;
     state.drag_shadow = null;
+    state.clear_preview = null;
     state.piece_in_hand_index = -1;
 }
 
@@ -847,7 +872,9 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_pl
         for (let c = 0; c < 9; ++c) {
             const td = board_table.rows[r].cells[c];
             let cls;
-            if (blokie.at(board, r, c)) {
+            if (state.clear_preview && blokie.at(state.clear_preview, r, c)) {
+                cls = 'clear-preview';
+            } else if (blokie.at(board, r, c)) {
                 cls = 'has-piece';
             } else if (clearing_placement && blokie.at(clearing_placement, r, c)) {
                 // This square was both added and cleared in the same engine
