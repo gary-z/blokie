@@ -462,6 +462,8 @@ function initRestartButton(button) {
 // `silent` is for the assist at Max, where the moves land faster than the
 // sounds could be heard as anything but noise.
 function commitMove(piece_index, result, { silent = false } = {}) {
+    clearPendingComboCard();
+
     if (!silent) {
         playSfx('place');
         if (result.newGame.previous_move_was_clear) {
@@ -788,8 +790,18 @@ function showMoveScoreCard(points, placement) {
     showScoreCard('+' + points.toLocaleString(), placement);
 }
 
+let combo_card_timer = null;
+
+function clearPendingComboCard() {
+    clearTimeout(combo_card_timer);
+    combo_card_timer = null;
+}
+
 function showComboCard(combo, placement) {
-    setTimeout(() => showScoreCard(combo.toLocaleString() + 'x Combo!', placement), SCORE_CARD_MS);
+    combo_card_timer = setTimeout(() => {
+        combo_card_timer = null;
+        showScoreCard(combo.toLocaleString() + 'x Combo!', placement);
+    }, SCORE_CARD_MS);
 }
 
 // The board is drawn from the game as it stands, and only when something about
