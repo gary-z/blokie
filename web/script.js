@@ -369,7 +369,10 @@ function handleDragEnd(clientX, clientY) {
             playSfx('reject');
         }
         cleanupDrag();
-        onGameStateChanged();
+        // The player still took control long enough to stop the assist. Give
+        // them the same full pacing interval when they return the piece to
+        // the deck (or reject a drop) as when they complete a move.
+        onGameStateChanged({ after_manual_move: true });
     } else {
         // Drag never activated - a tap on a piece does nothing.
         cleanupDrag();
@@ -542,10 +545,10 @@ function stopAI() {
 // Called whenever the game moves on: a placement, a new game, or a change to
 // the assist setting. The assist picks up from the new state, if it is on.
 //
-// `after_manual_move` marks the one case the assist should not jump straight
-// into: a piece you have just placed by hand. Taking over the instant it lands
-// reads as the move being snatched out of your hand, so there the assist waits
-// out a full pacing interval like it does between its own moves.
+// `after_manual_move` marks a hand-off from an active manual drag, whether the
+// piece was played or returned to the deck. Taking over the instant the piece
+// lands reads as the move being snatched out of your hand, so there the assist
+// waits out a full pacing interval like it does between its own moves.
 function onGameStateChanged({ after_manual_move = false } = {}) {
     stopAI();
     refreshGameOver(state.game_state);
