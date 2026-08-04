@@ -134,6 +134,11 @@ public:
 
 
 class NextGameStateIteratorGenerator;
+// A board partway through a game. No row, column or box on it is completely
+// filled: a completed line is cleared the instant it is made, so a board that
+// still holds one is not a position the game can be in. nextStates clears what
+// it finds rather than checking, so handing one in makes a piece look as though
+// it cleared lines it had nothing to do with.
 class GameState {
 private:
 	BitBoard bb;
@@ -182,5 +187,17 @@ public:
 	// Similar to makeMoveSimple, but considers possible placements of the 4th piece.
 	static GameState makeMoveLookahead(EvalWeights weights, GameState state, PieceSet piece_set);
 
+	// How many of the three slots hold a piece. Blank slots sort last, so this
+	// counts the leading run of a sorted piece set and is only meaningful for
+	// one. A blank slot is placed by doing nothing, so it is also the number of
+	// slots whose ordering can change anything.
+	static int countPieces(const PieceSet &piece_set);
+
+	// Is there an order and a pair of placements that clears a line before the
+	// third piece is played? When there is not, every way of playing all three
+	// pieces clears at most on the last one, so the board they end on is the
+	// union of the three placements however they are ordered -- and a search
+	// that walks one ordering has already seen every board the other five
+	// could reach. The searches above use that to skip the other orderings.
 	static bool canClearWith2PiecesOrFewer(GameState state, PieceSet piece_set);
 };
