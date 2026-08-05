@@ -86,7 +86,12 @@ function describe(run) {
         console.log(`  length, deaths ${count(deaths.length)}`
             + `  +-${(100 * deaths.relative).toFixed(1)}%`);
     }
-    if (hazard) {
+    if (hazard && run.hazard_is_game_length === false) {
+        console.log(`  stress         1 deal in ${count(hazard.length)}`
+            + `  +-${(100 * hazard.relative).toFixed(1)}%`
+            + `   (measured against '${run.hazard_pool}' deals of `
+            + `${run.hazard_deal_size}, so it is not a game length)`);
+    } else if (hazard) {
         console.log(`  length, hazard ${count(hazard.length)}`
             + `  +-${(100 * hazard.relative).toFixed(1)}%`
             + `   (${count(run.hazard_samples)} boards, `
@@ -99,7 +104,7 @@ function describe(run) {
 
     // Two readings of the same number. Far enough apart and one of them is
     // measuring something other than what it claims to.
-    if (hazard && deaths && run.deaths >= 20) {
+    if (hazard && deaths && run.deaths >= 20 && run.hazard_is_game_length !== false) {
         const spread = Math.hypot(hazard.relative, deaths.relative);
         const gap = Math.log(hazard.length / deaths.length);
         if (Math.abs(gap) > Z_95 * spread) {
@@ -145,8 +150,12 @@ function compare(baseline, candidate) {
     const logSe = Math.hypot(fromA.relative, fromB.relative);
     const ratio = Math.exp(logRatio);
 
-    console.log('\ncompared on the mean game length, '
-        + `measured ${usingHazard ? 'from the hazard' : 'by counting deaths'}`);
+    const stress = usingHazard && baseline.hazard_is_game_length === false;
+    console.log(stress
+        ? '\ncompared on how much punishment the boards take, which ranks '
+            + 'variants but is not a game length'
+        : '\ncompared on the mean game length, '
+            + `measured ${usingHazard ? 'from the hazard' : 'by counting deaths'}`);
     console.log(`  baseline       ${count(fromA.length)}`);
     console.log(`  candidate      ${count(fromB.length)}`);
     console.log(`  ratio          ${ratio.toFixed(3)}`
@@ -181,6 +190,11 @@ function compare(baseline, candidate) {
         }
     }
 
+    if (baseline.hazard_pool !== candidate.hazard_pool) {
+        console.log(`\n  NOTE: the runs measured the hazard against different deals `
+            + `(${baseline.hazard_pool} vs ${candidate.hazard_pool}), so this ratio `
+            + 'compares nothing in particular.');
+    }
     if (baseline.pool !== candidate.pool || baseline.deal_size !== candidate.deal_size) {
         console.log(`\n  NOTE: the runs used different deals `
             + `(${baseline.pool}/${baseline.deal_size} vs `

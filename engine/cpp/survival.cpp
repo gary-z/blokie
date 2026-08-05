@@ -863,9 +863,8 @@ int main(int argc, char **argv) {
         // smaller than the truth. Averaging runs of samples first breaks that
         // up, and the error the run really has is the one the curve settles on:
         // it climbs while the blocks are still shorter than the board's memory
-        // and flattens once they are longer. Taking the largest is the
-        // conservative reading of where it settled, and a curve still climbing
-        // at the right hand end is a run that has not yet earned any error bar.
+        // and flattens once they are longer. A curve still climbing at the right
+        // hand end is a run that has not yet earned any error bar at all.
         for (size_t block = 1; num_hazard_samples / block >= 16; block *= 4) {
             std::vector<double> block_means;
             for (const auto &r : results) {
@@ -920,7 +919,6 @@ int main(int argc, char **argv) {
     struct Bucket {
         uint64_t count = 0;
         double hazard_sum = 0.0;
-        double hazard_sq_sum = 0.0;
         double unfittable_sum = 0.0;
     };
     std::vector<Bucket> buckets(NUM_BUCKETS);
@@ -929,7 +927,6 @@ int main(int argc, char **argv) {
             Bucket &bucket = buckets[bucketOf(sample.move_index)];
             bucket.count++;
             bucket.hazard_sum += sample.hazard;
-            bucket.hazard_sq_sum += sample.hazard * sample.hazard;
             bucket.unfittable_sum += sample.unfittable;
         }
     }

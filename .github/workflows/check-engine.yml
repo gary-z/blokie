@@ -28,3 +28,32 @@ jobs:
 
       - name: Move search against a brute force
         run: node test/engine/enumeration-test.js
+
+  # The survival harness is what says whether a change to the weights helped,
+  # and it is measured in deals that would end the game rather than in games
+  # played out. If it starts counting those wrong it does not fail, it just
+  # quietly reports a different number, and the number is the whole point. So
+  # the counting gets checked against a plain search that has no clever parts.
+  measurement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the native harnesses
+        run: bash engine/build-native.sh
+
+      - name: Every two piece deal, against a plain search
+        run: engine/cpp/build-native/survival --self-check 40 --deal-size 2 --seed-base 11
+
+      - name: Every three piece deal, from a small pool
+        run: >
+          engine/cpp/build-native/survival --self-check 20 --deal-size 3
+          --pool 0,1,5,13,32,33,36,40,46 --seed-base 7
+
+      - name: A sample of three piece deals, from the whole pool
+        run: engine/cpp/build-native/survival --self-check 20 --deal-size 3 --seed-base 23
+
+      - name: The harness still runs end to end
+        run: >
+          engine/cpp/build-native/survival --moves 3000 --pool brutal
+          --hazard-every 1 --seed-base 1 --json > /dev/null
