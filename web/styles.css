@@ -57,7 +57,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.35em;
-    animation: score-card-float 0.9s ease-out forwards;
+    animation: score-card-float 1.25s ease-out forwards;
 }
 
 /* Smaller than the number they explain: the points are what the move
@@ -69,13 +69,16 @@
 }
 
 /* Placed by its middle, so it sits over the piece whichever side of the
-   board that is. It holds still long enough to be read before it goes,
-   and rises about a block and a half: far enough to read as leaving,
-   short enough to stay over the board it came from. */
+   board that is. It pops up, then sits still and full strength for a
+   beat -- long enough to be read where it was earned, since a card that
+   starts leaving the moment it has settled is read on its way out or not
+   at all -- and only then rises about a block and a half: far enough to
+   read as leaving, short enough to stay over the board it came from. */
 @keyframes score-card-float {
     0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
-    12% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
-    28% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    9% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
+    20% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    48% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
     100% { transform: translate(-50%, calc(-50% - min(15vw, 10vh))) scale(1); opacity: 0; }
 }
 
