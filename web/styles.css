@@ -34,7 +34,11 @@
 
    Fixed to the page rather than drawn in a cell, so it can float clear
    of the square it came from instead of being clipped by it, and under
-   the piece being dragged so it can never hide what is in hand. */
+   the piece being dragged so it can never hide what is in hand.
+
+   A move that came from a combo or a streak stacks those under the
+   points inside this one card, so the whole of what the move was worth
+   rises off the board together. */
 .score-card {
     position: fixed;
     z-index: 900;
@@ -49,7 +53,19 @@
     line-height: 1;
     padding: min(2vw, 1.33vh) min(3.5vw, 2.33vh);
     white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35em;
     animation: score-card-float 0.9s ease-out forwards;
+}
+
+/* Smaller than the number they explain: the points are what the move
+   paid, and a combo or a streak is why it paid that much. Kept to the
+   card's own colour, which small text needs more of than the number
+   above it does. */
+.score-card-bonus {
+    font-size: 0.8em;
 }
 
 /* Placed by its middle, so it sits over the piece whichever side of the
