@@ -463,8 +463,6 @@ function initRestartButton(button) {
 // `silent` is for the assist at Max, where the moves land faster than the
 // sounds could be heard as anything but noise.
 function commitMove(piece_index, result, { silent = false } = {}) {
-    clearPendingBonusCard();
-
     if (!silent) {
         playSfx('place');
         if (result.newGame.previous_move_was_clear) {
@@ -477,14 +475,15 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     // Held to the same bar the sounds are: at Max the moves land faster than a
     // card could be read, and the cards would only stack up over the board.
     if (!silent && result.newGame.previous_move_was_clear) {
-        showMoveScoreCard(result.newGame.score - game_state.game.score, result.placement);
         const combo = blokie.getPlacementComboMagnitude(game_state.game.board, result.placement);
+        const bonuses = [];
         if (combo > 1) {
-            showComboCard(combo, result.placement);
+            bonuses.push(combo.toLocaleString() + 'x Combo!');
         }
         if (game_state.game.previous_move_was_clear) {
-            showStreakCard(result.placement, combo > 1);
+            bonuses.push('Streak!');
         }
+        showMoveScoreCard(result.newGame.score - game_state.game.score, result.placement, bonuses);
     }
     // The engine returns the board after completed rows, columns and boxes have
     // already been removed. Remember this placement until the next render so
@@ -760,7 +759,10 @@ function cleanupFlyAnim() {
 // timer rather than the animation's own end event, which a backgrounded tab may
 // never get around to firing.
 const SCORE_CARD_MS = 1100;
-const BONUS_CARD_DELAY_MS = 350;
+
+// How close to the side of the page a card is allowed to sit, once it has been
+// pushed back on to it.
+const SCORE_CARD_MARGIN_PX = 4;
 
 // Where a card for this move belongs, in screen pixels: the middle of the
 // squares the piece covered. Read off the board as it stands, the same way the
@@ -789,42 +791,40 @@ function getPlacementCenter(placement) {
     };
 }
 
-function showScoreCard(text, placement) {
+// One card for the whole of what a move paid: the points across the top, and
+// under them the bonuses that earned them, in the order they were earned. A
+// combo and a streak are the reason the number is as big as it is, so they
+// belong beside it rather than following it across the board as cards of their
+// own.
+function showMoveScoreCard(points, placement, bonuses = []) {
     const center = getPlacementCenter(placement);
     const el = document.createElement('div');
     el.className = 'score-card';
-    el.innerText = text;
-    el.style.left = center.x + 'px';
+    const line = document.createElement('div');
+    line.innerText = '+' + points.toLocaleString();
+    el.appendChild(line);
+    for (const bonus of bonuses) {
+        const bonus_line = document.createElement('div');
+        bonus_line.className = 'score-card-bonus';
+        bonus_line.innerText = bonus;
+        el.appendChild(bonus_line);
+    }
     el.style.top = center.y + 'px';
     document.body.appendChild(el);
+    // A card carrying bonuses is wider than the squares it came from, and one
+    // centred on a move at the edge of the board would hang off the side of the
+    // page with a word or two of it cut away, so a card that would overhang is
+    // pushed back on. How wide it is depends on what is written on it, which is
+    // why it is measured here rather than worked out with the rest of the
+    // position: it has to be on the page to be measured. `left` is the middle
+    // of the card, which the stylesheet pulls back by half its own width.
+    const half_width = el.offsetWidth / 2;
+    const page_width = document.documentElement.clientWidth;
+    el.style.left = Math.min(
+        Math.max(center.x, half_width + SCORE_CARD_MARGIN_PX),
+        page_width - half_width - SCORE_CARD_MARGIN_PX,
+    ) + 'px';
     setTimeout(() => el.remove(), SCORE_CARD_MS);
-}
-
-function showMoveScoreCard(points, placement) {
-    showScoreCard('+' + points.toLocaleString(), placement);
-}
-
-let bonus_card_timers = [];
-
-function clearPendingBonusCard() {
-    for (const timer of bonus_card_timers) clearTimeout(timer);
-    bonus_card_timers = [];
-}
-
-function showBonusCard(text, placement, delay = BONUS_CARD_DELAY_MS) {
-    const timer = setTimeout(() => {
-        bonus_card_timers = bonus_card_timers.filter(t => t !== timer);
-        showScoreCard(text, placement);
-    }, delay);
-    bonus_card_timers.push(timer);
-}
-
-function showComboCard(combo, placement) {
-    showBonusCard(combo.toLocaleString() + 'x Combo!', placement);
-}
-
-function showStreakCard(placement, after_combo = false) {
-    showBonusCard('Streak!', placement, after_combo ? BONUS_CARD_DELAY_MS * 2 : BONUS_CARD_DELAY_MS);
 }
 
 // The board is drawn from the game as it stands, and only when something about
