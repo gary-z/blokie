@@ -431,6 +431,7 @@ bool parsePool(const std::string &spec, std::vector<int> *out) {
 
 struct HazardSample {
     uint64_t move_index;  // How far into its game the board was.
+    uint32_t game_index;  // Which of this thread's games it came from.
     double hazard;
     int unfittable;
 };
@@ -472,6 +473,7 @@ void runWorker(const Config &config, const std::vector<Piece> &pool,
 
     GameState game(BitBoard::empty());
     uint64_t move_index = 0;
+    uint32_t game_index = 0;
 
     for (;;) {
         const uint64_t taken = moves_taken->fetch_add(1, std::memory_order_relaxed);
@@ -493,7 +495,7 @@ void runWorker(const Config &config, const std::vector<Piece> &pool,
                 out->capped_boards++;
             }
             out->hazard_samples.push_back(
-                {move_index, hazard.probability, hazard.unfittable});
+                {move_index, game_index, hazard.probability, hazard.unfittable});
         }
 
         Piece deal[3];
@@ -510,11 +512,13 @@ void runWorker(const Config &config, const std::vector<Piece> &pool,
             deaths_taken->fetch_add(1, std::memory_order_relaxed);
             game = GameState(BitBoard::empty());
             move_index = 0;
+            game_index++;
         } else if (config.max_game_moves > 0 && move_index >= config.max_game_moves) {
             out->censored_games++;
             out->censored_moves += move_index;
             game = GameState(BitBoard::empty());
             move_index = 0;
+            game_index++;
         }
     }
 
@@ -920,16 +924,68 @@ int main(int argc, char **argv) {
         uint64_t count = 0;
         double hazard_sum = 0.0;
         double unfittable_sum = 0.0;
+        // One entry per game that passed through this stage. Games are
+        // independent, so the spread of these is the error bar the bucket has
+        // earned -- and without it a bucket built from two games reads exactly
+        // like one built from two hundred.
+        std::vector<double> per_game;
     };
     std::vector<Bucket> buckets(NUM_BUCKETS);
     for (const auto &r : results) {
+        std::vector<double> game_sum(NUM_BUCKETS, 0.0);
+        std::vector<uint64_t> game_count(NUM_BUCKETS, 0);
+        uint32_t current_game = 0;
+        bool started = false;
         for (const auto &sample : r.hazard_samples) {
-            Bucket &bucket = buckets[bucketOf(sample.move_index)];
+            if (started && sample.game_index != current_game) {
+                for (size_t i = 0; i < NUM_BUCKETS; ++i) {
+                    if (game_count[i] > 0) {
+                        buckets[i].per_game.push_back(game_sum[i] / (double)game_count[i]);
+                        game_sum[i] = 0.0;
+                        game_count[i] = 0;
+                    }
+                }
+            }
+            current_game = sample.game_index;
+            started = true;
+
+            const size_t index = bucketOf(sample.move_index);
+            Bucket &bucket = buckets[index];
             bucket.count++;
             bucket.hazard_sum += sample.hazard;
             bucket.unfittable_sum += sample.unfittable;
+            game_sum[index] += sample.hazard;
+            game_count[index]++;
+        }
+        for (size_t i = 0; i < NUM_BUCKETS; ++i) {
+            if (game_count[i] > 0) {
+                buckets[i].per_game.push_back(game_sum[i] / (double)game_count[i]);
+            }
         }
     }
+
+    // The typical hazard at this stage of a game, and how well that is known,
+    // taking each game as one observation.
+    auto bucketStats = [](const Bucket &bucket) {
+        double mean = 0.0;
+        double sem = 0.0;
+        const size_t n = bucket.per_game.size();
+        if (n > 0) {
+            double total = 0.0;
+            for (const double value : bucket.per_game) {
+                total += value;
+            }
+            mean = total / (double)n;
+        }
+        if (n > 1) {
+            double variance = 0.0;
+            for (const double value : bucket.per_game) {
+                variance += (value - mean) * (value - mean);
+            }
+            sem = std::sqrt(variance / (double)(n - 1) / (double)n);
+        }
+        return std::pair<double, double>(mean, sem);
+    };
 
     // === Report.
     if (config.json) {
@@ -984,13 +1040,15 @@ int main(int argc, char **argv) {
             if (buckets[i].count == 0) {
                 continue;
             }
-            const double mean = buckets[i].hazard_sum / (double)buckets[i].count;
+            const auto stats = bucketStats(buckets[i]);
             std::printf("%s    {\"from\": %llu, \"to\": %lld, \"n\": %llu, "
-                        "\"hazard\": %.10g, \"unfittable\": %.4f}",
+                        "\"games\": %zu, \"hazard\": %.10g, \"sem\": %.10g, "
+                        "\"unfittable\": %.4f}",
                         first ? "" : ",\n",
                         (unsigned long long)BUCKET_EDGES[i],
                         i + 1 < NUM_BUCKETS ? (long long)BUCKET_EDGES[i + 1] : -1,
-                        (unsigned long long)buckets[i].count, mean,
+                        (unsigned long long)buckets[i].count,
+                        buckets[i].per_game.size(), stats.first, stats.second,
                         buckets[i].unfittable_sum / (double)buckets[i].count);
             first = false;
         }
@@ -1098,7 +1156,7 @@ int main(int argc, char **argv) {
             if (buckets[i].count == 0) {
                 continue;
             }
-            const double mean = buckets[i].hazard_sum / (double)buckets[i].count;
+            const auto stats = bucketStats(buckets[i]);
             char range[32];
             if (i + 1 < NUM_BUCKETS) {
                 std::snprintf(range, sizeof(range), "%llu-%llu",
@@ -1108,10 +1166,10 @@ int main(int argc, char **argv) {
                 std::snprintf(range, sizeof(range), "%llu+",
                               (unsigned long long)BUCKET_EDGES[i]);
             }
-            std::printf("  %-14s n=%-7llu hazard=%-12.3g 1/hazard=%-10.0f unfittable=%.3f\n",
-                        range, (unsigned long long)buckets[i].count, mean,
-                        mean > 0 ? 1.0 / mean : 0.0,
-                        buckets[i].unfittable_sum / (double)buckets[i].count);
+            std::printf("  %-14s games=%-6zu hazard=%-11.3g +-%-9.3g 1/hazard=%.0f\n",
+                        range, buckets[i].per_game.size(), stats.first,
+                        1.96 * stats.second,
+                        stats.first > 0 ? 1.0 / stats.first : 0.0);
         }
     }
     return 0;

@@ -129,10 +129,15 @@ function describe(run) {
                 ? `${count(bucket.from)}+`
                 : `${count(bucket.from)}-${count(bucket.to - 1)}`;
             const bar = peak > 0
-                ? '#'.repeat(Math.max(0, Math.round(40 * bucket.hazard / peak)))
+                ? '#'.repeat(Math.max(0, Math.round(30 * bucket.hazard / peak)))
                 : '';
-            console.log(`    ${range.padEnd(15)} n=${String(count(bucket.n)).padEnd(9)}`
-                + `${bucket.hazard.toExponential(2).padEnd(10)} ${bar}`);
+            const error = bucket.sem
+                ? `+-${(Z_95 * bucket.sem).toExponential(1)}`
+                : '';
+            console.log(`    ${range.padEnd(15)}`
+                + `${String(bucket.games ?? '?').padStart(5)} games  `
+                + `${bucket.hazard.toExponential(2).padEnd(10)}`
+                + `${error.padEnd(12)} ${bar}`);
         }
     }
 }
