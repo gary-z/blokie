@@ -817,7 +817,7 @@ function clearPendingBonusCard() {
     bonus_card_timers = [];
 }
 
-function showBonusCard(text, placement, delay = BONUS_CARD_DELAY_MS) {
+function showBonusCard(text, placement, delay) {
     const timer = setTimeout(() => {
         bonus_card_timers = bonus_card_timers.filter(t => t !== timer);
         showScoreCard(text, placement);
@@ -825,12 +825,29 @@ function showBonusCard(text, placement, delay = BONUS_CARD_DELAY_MS) {
     bonus_card_timers.push(timer);
 }
 
+// A bonus card waits so it doesn't land on top of the score card for the same
+// move. Waiting only pays off if the card still gets shown, though: the next
+// move to commit clears whatever is pending, so a stagger longer than the gap
+// between moves means the card is never seen at all. Held inside that gap, an
+// assist playing quickly shows its cards closer together rather than losing
+// them. Only the fastest speeds are short enough for this to bite.
+function bonusCardDelayMs() {
+    const delay_ms = getAssistDelayMs();
+    if (delay_ms === null) return BONUS_CARD_DELAY_MS;
+    // The assist waits, then flies the piece across, and the move commits when
+    // it lands. A combo card waits one of these and a streak behind a combo
+    // waits two, so a third of the gap puts both on the board in time.
+    const gap_ms = delay_ms + FLY_ANIM_MS;
+    return Math.min(BONUS_CARD_DELAY_MS, Math.floor(gap_ms / 3));
+}
+
 function showComboCard(combo, placement) {
-    showBonusCard(combo.toLocaleString() + 'x Combo!', placement);
+    showBonusCard(combo.toLocaleString() + 'x Combo!', placement, bonusCardDelayMs());
 }
 
 function showStreakCard(placement, after_combo = false) {
-    showBonusCard('Streak!', placement, after_combo ? BONUS_CARD_DELAY_MS * 2 : BONUS_CARD_DELAY_MS);
+    const delay_ms = bonusCardDelayMs();
+    showBonusCard('Streak!', placement, after_combo ? delay_ms * 2 : delay_ms);
 }
 
 // The board is drawn from the game as it stands, and only when something about
