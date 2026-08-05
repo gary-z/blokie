@@ -16,6 +16,7 @@
   "homepage": "https://gary-z.github.io/blokie/",
   "scripts": {
     "build:wasm": "bash engine/build-wasm.sh",
+    "build:native": "bash engine/build-native.sh",
     "build:icons": "node web/icons/make-icons.js",
     "test:ai": "node test/engine/ai-plan-test.js",
     "test:enumeration": "node test/engine/enumeration-test.js",

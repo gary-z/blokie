@@ -37,4 +37,7 @@ else()
 
 	add_executable(fitness fitness.cpp)
 	target_link_libraries(fitness PRIVATE solver Threads::Threads)
+
+	add_executable(survival survival.cpp)
+	target_link_libraries(survival PRIVATE solver Threads::Threads)
 endif()
