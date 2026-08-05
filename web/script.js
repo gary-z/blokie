@@ -193,11 +193,21 @@ function initSettings() {
 
     // Toggling sound leaves the menu up, so the button can be seen changing
     // and heard again; following the link out is done with it.
-    document.addEventListener('click', (event) => {
+    //
+    // Anything outside the gear puts the menu away, and it goes on the way down
+    // rather than on the click: the menu hangs over the board, so a pointer
+    // landing under it is a move being started, not a menu still wanted. Touch
+    // is the case that needs the distinction -- the deck cancels the click its
+    // touchstart would have produced, so waiting for one leaves the menu open
+    // over the board for the whole drag. Click is kept for keyboard presses,
+    // which reach a control without a pointer ever going down.
+    const closeIfOutside = (event) => {
         if (!menu.hidden && !settings.contains(event.target)) {
             setMenuOpen(false);
         }
-    });
+    };
+    document.addEventListener('pointerdown', closeIfOutside);
+    document.addEventListener('click', closeIfOutside);
     menu.querySelector('a').addEventListener('click', () => setMenuOpen(false));
 
     document.addEventListener('keydown', (event) => {
