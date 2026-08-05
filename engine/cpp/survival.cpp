@@ -372,10 +372,15 @@ struct Config {
     std::string hazard_pool_spec = "";  // Empty = the pool being played.
     int hazard_deal_size = 0;           // 0 = the deal size being played.
     int pair_cap = 4096;
+    // A move that leaves this many blocks or fewer closes a cycle. Zero means
+    // an empty board and nothing else, which is the only choice that makes the
+    // cycles exactly independent -- see docs/game-length.md.
+    uint64_t regenerate_at = 0;
     std::string pool_spec = "all";
     EvalWeights weights = EvalWeights::getDefault();
     uint64_t self_check = 0;
     uint64_t parity_moves = 0;
+    bool dump = false;
     bool exhaustive_check = false;
     bool json = false;
 };
@@ -435,10 +440,28 @@ struct HazardSample {
     uint32_t game_index;  // Which of this thread's games it came from.
     double hazard;
     int unfittable;
+    int blocks;           // How full the board was.
+};
+
+// A stretch of play between two boards the engine has been on before, in the
+// strongest sense of "before": an empty board is not merely a safe board, it is
+// the exact state a new game starts from. The board is the whole of the state
+// the move search sees, so what happens after the engine empties the board is
+// drawn from the same distribution as what happens after it starts a game. That
+// makes these cycles independent of one another -- really independent, not
+// approximately -- which is the one thing a long single trajectory cannot give.
+struct Cycle {
+    uint64_t moves = 0;
+    double hazard_sum = 0.0;   // Only meaningful when the hazard is measured.
+    uint64_t hazard_boards = 0;
+    bool died = false;
 };
 
 struct ThreadResult {
     uint64_t moves = 0;
+    // How many blocks were left on the board after each move, 0 to 81.
+    std::vector<uint64_t> occupancy = std::vector<uint64_t>(82, 0);
+    std::vector<Cycle> cycles;
     std::vector<uint64_t> game_lengths;  // Games that ended in a death.
     uint64_t censored_games = 0;         // Games cut short by a budget or cap.
     uint64_t censored_moves = 0;
@@ -475,6 +498,7 @@ void runWorker(const Config &config, const std::vector<Piece> &pool,
     GameState game(BitBoard::empty());
     uint64_t move_index = 0;
     uint32_t game_index = 0;
+    Cycle cycle;
 
     for (;;) {
         const uint64_t taken = moves_taken->fetch_add(1, std::memory_order_relaxed);
@@ -496,7 +520,10 @@ void runWorker(const Config &config, const std::vector<Piece> &pool,
                 out->capped_boards++;
             }
             out->hazard_samples.push_back(
-                {move_index, game_index, hazard.probability, hazard.unfittable});
+                {move_index, game_index, hazard.probability, hazard.unfittable,
+                 game.getBitBoard().count()});
+            cycle.hazard_sum += hazard.probability;
+            cycle.hazard_boards++;
         }
 
         Piece deal[3];
@@ -507,14 +534,33 @@ void runWorker(const Config &config, const std::vector<Piece> &pool,
                                   PieceSet(deal[0], deal[1], deal[2]));
         out->moves++;
         move_index++;
+        cycle.moves++;
 
         if (game.isOver()) {
             out->game_lengths.push_back(move_index);
             deaths_taken->fetch_add(1, std::memory_order_relaxed);
+            // A game that ended is also a cycle that ended, and the next one
+            // starts from an empty board either way.
+            cycle.died = true;
+            out->cycles.push_back(cycle);
+            cycle = Cycle();
             game = GameState(BitBoard::empty());
             move_index = 0;
             game_index++;
-        } else if (config.max_game_moves > 0 && move_index >= config.max_game_moves) {
+            continue;
+        }
+
+        out->occupancy[game.getBitBoard().count()]++;
+
+        // Back to a board the engine has been on before, in the only sense that
+        // makes the future independent of the past: this is where a game
+        // starts. Close the cycle.
+        if ((uint64_t)game.getBitBoard().count() <= config.regenerate_at) {
+            out->cycles.push_back(cycle);
+            cycle = Cycle();
+        }
+
+        if (config.max_game_moves > 0 && move_index >= config.max_game_moves) {
             out->censored_games++;
             out->censored_moves += move_index;
             game = GameState(BitBoard::empty());
@@ -688,11 +734,18 @@ void usage() {
         "  --hazard-deal-size N  pieces per deal for that measurement (default: --deal-size)\n"
         "  --weights W,...    the 12 evaluation weights (default: the trained ones)\n"
         "  --pair-cap N       boards to examine per piece pair before giving up (default 4096)\n"
+        "  --regenerate-at N  close a cycle whenever a move leaves N blocks or fewer.\n"
+        "                     0, the default, means an empty board, which is the state a\n"
+        "                     game starts from and so the only one that makes cycles\n"
+        "                     exactly independent. Higher is an approximation to test.\n"
         "  --self-check N     check the hazard counting against a plain search on N boards\n"
         "  --parity N         play N moves of a fixed sequence, printing each board, so the\n"
         "                     WASM build the app ships can be checked against this one\n"
         "  --exhaustive       make --self-check enumerate every deal, however long it takes\n"
-        "  --json             machine readable output on stdout\n");
+        "  --json             machine readable output on stdout\n"
+        "  --dump             one line per measured board: thread, game, move, blocks,\n"
+        "                     hazard. For working out offline where a trajectory could\n"
+        "                     have been cut into independent pieces.\n");
 }
 
 }  // namespace
@@ -724,6 +777,8 @@ int main(int argc, char **argv) {
             config.hazard_pool_spec = argv[++i];
         } else if (arg == "--hazard-deal-size" && has_value) {
             config.hazard_deal_size = std::atoi(argv[++i]);
+        } else if (arg == "--regenerate-at" && has_value) {
+            config.regenerate_at = std::strtoull(argv[++i], nullptr, 10);
         } else if (arg == "--pair-cap" && has_value) {
             config.pair_cap = std::atoi(argv[++i]);
         } else if (arg == "--self-check" && has_value) {
@@ -732,6 +787,8 @@ int main(int argc, char **argv) {
             config.parity_moves = std::strtoull(argv[++i], nullptr, 10);
         } else if (arg == "--exhaustive") {
             config.exhaustive_check = true;
+        } else if (arg == "--dump") {
+            config.dump = true;
         } else if (arg == "--json") {
             config.json = true;
         } else if (arg == "--weights" && has_value) {
@@ -965,11 +1022,124 @@ int main(int argc, char **argv) {
         }
     }
 
+    // === The same rate, counted in cycles.
+    //
+    // A cycle runs from one empty board to the next, or to a death. Because an
+    // empty board is exactly the state a game starts from, and the board is the
+    // whole of the state the move search sees, cycles are independent draws
+    // from one distribution. That makes this the same time average as above,
+    // reached the same way, but with an error bar that is exact rather than
+    // read off a blocking curve -- and the blocking curve is the one part of
+    // this harness that has to be eyeballed.
+    //
+    // The estimate is a ratio of two sums over cycles, so its error comes from
+    // how much the ratio moves when whole cycles are swapped in and out.
+    // Cutting anywhere gives the same estimate -- any partition of the same
+    // boards has the same total hazard over the same count -- so where the cuts
+    // fall can only change the error bar, never the answer. What a good cut
+    // buys is that the pieces either side of it are close to independent, and a
+    // board the engine has nearly emptied carries very little memory of how it
+    // got there. The hazard lives on crowded boards, so cutting whenever the
+    // board comes back down puts at most one dangerous excursion in each piece,
+    // which is exactly the thing that is correlated.
+    std::vector<std::pair<int, double>> cut_curve;
+    double cut_sem = 0.0;
+    size_t cut_pieces = 0;
+    int cut_threshold = 0;
+    if (num_hazard_samples > 0 && hazard_mean > 0.0) {
+        for (const int blocks : {2, 4, 8, 12, 20}) {
+            std::vector<std::pair<double, uint64_t>> pieces;
+            for (const auto &r : results) {
+                double piece_sum = 0.0;
+                uint64_t piece_count = 0;
+                for (const auto &sample : r.hazard_samples) {
+                    piece_sum += sample.hazard;
+                    piece_count++;
+                    if (sample.blocks <= blocks) {
+                        pieces.push_back({piece_sum, piece_count});
+                        piece_sum = 0.0;
+                        piece_count = 0;
+                    }
+                }
+                if (piece_count > 0) {
+                    pieces.push_back({piece_sum, piece_count});
+                }
+            }
+            if (pieces.size() < 16) {
+                continue;
+            }
+            double spread = 0.0;
+            for (const auto &piece : pieces) {
+                const double residual =
+                    piece.first - hazard_mean * (double)piece.second;
+                spread += residual * residual;
+            }
+            const double sem =
+                std::sqrt((double)pieces.size() / (double)(pieces.size() - 1) * spread)
+                / (double)num_hazard_samples;
+            cut_curve.push_back({blocks, sem});
+            // Every threshold here is backed by thousands of pieces, so unlike
+            // the fixed size curve these are not noisy enough for the largest
+            // to be the noise. Take it and be done.
+            if (sem >= cut_sem) {
+                cut_sem = sem;
+                cut_pieces = pieces.size();
+                cut_threshold = blocks;
+            }
+        }
+    }
+
+    uint64_t cycles_seen = 0;
+    uint64_t cycle_moves = 0;
+    uint64_t cycles_that_died = 0;
+    uint64_t longest_cycle = 0;
+    double cycle_hazard_mean = 0.0;
+    double cycle_hazard_sem = 0.0;
+    {
+        double hazard_total = 0.0;
+        uint64_t board_total = 0;
+        std::vector<std::pair<double, uint64_t>> pairs;
+        for (const auto &r : results) {
+            for (const auto &c : r.cycles) {
+                cycles_seen++;
+                cycle_moves += c.moves;
+                if (c.died) {
+                    cycles_that_died++;
+                }
+                if (c.moves > longest_cycle) {
+                    longest_cycle = c.moves;
+                }
+                if (c.hazard_boards > 0) {
+                    hazard_total += c.hazard_sum;
+                    board_total += c.hazard_boards;
+                    pairs.push_back({c.hazard_sum, c.hazard_boards});
+                }
+            }
+        }
+        if (board_total > 0) {
+            cycle_hazard_mean = hazard_total / (double)board_total;
+        }
+        if (pairs.size() > 1 && board_total > 0) {
+            double spread = 0.0;
+            for (const auto &pair : pairs) {
+                const double residual =
+                    pair.first - cycle_hazard_mean * (double)pair.second;
+                spread += residual * residual;
+            }
+            cycle_hazard_sem =
+                std::sqrt((double)pairs.size() / (double)(pairs.size() - 1) * spread)
+                / (double)board_total;
+        }
+    }
+
     // What the hazard estimate is worth, in the currency the old harness is
     // paid in. Counting deaths gives a relative error of 1/sqrt(deaths), so a
     // hazard estimate this precise is worth this many deaths -- and a run
     // reporting far more of these than it saw real deaths is a run that got its
     // answer far sooner than playing games out could have.
+    if (cut_sem > 0.0) {
+        hazard_block_sem = cut_sem;
+    }
     const double effective_deaths = hazard_block_sem > 0.0
         ? (hazard_mean / hazard_block_sem) * (hazard_mean / hazard_block_sem)
         : 0.0;
@@ -1048,6 +1218,16 @@ int main(int argc, char **argv) {
     };
 
     // === Report.
+    if (config.dump) {
+        for (size_t t = 0; t < results.size(); ++t) {
+            for (const auto &sample : results[t].hazard_samples) {
+                std::printf("%zu %u %llu %d %.12g\n", t, sample.game_index,
+                            (unsigned long long)sample.move_index, sample.blocks,
+                            sample.hazard);
+            }
+        }
+        return 0;
+    }
     if (config.json) {
         std::printf("{\n");
         std::printf("  \"pool\": \"%s\",\n", config.pool_spec.c_str());
@@ -1086,12 +1266,42 @@ int main(int argc, char **argv) {
         std::printf("  \"dangerous_samples\": %zu,\n", dangerous_samples);
         std::printf("  \"effective_deaths\": %.6g,\n", effective_deaths);
         std::printf("  \"unfittable_mean\": %.10g,\n", unfittable_mean);
+        std::printf("  \"regenerate_at\": %llu,\n",
+                    (unsigned long long)config.regenerate_at);
+        std::printf("  \"cycles\": %llu,\n", (unsigned long long)cycles_seen);
+        std::printf("  \"cycle_moves\": %llu,\n", (unsigned long long)cycle_moves);
+        std::printf("  \"cycles_that_died\": %llu,\n",
+                    (unsigned long long)cycles_that_died);
+        std::printf("  \"longest_cycle\": %llu,\n", (unsigned long long)longest_cycle);
+        std::printf("  \"cycle_hazard_mean\": %.10g,\n", cycle_hazard_mean);
+        std::printf("  \"cycle_hazard_sem\": %.10g,\n", cycle_hazard_sem);
+        std::printf("  \"cut_threshold\": %d,\n", cut_threshold);
+        std::printf("  \"cut_pieces\": %zu,\n", cut_pieces);
+        std::printf("  \"cut_curve\": [");
+        for (size_t i = 0; i < cut_curve.size(); ++i) {
+            std::printf("%s{\"blocks\": %d, \"sem\": %.6g}", i ? ", " : "",
+                        cut_curve[i].first, cut_curve[i].second);
+        }
+        std::printf("],\n");
         std::printf("  \"capped_boards\": %llu,\n", (unsigned long long)capped_boards);
         std::printf("  \"hazard_seconds\": %.4f,\n", hazard_seconds);
         std::printf("  \"wall_seconds\": %.4f,\n", wall_seconds);
         std::printf("  \"game_lengths\": [");
         for (size_t i = 0; i < lengths.size(); ++i) {
             std::printf("%s%llu", i ? ", " : "", (unsigned long long)lengths[i]);
+        }
+        std::printf("],\n");
+        std::printf("  \"occupancy\": [");
+        {
+            std::vector<uint64_t> occupancy(82, 0);
+            for (const auto &r : results) {
+                for (size_t i = 0; i < occupancy.size(); ++i) {
+                    occupancy[i] += r.occupancy[i];
+                }
+            }
+            for (size_t i = 0; i < occupancy.size(); ++i) {
+                std::printf("%s%llu", i ? ", " : "", (unsigned long long)occupancy[i]);
+            }
         }
         std::printf("],\n");
         std::printf("  \"hazard_by_move_index\": [\n");
@@ -1180,6 +1390,16 @@ int main(int argc, char **argv) {
             std::printf("             %llu board(s) hit --pair-cap, so the hazard is an "
                         "upper bound there\n", (unsigned long long)capped_boards);
         }
+        if (!cut_curve.empty()) {
+            std::printf("             %zu pieces, cut whenever the board came back down "
+                        "to %d blocks\n", cut_pieces, cut_threshold);
+            std::printf("             error bar vs where cut:");
+            for (const auto &point : cut_curve) {
+                std::printf(" <=%d:%.1f%%", point.first,
+                            100.0 * 1.96 * point.second / hazard_mean);
+            }
+            std::printf("\n");
+        }
         std::printf("             error bar vs block size:");
         for (const auto &point : blocking_curve) {
             std::printf(" %zu:%.1f%%", point.first,
@@ -1200,6 +1420,41 @@ int main(int argc, char **argv) {
         std::printf("%s\n", still_climbing
             ? "  <- still climbing, so the error bar above is optimistic"
             : "");
+    }
+    {
+        // How full the board is kept. An empty board would be an exact
+        // regeneration point -- literally the state a game starts from -- so
+        // how often the engine reaches one decides whether cycles between them
+        // are a usable unit. They are not: it hardly ever gets there.
+        std::vector<uint64_t> occupancy(82, 0);
+        for (const auto &r : results) {
+            for (size_t i = 0; i < occupancy.size(); ++i) {
+                occupancy[i] += r.occupancy[i];
+            }
+        }
+        uint64_t seen = 0;
+        double weighted = 0.0;
+        for (size_t i = 0; i < occupancy.size(); ++i) {
+            seen += occupancy[i];
+            weighted += (double)i * (double)occupancy[i];
+        }
+        if (seen > 0) {
+            uint64_t at_most_5 = 0;
+            for (size_t i = 0; i <= 5; ++i) {
+                at_most_5 += occupancy[i];
+            }
+            std::printf("board        %.1f blocks on average; empty after %llu move(s), "
+                        "5 or fewer after %.2f%%\n",
+                        weighted / (double)seen,
+                        (unsigned long long)occupancy[0],
+                        100.0 * (double)at_most_5 / (double)seen);
+        }
+        if (cycles_that_died > 0 || cycles_seen > 1) {
+            std::printf("             %llu cycle(s) between empty boards, %llu of them "
+                        "fatal\n",
+                        (unsigned long long)cycles_seen,
+                        (unsigned long long)cycles_that_died);
+        }
     }
     if (deaths > 0) {
         std::printf("lengths      p10=%.0f p25=%.0f p50=%.0f p75=%.0f p90=%.0f "

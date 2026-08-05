@@ -289,24 +289,100 @@ here they agreed well: 48,196 (+-31%) from 48 games played out, against 44,642
 (+-22%) from the hazard over 600,000 moves -- and the hazard got the better
 answer in 40% of the wall clock.
 
-**Read the blocking curve.** Consecutive boards are nearly the same board, so
+**Read the error bar curves.** Consecutive boards are nearly the same board, so
 treating each hazard sample as independent would claim an error bar several
-times smaller than the truth. Each run prints its error bar against how many
-consecutive samples were averaged together first:
+times smaller than the truth. Each run prints its error bar two ways: against
+where the trajectory was cut into supposedly independent pieces, and against how
+many consecutive samples were averaged first.
 
 ```
-error bar vs block size: 1:18.2% 4:21.0% 16:24.5% 64:24.9% 256:24.8% 1024:24.5% 4096:23.5% 16384:22.0%
+error bar vs where cut:  <=2:43.5% <=4:59.1% <=8:58.8% <=12:59.3% <=20:59.4%
+error bar vs block size: 1:56.4% 4:58.9% 16:59.5% 64:59.7% 256:59.3% 1024:59.9%
 ```
 
-A curve that has flattened has found the run's real error bar; one still
-climbing at the right hand end has not, and the run says so. An early version of
-this harness used a fixed block size and confidently reported +-4.6% for a run
-whose honest error was +-9.4%.
+Both settle on the same number, which is the point of printing both. A curve
+still climbing at its right hand end has not found the run's real error yet, and
+the run says so. An early version of this harness used a single fixed block size
+and confidently reported +-4.6% for a run whose honest error was +-9.4%.
+
+Why the first curve exists is in the next section.
 
 **Compare like with like.** The harness once printed the death based error as
 one standard error and the hazard based error as two, which made the hazard --
 the better estimator -- look like the worse one. Everything is a 95% half width
 now.
+
+### Where to cut a trajectory, and why it cannot bias anything
+
+An empty board would be an ideal place to cut a run in two. It is not merely a
+safe board: it is *exactly* the state a new game starts from, and the board is
+the whole of the state the move search sees, so what follows one is drawn from
+the same distribution as what follows the other. Cycles between empty boards
+would be independent in the strongest sense available, with no approximation
+anywhere.
+
+The engine never gets there. Over 40,000 moves it emptied the board zero times,
+and near-empty is not common either -- five blocks or fewer is under half a
+percent of moves. It holds the board at **18 blocks on average** and stays
+there. Clearing out entirely is not a thing this engine does on the way past; it
+is a thing that would take a clear so large it essentially never comes up.
+
+So exact regeneration is unavailable, and the question becomes whether cutting
+at *nearly* empty boards is good enough -- which sounds like it needs a
+judgement about which boards are safe, made by the same kind of reasoning the
+engine's evaluation makes, to grade the engine's evaluation.
+
+It does not, and the reason is worth being precise about. The estimate is
+
+```
+hazard = (hazard summed over the boards seen) / (number of boards seen)
+```
+
+and **every partition of the same boards has the same numerator and the same
+denominator**. Cutting cannot move the answer. Measured over 200,000 boards,
+cutting at 1 block and cutting at 20 give 2.27664e-05 either way, to every digit
+printed. So no choice of cut point can bias the estimate, and there is no
+circularity to worry about: the only thing a cut point affects is the error bar.
+
+What a good cut buys is that the pieces either side of it are close to
+independent. Cutting at low occupancy turns out to do that unusually well, for a
+reason specific to this game: the hazard lives on crowded boards, so a dangerous
+stretch *is* a stretch of high occupancy, and cutting whenever the board comes
+back down puts at most one such stretch in each piece. That is exactly the
+correlated unit.
+
+The payoff is not a smaller error bar -- it is the same one -- but a far better
+determined one. Over the same 200,000 boards:
+
+| Cut | Pieces | 95% error |
+| --- | --- | --- |
+| at 20 blocks or fewer | 134,270 | 35.0% |
+| at 8 blocks or fewer | 6,950 | 34.9% |
+| every 64 boards | 3,123 | 34.9% |
+| every 4,096 boards | 47 | 34.3% |
+
+The fixed size curve has to climb to a block of 64 before it stops
+underestimating, and by 4,096 there are 47 blocks left to compute a spread from,
+so the error bar has its own error bar of around 10%. The occupancy cut is at
+its converged value immediately and has tens of thousands of pieces behind it.
+That is what removes the eyeballing: the harness quotes the occupancy cut and
+prints the fixed size curve beside it as a cross check.
+
+None of this adds signal. A run contains what it contains, and reorganising it
+into cycles does not create information -- which also answers the tempting idea
+of stopping a run at a regeneration point and crediting it with the expected
+remaining life. The credit you would give it is the quantity being estimated, so
+that is a renewal equation, not a shortcut, and it yields the same time average
+by a longer route.
+
+The variance that is left is not fixable by bookkeeping. It comes from the
+hazard's spread across boards -- a standard deviation 72 times its own mean --
+which is to say from how often the engine wanders somewhere dangerous. Attacking
+that needs a method that deliberately spends more samples on the rare dangerous
+excursions, such as splitting a trajectory when it enters one and reweighting.
+Worth noting that the hazard would make a sound importance function for it,
+being exact and independent of the weights, so that approach would not be
+circular either.
 
 **Run more than one thread at full strength.** A single thread spends a 60,000
 move budget inside one or two games. The estimator stays unbiased, but it has
