@@ -758,7 +758,7 @@ function cleanupFlyAnim() {
 // what comes off the page is only ever something already invisible on it. A
 // timer rather than the animation's own end event, which a backgrounded tab may
 // never get around to firing.
-const SCORE_CARD_MS = 1100;
+const SCORE_CARD_MS = 1450;
 
 // How close to the side of the page a card is allowed to sit, once it has been
 // pushed back on to it.
