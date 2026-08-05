@@ -924,11 +924,15 @@ int main(int argc, char **argv) {
         uint64_t count = 0;
         double hazard_sum = 0.0;
         double unfittable_sum = 0.0;
-        // One entry per game that passed through this stage. Games are
-        // independent, so the spread of these is the error bar the bucket has
-        // earned -- and without it a bucket built from two games reads exactly
-        // like one built from two hundred.
-        std::vector<double> per_game;
+        // The hazard summed, and the boards it was summed over, per game that
+        // passed through this stage. Games are independent, so the spread
+        // across them is the error bar the bucket has earned -- without it a
+        // bucket built from two games reads exactly like one built from two
+        // hundred. Kept as sums rather than as one mean per game because a
+        // game that died early in a stage contributed few boards and dangerous
+        // ones, and giving it the same weight as a game that walked the whole
+        // stage safely would read the danger as ten times what it is.
+        std::vector<std::pair<double, uint64_t>> per_game;
     };
     std::vector<Bucket> buckets(NUM_BUCKETS);
     for (const auto &r : results) {
@@ -940,7 +944,7 @@ int main(int argc, char **argv) {
             if (started && sample.game_index != current_game) {
                 for (size_t i = 0; i < NUM_BUCKETS; ++i) {
                     if (game_count[i] > 0) {
-                        buckets[i].per_game.push_back(game_sum[i] / (double)game_count[i]);
+                        buckets[i].per_game.push_back({game_sum[i], game_count[i]});
                         game_sum[i] = 0.0;
                         game_count[i] = 0;
                     }
@@ -959,30 +963,29 @@ int main(int argc, char **argv) {
         }
         for (size_t i = 0; i < NUM_BUCKETS; ++i) {
             if (game_count[i] > 0) {
-                buckets[i].per_game.push_back(game_sum[i] / (double)game_count[i]);
+                buckets[i].per_game.push_back({game_sum[i], game_count[i]});
             }
         }
     }
 
-    // The typical hazard at this stage of a game, and how well that is known,
-    // taking each game as one observation.
+    // The hazard over this stage of a game, and how well it is known. The
+    // estimate is a ratio -- hazard summed over boards, divided by boards --
+    // and its error comes from how much that ratio moves when whole games are
+    // swapped in and out, since games are the independent thing here.
     auto bucketStats = [](const Bucket &bucket) {
-        double mean = 0.0;
+        const size_t games = bucket.per_game.size();
+        const double mean = bucket.count > 0
+            ? bucket.hazard_sum / (double)bucket.count
+            : 0.0;
         double sem = 0.0;
-        const size_t n = bucket.per_game.size();
-        if (n > 0) {
-            double total = 0.0;
-            for (const double value : bucket.per_game) {
-                total += value;
+        if (games > 1 && bucket.count > 0) {
+            double spread = 0.0;
+            for (const auto &game : bucket.per_game) {
+                const double residual = game.first - mean * (double)game.second;
+                spread += residual * residual;
             }
-            mean = total / (double)n;
-        }
-        if (n > 1) {
-            double variance = 0.0;
-            for (const double value : bucket.per_game) {
-                variance += (value - mean) * (value - mean);
-            }
-            sem = std::sqrt(variance / (double)(n - 1) / (double)n);
+            sem = std::sqrt((double)games / (double)(games - 1) * spread)
+                / (double)bucket.count;
         }
         return std::pair<double, double>(mean, sem);
     };
