@@ -878,7 +878,10 @@ function renderImpl() {
 //
 // The tables and not the deck around them, so the fade multiplies with the
 // wash the container carries once the game is over instead of overriding it.
-const DECK_FADE_MS = 150;
+//
+// Long enough to be watched rather than just noticed, and still well inside
+// the beat the assist gives a new deck at its slowest animated speed.
+const DECK_FADE_MS = 300;
 
 function fadeInDeck(pieces_on_deck_div) {
     for (const table of pieces_on_deck_div.children) {
