@@ -135,6 +135,51 @@ Use the stress pools to reject bad ideas and catch anything catastrophic. Do not
 use them to confirm a small improvement -- anything that survives the fast loop
 still has to be confirmed at `--pool all`.
 
+### Why the small pieces matter, which is not the obvious reason
+
+The natural reading of the table above is that the little pieces are an escape
+hatch: a 1x1 fits anywhere, so it bails the engine out of positions the big
+pieces cannot. That is testable, and it is mostly wrong.
+
+`--hazard-pool` measures the hazard against a different set of deals from the
+ones being played. Play the real game, with all 47 pieces, and ask what fraction
+of *small-piece-free* deals those same boards could not have taken. Because the
+hazard measurement does not touch the RNG, two runs with the same `--seed-base`
+walk identical trajectories, so this is a perfectly paired comparison -- the same
+boards, graded twice:
+
+```
+150,000 identical boards, reached by playing the full pool
+
+deals graded against          1 in N fatal    vs full pool
+all 47                              42,120            1.0x
+no 1-2 square                       32,737            1.3x
+no 1-2-3 square                     22,046            1.9x
+5-square only                        6,186            6.8x
+```
+
+Taking the thirteen small pieces out of the deal makes the boards the engine
+actually reaches only **1.9x** more dangerous. But playing whole games without
+them makes games **37x** shorter. So the escape hatch is worth 1.9x and the
+remaining 20x is something else: without small pieces the engine cannot keep the
+board clean in the first place, and it spends the game on boards it would never
+otherwise have visited.
+
+The small pieces are not mainly a rescue. They are how the board stays tidy.
+
+(That 1.9x is worth more than the +-44% on each row suggests. The rows are
+paired, so the ratio is far better determined than either number in it -- an
+independent seed put the absolute hazards at 31,223 and 16,551, a third lower
+across the board, and the ratio at 1.89x.)
+
+Two consequences. Practically, `--pool big` is largely measuring *can this
+engine keep a clean board using only big pieces*, which is a different skill
+from *can this engine avoid a rare death* -- so trust it to reject, not to
+confirm. And `--hazard-pool` is the tool for asking mechanism questions like
+this one, because it separates what a piece set does to the board the engine
+ends up on from what it does to the engine's chances on a board it is already
+on.
+
 ### Measure the hazard instead of counting deaths -- worth about 5x
 
 With `--hazard-every 1`, every move contributes an exact probability instead of
