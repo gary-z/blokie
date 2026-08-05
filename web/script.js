@@ -480,8 +480,9 @@ function commitMove(piece_index, result, { silent = false } = {}) {
         const combo = blokie.getPlacementComboMagnitude(game_state.game.board, result.placement);
         if (combo > 1) {
             showComboCard(combo, result.placement);
-        } else if (game_state.game.previous_move_was_clear) {
-            showStreakCard(result.placement);
+        }
+        if (game_state.game.previous_move_was_clear) {
+            showStreakCard(result.placement, combo > 1);
         }
     }
     // The engine returns the board after completed rows, columns and boxes have
@@ -793,26 +794,27 @@ function showMoveScoreCard(points, placement) {
     showScoreCard('+' + points.toLocaleString(), placement);
 }
 
-let bonus_card_timer = null;
+let bonus_card_timers = [];
 
 function clearPendingBonusCard() {
-    clearTimeout(bonus_card_timer);
-    bonus_card_timer = null;
+    for (const timer of bonus_card_timers) clearTimeout(timer);
+    bonus_card_timers = [];
 }
 
-function showBonusCard(text, placement) {
-    bonus_card_timer = setTimeout(() => {
-        bonus_card_timer = null;
+function showBonusCard(text, placement, delay = BONUS_CARD_DELAY_MS) {
+    const timer = setTimeout(() => {
+        bonus_card_timers = bonus_card_timers.filter(t => t !== timer);
         showScoreCard(text, placement);
-    }, BONUS_CARD_DELAY_MS);
+    }, delay);
+    bonus_card_timers.push(timer);
 }
 
 function showComboCard(combo, placement) {
     showBonusCard(combo.toLocaleString() + 'x Combo!', placement);
 }
 
-function showStreakCard(placement) {
-    showBonusCard('Streak!', placement);
+function showStreakCard(placement, after_combo = false) {
+    showBonusCard('Streak!', placement, after_combo ? BONUS_CARD_DELAY_MS * 2 : BONUS_CARD_DELAY_MS);
 }
 
 // The board is drawn from the game as it stands, and only when something about
