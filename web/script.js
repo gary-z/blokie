@@ -747,6 +747,7 @@ function cleanupFlyAnim() {
 // timer rather than the animation's own end event, which a backgrounded tab may
 // never get around to firing.
 const SCORE_CARD_MS = 1100;
+const COMBO_CARD_DELAY_MS = 350;
 
 // Where a card for this move belongs, in screen pixels: the middle of the
 // squares the piece covered. Read off the board as it stands, the same way the
@@ -801,7 +802,7 @@ function showComboCard(combo, placement) {
     combo_card_timer = setTimeout(() => {
         combo_card_timer = null;
         showScoreCard(combo.toLocaleString() + 'x Combo!', placement);
-    }, SCORE_CARD_MS);
+    }, COMBO_CARD_DELAY_MS);
 }
 
 // The board is drawn from the game as it stands, and only when something about
