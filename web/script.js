@@ -530,11 +530,17 @@ function showWhoIsPlaying() {
     document.getElementById('ai-assist').classList.toggle('assist-on', assistIsOn());
 }
 
-// Whether the assist is playing slowly enough to animate a move, and so to
-// sound it. At Max the moves land faster than either is worth doing.
+// Whether the assist animates a move, and so sounds it. Only Max skips both:
+// there the whole plan goes down at once and the moves land faster than either
+// is worth doing.
+//
+// TEMPORARY (video recording): 5x now waits nothing between moves either, so
+// this can no longer ask whether the gap is long enough to fly a piece across.
+// Any wait at all means the move gets shown; only Max's zero batches. Goes back
+// to `delay_ms >= FLY_ANIM_MS` when 5x goes back to 400ms.
 function assistShowsMoves() {
     const delay_ms = getAssistDelayMs();
-    return delay_ms !== null && delay_ms >= FLY_ANIM_MS;
+    return delay_ms !== null && delay_ms > 0;
 }
 
 // The game ends when nothing on deck fits anywhere, whoever is placing.
