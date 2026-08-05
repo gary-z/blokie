@@ -463,6 +463,8 @@ function initRestartButton(button) {
 // `silent` is for the assist at Max, where the moves land faster than the
 // sounds could be heard as anything but noise.
 function commitMove(piece_index, result, { silent = false } = {}) {
+    clearPendingBonusCard();
+
     if (!silent) {
         playSfx('place');
         if (result.newGame.previous_move_was_clear) {
@@ -475,7 +477,14 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     // Held to the same bar the sounds are: at Max the moves land faster than a
     // card could be read, and the cards would only stack up over the board.
     if (!silent && result.newGame.previous_move_was_clear) {
-        showScoreCard(result.newGame.score - game_state.game.score, result.placement);
+        showMoveScoreCard(result.newGame.score - game_state.game.score, result.placement);
+        const combo = blokie.getPlacementComboMagnitude(game_state.game.board, result.placement);
+        if (combo > 1) {
+            showComboCard(combo, result.placement);
+        }
+        if (game_state.game.previous_move_was_clear) {
+            showStreakCard(result.placement, combo > 1);
+        }
     }
     // The engine returns the board after completed rows, columns and boxes have
     // already been removed. Remember this placement until the next render so
@@ -751,6 +760,7 @@ function cleanupFlyAnim() {
 // timer rather than the animation's own end event, which a backgrounded tab may
 // never get around to firing.
 const SCORE_CARD_MS = 1100;
+const BONUS_CARD_DELAY_MS = 350;
 
 // Where a card for this move belongs, in screen pixels: the middle of the
 // squares the piece covered. Read off the board as it stands, the same way the
@@ -779,15 +789,42 @@ function getPlacementCenter(placement) {
     };
 }
 
-function showScoreCard(points, placement) {
+function showScoreCard(text, placement) {
     const center = getPlacementCenter(placement);
     const el = document.createElement('div');
     el.className = 'score-card';
-    el.innerText = '+' + points.toLocaleString();
+    el.innerText = text;
     el.style.left = center.x + 'px';
     el.style.top = center.y + 'px';
     document.body.appendChild(el);
     setTimeout(() => el.remove(), SCORE_CARD_MS);
+}
+
+function showMoveScoreCard(points, placement) {
+    showScoreCard('+' + points.toLocaleString(), placement);
+}
+
+let bonus_card_timers = [];
+
+function clearPendingBonusCard() {
+    for (const timer of bonus_card_timers) clearTimeout(timer);
+    bonus_card_timers = [];
+}
+
+function showBonusCard(text, placement, delay = BONUS_CARD_DELAY_MS) {
+    const timer = setTimeout(() => {
+        bonus_card_timers = bonus_card_timers.filter(t => t !== timer);
+        showScoreCard(text, placement);
+    }, delay);
+    bonus_card_timers.push(timer);
+}
+
+function showComboCard(combo, placement) {
+    showBonusCard(combo.toLocaleString() + 'x Combo!', placement);
+}
+
+function showStreakCard(placement, after_combo = false) {
+    showBonusCard('Streak!', placement, after_combo ? BONUS_CARD_DELAY_MS * 2 : BONUS_CARD_DELAY_MS);
 }
 
 // The board is drawn from the game as it stands, and only when something about

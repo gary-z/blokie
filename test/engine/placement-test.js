@@ -23,6 +23,12 @@ function sameBitboard(a, b) {
     return a.a === b.a && a.b === b.b && a.c === b.c;
 }
 
+function boardWithSquares(squares) {
+    return squares.reduce(
+        (board, [r, c]) => blokie.toggleSquare(board, r, c),
+        blokie.getEmptyPiece());
+}
+
 function gameWithBoard(board) {
     return {
         board: board,
@@ -73,6 +79,17 @@ const SINGLE = { a: 1, b: 0, c: 0 };  // one square, so its corner is itself
 // === Held over a square it fits in ===
 
 const empty_game = gameWithBoard(blokie.getEmptyPiece());
+
+const row_clear_board = boardWithSquares([...Array(8).keys()].map(c => [0, c]));
+const cross_clear_board = boardWithSquares([
+    ...[...Array(8).keys()].map(c => [0, c]),
+    ...[...Array(8).keys()].map(r => [r + 1, 8]),
+]);
+const top_right = blokie.tryPlacePiece(empty_game, SINGLE, 0, 8).placement;
+check(blokie.getPlacementComboMagnitude(row_clear_board, top_right) === 1,
+    "a single clear has no combo multiplier");
+check(blokie.getPlacementComboMagnitude(cross_clear_board, top_right) === 2,
+    "a row and column clear has a 2x combo multiplier");
 
 check(sameBitboard(
     blokie.nearestValidPlacement(empty_game, SINGLE, 4.2, 3.8, RADIUS).placement,
