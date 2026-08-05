@@ -72,12 +72,21 @@ fraction exactly, and can report it against how far into the game the board was.
 Two hundred games capped at 1,000 moves each, to put many independent games
 through the early stages:
 
-PLACEHOLDER_EARLY
+```
+hazard by move index          204 independent games, capped at 1,000 moves each
+  0-9         6.04e-7  +-7.1e-7
+  10-29       2.47e-5  +-3.7e-5
+  30-99       2.10e-5  +-2.6e-5
+  100-299     3.40e-5  +-2.6e-5
+  300-999     1.93e-5  +-8.5e-6
+```
 
-Only the opening is safe, and only barely: for the first ten moves or so the
-hazard is not merely low but essentially zero, because the board is still empty
-enough that no deal at all can end the game. By move ten it is already at the
-level it keeps for the rest of the game.
+The steady state, from a separate 600,000 move run, is 2.24e-5. Only the first
+bucket is distinguishable from it -- and it is distinguishable in the *safe*
+direction, some thirty times below. By move ten the hazard is already at the
+level it keeps for the rest of the game, and every bucket after that is within
+its own error bar of the steady state. The opening is safe because the board is
+still empty enough that no deal at all can end the game.
 
 **So the early game is not a dangerous phase.** It is a very short safe one, and
 short enough not to matter: ten free moves against a mean of 48,000 is 0.02% of
@@ -108,7 +117,7 @@ biggest lever, and the only one that turns an overnight run into a coffee break:
 | --- | --- | --- | --- |
 | `all` | 47 | 48,196 | 392 core-hours/side |
 | `no-singles` | 42, no 1x1 or dominoes | 7,900 | 64 core-hours/side |
-| `big` | 34, four and five squares | PLACEHOLDER_BIG | PLACEHOLDER_BIG_COST |
+| `big` | 34, four and five squares | 1,311 | 11 core-hours/side |
 | `brutal` | 15, five squares only | 30 | 15 core-minutes/side |
 
 `brutal` games last about thirty moves, so a comparison that would take four days

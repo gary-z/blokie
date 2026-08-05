@@ -27,6 +27,8 @@ Internally, the board state is represented as a bitboard using three 32-bit inte
 
 The board state evaluation weights were trained using a genetic learning algorithm written in C++. JavaScript is too slow for training.
 
+Telling whether a change to those weights helped is harder than it sounds -- a game lasts about 48,000 moves and ends when luck runs out, so averaging a few of them says almost nothing. [docs/game-length.md](docs/game-length.md) has what the game's length distribution actually looks like and how the engine gets measured without playing games out.
+
 ## Can I have the computer play the phone games for me?
 No.
 
