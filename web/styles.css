@@ -65,7 +65,7 @@
    card's own colour, which small text needs more of than the number
    above it does. */
 .score-card-bonus {
-    font-size: 0.62em;
+    font-size: 0.8em;
 }
 
 /* Placed by its middle, so it sits over the piece whichever side of the
