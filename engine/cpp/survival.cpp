@@ -1009,7 +1009,10 @@ int main(int argc, char **argv) {
                     1.0 / death_rate,
                     rate_ci.hi > 0 ? 1.0 / rate_ci.hi : 0.0,
                     rate_ci.lo > 0 ? 1.0 / rate_ci.lo : 1.0 / 0.0,
-                    100.0 / std::sqrt((double)deaths));
+                    // A 95% half width, to be read against the hazard's below.
+                    // Quoting one standard error here and two there made the
+                    // hazard look like the worse of the two estimators.
+                    100.0 * 1.96 / std::sqrt((double)deaths));
     }
     if (num_hazard_samples > 0 && hazard_mean > 0.0) {
         std::printf("%s %.0f  95%% CI [%.0f, %.0f]  (+-%.1f%%)\n",
@@ -1033,9 +1036,22 @@ int main(int argc, char **argv) {
                     num_hazard_samples, num_blocks, chosen_block_size,
                     100.0 * hazard_seconds / (wall_seconds * (double)num_threads),
                     unfittable_mean);
-        std::printf("             worth %.0f observed death(s) of precision, against the "
-                    "%llu actually seen\n",
-                    effective_deaths, (unsigned long long)deaths);
+        // Against the deaths this many moves should produce, not against the
+        // deaths it happened to produce: the second is itself a draw from a
+        // Poisson, so an unlucky run would flatter the hazard by a factor of
+        // two for no reason.
+        const double deaths_expected = (double)total_moves * hazard_mean;
+        std::printf("             worth %.0f death(s) of precision, from a run that "
+                    "should show about %.0f (it showed %llu)\n",
+                    effective_deaths, deaths_expected, (unsigned long long)deaths);
+        if (deaths_expected > 0.0) {
+            std::printf("             so %.1fx the precision per move, %.1fx after paying "
+                        "for it\n",
+                        effective_deaths / deaths_expected,
+                        effective_deaths / deaths_expected
+                            / (1.0 + hazard_seconds / (wall_seconds * (double)num_threads
+                                                       - hazard_seconds)));
+        }
         std::printf("             1 board in %.0f is worth a thousandth of a death, "
                     "worst seen %.3g\n",
                     dangerous_samples > 0

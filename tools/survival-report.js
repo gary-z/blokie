@@ -43,6 +43,13 @@ function count(n) {
     return Math.round(n).toLocaleString('en-US');
 }
 
+// Everything printed here is a 95% half width, which is what the harness itself
+// prints. Quoting one standard error next to the harness's two would read as
+// the same run being twice as precise depending on which output you looked at.
+function halfWidth(estimate) {
+    return `+-${(100 * Z_95 * estimate.relative).toFixed(1)}%`;
+}
+
 // The mean game length a hazard implies, with the interval the hazard's
 // standard error implies. Returns null for a run that measured no hazard.
 function lengthFromHazard(run) {
@@ -84,16 +91,16 @@ function describe(run) {
         + (run.censored_games ? `  (${count(run.censored_games)} game(s) cut short)` : ''));
     if (deaths) {
         console.log(`  length, deaths ${count(deaths.length)}`
-            + `  +-${(100 * deaths.relative).toFixed(1)}%`);
+            + `  ${halfWidth(deaths)}`);
     }
     if (hazard && run.hazard_is_game_length === false) {
         console.log(`  stress         1 deal in ${count(hazard.length)}`
-            + `  +-${(100 * hazard.relative).toFixed(1)}%`
+            + `  ${halfWidth(hazard)}`
             + `   (measured against '${run.hazard_pool}' deals of `
             + `${run.hazard_deal_size}, so it is not a game length)`);
     } else if (hazard) {
         console.log(`  length, hazard ${count(hazard.length)}`
-            + `  +-${(100 * hazard.relative).toFixed(1)}%`
+            + `  ${halfWidth(hazard)}`
             + `   (${count(run.hazard_samples)} boards, `
             + `worth ${count(run.effective_deaths)} deaths of precision)`);
     }
