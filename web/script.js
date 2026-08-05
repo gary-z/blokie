@@ -413,6 +413,7 @@ async function onNewGame() {
     // board behind it is the thing to look at now.
     closeSettingsMenu();
     state.game_state = getNewGameState();
+    pending_new_deck = true;
     onGameStateChanged();
 }
 
@@ -487,6 +488,9 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
         game_state.piece_set = blokie.getRandomPieceSet();
         assist_deck_is_new = true;
+        // Held to the same bar the sounds and the card above are: at Max the
+        // decks come out faster than a fade could read as anything but flicker.
+        pending_new_deck = !silent;
     }
     game_state.game = result.newGame;
     refreshGameOver(game_state);
@@ -496,6 +500,12 @@ function commitMove(piece_index, result, { silent = false } = {}) {
 // This deliberately stays outside saved state: restoring a game should not
 // replay the last move's animation.
 let pending_clear_placement = null;
+
+// The same kind of bridge for a set of pieces that has just been dealt, spent
+// by the render that first draws it. Outside saved state for the same reason:
+// the deck a game is picked back up with is the one it was left with, not a
+// new one, and it should be there the moment the page is.
+let pending_new_deck = false;
 
 function assistIsOn() {
     return document.getElementById('ai-assist').value !== 'off';
@@ -810,7 +820,36 @@ function renderImpl() {
         pending_clear_placement,
     );
     pending_clear_placement = null;
+    // After the pieces are in the cells, so the first frame of the fade is
+    // already the new set rather than the empty deck it replaced.
+    if (pending_new_deck) {
+        pending_new_deck = false;
+        fadeInDeck(pieces_on_deck_div);
+    }
     updateScore(game_state.game.score);
+}
+
+// A set is dealt as one event, so it comes up as one: the three slots fade in
+// together. This is the only thing that fades a piece on deck -- the squares
+// there are deliberately left out of the board's per-square fade -- so a set
+// which lands on top of the one before it comes up evenly, rather than at two
+// brightnesses depending on which squares the last set happened to be using.
+//
+// Run from here rather than a class in the stylesheet because it is the same
+// three tables every time, and starting an animation on an element restarts
+// it, where re-adding a class it may still be wearing would do nothing.
+//
+// The tables and not the deck around them, so the fade multiplies with the
+// wash the container carries once the game is over instead of overriding it.
+const DECK_FADE_MS = 150;
+
+function fadeInDeck(pieces_on_deck_div) {
+    for (const table of pieces_on_deck_div.children) {
+        table.animate([{ opacity: 0 }, { opacity: 1 }], {
+            duration: DECK_FADE_MS,
+            easing: 'ease-out',
+        });
+    }
 }
 
 // The score line carries the number and nothing else, at every point in the

@@ -4,8 +4,12 @@
 @keyframes cell-shrink-out {
     to { transform: scale(0); }
 }
-td.has-piece,
-td.drag-shadow {
+/* Squares on the board fill in one at a time, as pieces land in them. The
+   deck is left out of this: a piece there is not filled in a square at a
+   time but dealt whole, with the two beside it, and comes up as part of
+   that set instead (fadeInDeck in script.js). */
+#game-board td.has-piece,
+#game-board td.drag-shadow {
     animation: cell-fade-in 0.2s ease-out;
 }
 
