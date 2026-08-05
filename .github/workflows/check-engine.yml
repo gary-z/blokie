@@ -57,3 +57,13 @@ jobs:
         run: >
           engine/cpp/build-native/survival --moves 3000 --pool brutal
           --hazard-every 1 --seed-base 1 --json > /dev/null
+
+      # The app runs the search in bindings.cpp and every measurement runs the
+      # one in solver.cpp. They are copies of each other, so they can drift, and
+      # if they do then the weights get tuned against a player nobody runs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The measured engine and the shipped engine play the same moves
+        run: node test/engine/native-parity-test.js

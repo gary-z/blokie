@@ -992,6 +992,11 @@ var blokie = {
     getNewGame: get_new_game,
     getRandomPieceSet: () => get_random_piece_set().map(p => center_piece(p)),
     getEmptyPiece: getEmpty,
+    // The piece table, by the index the C++ side knows the same piece by. Only
+    // needed to deal a fixed sequence of pieces to both engines and check they
+    // play it the same way -- see test/engine/native-parity-test.js.
+    numPieces: PIECES.length,
+    getPieceByIndex: (i) => copy(PIECES[i]),
     getAIMove: ai_make_move,
     getAIPlan: get_ai_plan,
     at: at,

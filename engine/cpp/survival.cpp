@@ -375,6 +375,7 @@ struct Config {
     std::string pool_spec = "all";
     EvalWeights weights = EvalWeights::getDefault();
     uint64_t self_check = 0;
+    uint64_t parity_moves = 0;
     bool exhaustive_check = false;
     bool json = false;
 };
@@ -621,6 +622,54 @@ int selfCheck(const Config &config, const std::vector<Piece> &pool, uint64_t boa
     return failures == 0 ? 0 : 1;
 }
 
+// === Parity with the shipped engine
+//
+// The web app does not call AI::makeMoveSimple. bindings.cpp carries its own
+// copy of that search, because it has to hand back the three boards the move
+// passes through and not just the one it ends on. The copy is line for line the
+// same and picks its move with the same evaluation, but it is a copy, and a
+// harness that measures one while the app runs the other would be measuring
+// nothing anyone plays.
+//
+// So: play a fixed sequence of deals and print the board after each move.
+// test/engine/native-parity-test.js plays the same sequence through the WASM
+// build and checks the two agree. The RNG below is the sfc32 in blokie.js,
+// seeded the same way, so both sides see identical pieces.
+struct Sfc32 {
+    uint32_t a, b, c, d;
+    double next() {
+        const uint32_t t = (a + b) + d;
+        d = d + 1;
+        a = b ^ (b >> 9);
+        b = c + (c << 3);
+        c = (c << 21) | (c >> 11);
+        c = c + t;
+        return (double)t / 4294967296.0;
+    }
+};
+
+int printParityTrace(uint64_t moves, const EvalWeights &weights) {
+    Sfc32 rng{1, 2, 3, 4};
+    GameState game(BitBoard::empty());
+    for (uint64_t i = 0; i < moves; ++i) {
+        Piece deal[3];
+        for (int j = 0; j < 3; ++j) {
+            deal[j] = Piece::byIndex((int)(rng.next() * Piece::NUM_PIECES));
+        }
+        game = AI::makeMoveSimple(weights, game, PieceSet(deal[0], deal[1], deal[2]));
+        if (game.isOver()) {
+            game = GameState(BitBoard::empty());
+        }
+        // The board in the three 27 bit words blokie.js keeps it in.
+        const uint64_t a = game.getBitBoard().getA();
+        std::printf("%llu %llu %llu\n",
+                    (unsigned long long)(a & 0x7FFFFFFULL),
+                    (unsigned long long)((a >> 27) & 0x7FFFFFFULL),
+                    (unsigned long long)(game.getBitBoard().getB() & 0x7FFFFFFULL));
+    }
+    return 0;
+}
+
 void usage() {
     std::fprintf(stderr,
         "usage: survival [options]\n"
@@ -640,6 +689,8 @@ void usage() {
         "  --weights W,...    the 12 evaluation weights (default: the trained ones)\n"
         "  --pair-cap N       boards to examine per piece pair before giving up (default 4096)\n"
         "  --self-check N     check the hazard counting against a plain search on N boards\n"
+        "  --parity N         play N moves of a fixed sequence, printing each board, so the\n"
+        "                     WASM build the app ships can be checked against this one\n"
         "  --exhaustive       make --self-check enumerate every deal, however long it takes\n"
         "  --json             machine readable output on stdout\n");
 }
@@ -677,6 +728,8 @@ int main(int argc, char **argv) {
             config.pair_cap = std::atoi(argv[++i]);
         } else if (arg == "--self-check" && has_value) {
             config.self_check = std::strtoull(argv[++i], nullptr, 10);
+        } else if (arg == "--parity" && has_value) {
+            config.parity_moves = std::strtoull(argv[++i], nullptr, 10);
         } else if (arg == "--exhaustive") {
             config.exhaustive_check = true;
         } else if (arg == "--json") {
@@ -743,6 +796,10 @@ int main(int argc, char **argv) {
     if (hazard_deal_size < 1 || hazard_deal_size > 3) {
         std::fprintf(stderr, "--hazard-deal-size must be 1, 2 or 3\n");
         return 1;
+    }
+
+    if (config.parity_moves > 0) {
+        return printParityTrace(config.parity_moves, config.weights);
     }
 
     if (config.self_check > 0) {
