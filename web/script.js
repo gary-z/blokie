@@ -462,7 +462,7 @@ function initRestartButton(button) {
 // `silent` is for the assist at Max, where the moves land faster than the
 // sounds could be heard as anything but noise.
 function commitMove(piece_index, result, { silent = false } = {}) {
-    clearPendingComboCard();
+    clearPendingBonusCard();
 
     if (!silent) {
         playSfx('place');
@@ -480,6 +480,8 @@ function commitMove(piece_index, result, { silent = false } = {}) {
         const combo = blokie.getPlacementComboMagnitude(game_state.game.board, result.placement);
         if (combo > 1) {
             showComboCard(combo, result.placement);
+        } else if (game_state.game.previous_move_was_clear) {
+            showStreakCard(result.placement);
         }
     }
     // The engine returns the board after completed rows, columns and boxes have
@@ -747,7 +749,7 @@ function cleanupFlyAnim() {
 // timer rather than the animation's own end event, which a backgrounded tab may
 // never get around to firing.
 const SCORE_CARD_MS = 1100;
-const COMBO_CARD_DELAY_MS = 350;
+const BONUS_CARD_DELAY_MS = 350;
 
 // Where a card for this move belongs, in screen pixels: the middle of the
 // squares the piece covered. Read off the board as it stands, the same way the
@@ -791,18 +793,26 @@ function showMoveScoreCard(points, placement) {
     showScoreCard('+' + points.toLocaleString(), placement);
 }
 
-let combo_card_timer = null;
+let bonus_card_timer = null;
 
-function clearPendingComboCard() {
-    clearTimeout(combo_card_timer);
-    combo_card_timer = null;
+function clearPendingBonusCard() {
+    clearTimeout(bonus_card_timer);
+    bonus_card_timer = null;
+}
+
+function showBonusCard(text, placement) {
+    bonus_card_timer = setTimeout(() => {
+        bonus_card_timer = null;
+        showScoreCard(text, placement);
+    }, BONUS_CARD_DELAY_MS);
 }
 
 function showComboCard(combo, placement) {
-    combo_card_timer = setTimeout(() => {
-        combo_card_timer = null;
-        showScoreCard(combo.toLocaleString() + 'x Combo!', placement);
-    }, COMBO_CARD_DELAY_MS);
+    showBonusCard(combo.toLocaleString() + 'x Combo!', placement);
+}
+
+function showStreakCard(placement) {
+    showBonusCard('Streak!', placement);
 }
 
 // The board is drawn from the game as it stands, and only when something about
