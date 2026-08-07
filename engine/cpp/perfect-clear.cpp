@@ -15,7 +15,18 @@
 //              player given the run of the board, its wipe rate is an
 //              approximate upper bound on what any player could see.
 //
-// Usage: perfect-clear [sets] [-w weight] [-s seed] [--baseline-only]
+// Usage: perfect-clear [sets] [options]
+//   -w N              how hard the seeking policy steers toward a wipe
+//   -k N              keep the best N endings and re-rank them on how live
+//                     the board they leave is
+//   -q N              judge that with N trial deals rather than a piece count
+//   -s N              seed
+//   --baseline-only   only the shipped AI
+//   --seeking-only    only the wipe hunter
+//   --verify          check the in-play wipe detection against findWipe
+//   --self-test       check the wipe search against brute force
+//   --line-scan F     every board inside line family F, exactly
+//   --ceiling         hill climb for the board most sets can wipe
 
 #include "solver.h"
 #include <algorithm>
@@ -629,6 +640,145 @@ BitBoard climb(BitBoard start, long long samples, Sfc32* rng, bool trace) {
 	return best;
 }
 
+// === Checks ===
+//
+// Every number this driver prints rests on findWipe being right about whether
+// a set can empty a board, and on the cover cost bound never ruling out a wipe
+// that exists. Both are checked here against searches that do no pruning at
+// all.
+
+// Every order of every subset, no pruning, no cleverness.
+bool bruteWipe(GameState game, std::vector<Piece> pieces) {
+	struct Walk {
+		static bool all(GameState game, std::vector<Piece> list) {
+			if (list.empty()) {
+				return !game.getBitBoard();
+			}
+			for (size_t i = 0; i < list.size(); ++i) {
+				std::vector<Piece> rest;
+				for (size_t j = 0; j < list.size(); ++j) {
+					if (j != i) {
+						rest.push_back(list[j]);
+					}
+				}
+				for (const auto next : game.nextStates(list[i])) {
+					if (all(next, rest)) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+	};
+	for (int mask = 1; mask < 8; ++mask) {
+		std::vector<Piece> subset;
+		for (int i = 0; i < 3; ++i) {
+			if (mask & (1 << i)) {
+				subset.push_back(pieces[i]);
+			}
+		}
+		if (Walk::all(game, subset)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+// The cheapest cover using at most three lines, found by trying all of them.
+int bruteCover(BitBoard blocks) {
+	int best = 1000;
+	for (int a = -1; a < 27; ++a) {
+		for (int b = a < 0 ? -1 : a; b < 27; ++b) {
+			for (int c = b < 0 ? -1 : b; c < 27; ++c) {
+				auto filled = BitBoard::empty();
+				if (a >= 0) filled = filled | LINES.line[a];
+				if (b >= 0) filled = filled | LINES.line[b];
+				if (c >= 0) filled = filled | LINES.line[c];
+				if (blocks - filled) {
+					continue;
+				}
+				best = std::min(best, (filled - blocks).count());
+			}
+		}
+	}
+	return best;
+}
+
+int runSelfTest(long long boards) {
+	int failures = 0;
+	std::printf("=== checking the wipe search against brute force ===\n");
+
+	uint32_t state = 777;
+	const auto rnd = [&state]() {
+		state ^= state << 13;
+		state ^= state >> 17;
+		state ^= state << 5;
+		return state;
+	};
+
+	// Boards built around a nearly finished line, so wipes actually turn up:
+	// uniformly random boards are wipeable so rarely that agreeing on "no"
+	// every time would prove nothing.
+	long long checked = 0, wipes = 0, cover_checked = 0;
+	while (checked < boards) {
+		auto bb = BitBoard::empty();
+		const auto line = LINES.line[rnd() % 27];
+		auto spare = line;
+		while (spare) {
+			const auto square = spare.leastSignificantBit();
+			spare = spare - square;
+			if (rnd() % 10 < 8) {
+				bb = bb | square;
+			}
+		}
+		for (unsigned k = rnd() % 3; k > 0; --k) {
+			bb = bb | (BitBoard::row(rnd() % 9) & BitBoard::column(rnd() % 9));
+		}
+		if (!isLegalBoard(bb)) {
+			continue;
+		}
+
+		Piece pieces[3];
+		std::vector<Piece> as_vector;
+		for (int k = 0; k < 3; ++k) {
+			pieces[k] = Piece::byIndex(rnd() % Piece::NUM_PIECES);
+			as_vector.push_back(pieces[k]);
+		}
+
+		const bool fast = findWipe(GameState(bb), pieces).possible;
+		const bool slow = bruteWipe(GameState(bb), as_vector);
+		if (fast != slow) {
+			std::printf("MISMATCH findWipe=%d brute=%d on\n%s\n", fast, slow,
+				bb.str().c_str());
+			failures++;
+		}
+		checked++;
+		wipes += slow ? 1 : 0;
+
+		// The cover bound has to be a bound: never above the true cheapest
+		// cover, or it would rule out wipes that are really there.
+		if (checked % 8 == 0) {
+			const int fast_cover = coverCost(bb, 200);
+			const int slow_cover = bruteCover(bb);
+			if (fast_cover > slow_cover) {
+				std::printf("COVER TOO HIGH %d vs %d on\n%s\n", fast_cover,
+					slow_cover, bb.str().c_str());
+				failures++;
+			}
+			cover_checked++;
+		}
+	}
+
+	std::printf("%lld boards, %lld of them wipeable, %lld cover bounds\n",
+		checked, wipes, cover_checked);
+	if (!wipes) {
+		std::printf("NO WIPES SEEN - the check proves nothing, widen it\n");
+		failures++;
+	}
+	std::printf(failures ? "%d FAILURES\n" : "all agree\n", failures);
+	return failures ? 1 : 0;
+}
+
 // Every board that fits inside one line, measured exactly.
 //
 // A block outside the line the wipe is built on has to be taken by a second
@@ -667,7 +817,15 @@ void runLineScan(int family) {
 		rest = rest - square;
 	}
 
-	std::vector<std::pair<double, BitBoard>> results;
+	// Screening every board against all 103,823 deals costs more than it is
+	// worth, so each board first meets the same block of sampled deals and only
+	// the leaders are then measured exactly. The shortlist is deliberately much
+	// longer than the number of boards reported, so a board the sample was
+	// unkind to still gets its exact hearing.
+	const long long screen_samples = 6000;
+	const int finalists = 32;
+
+	std::vector<std::pair<double, BitBoard>> screened;
 	for (int mask = 0; mask < 511; ++mask) {
 		auto bb = BitBoard::empty();
 		for (int i = 0; i < 9; ++i) {
@@ -675,16 +833,28 @@ void runLineScan(int family) {
 				bb = bb | squares[i];
 			}
 		}
-		results.push_back({wipeProbability(bb, 0, nullptr), bb});
+		// Same deals for every board, so the screen ranks the boards and not
+		// the luck of their samples.
+		Sfc32 deals(1, 2, 3, 29);
+		screened.push_back({wipeProbability(bb, screen_samples, &deals), bb});
 		if ((mask & 63) == 63) {
-			std::printf("  ... %d/511 done\n", mask + 1);
+			std::printf("  screened %d/511\n", mask + 1);
 			std::fflush(stdout);
 		}
 	}
 
-	std::sort(results.begin(), results.end(),
-		[](const std::pair<double, BitBoard>& a,
-		   const std::pair<double, BitBoard>& b) { return a.first > b.first; });
+	const auto by_score = [](const std::pair<double, BitBoard>& a,
+		const std::pair<double, BitBoard>& b) { return a.first > b.first; };
+	std::sort(screened.begin(), screened.end(), by_score);
+
+	std::printf("\n  measuring the top %d exactly\n", finalists);
+	std::fflush(stdout);
+	std::vector<std::pair<double, BitBoard>> results;
+	for (int i = 0; i < finalists && i < (int)screened.size(); ++i) {
+		results.push_back({wipeProbability(screened[i].second, 0, nullptr),
+			screened[i].second});
+	}
+	std::sort(results.begin(), results.end(), by_score);
 
 	std::printf("\ntop 8 boards inside %s:\n", f.name);
 	for (int i = 0; i < 8 && i < (int)results.size(); ++i) {
@@ -773,6 +943,7 @@ int main(int argc, char** argv) {
 	bool verify = false;
 	bool ceiling = false;
 	int line_scan = -1;
+	bool self_test = false;
 	int shortlist_size = 1;
 	long long lookahead_sets = 0;
 
@@ -793,6 +964,8 @@ int main(int argc, char** argv) {
 			verify = true;
 		} else if (!std::strcmp(argv[i], "--ceiling")) {
 			ceiling = true;
+		} else if (!std::strcmp(argv[i], "--self-test")) {
+			self_test = true;
 		} else if (!std::strcmp(argv[i], "--line-scan") && i + 1 < argc) {
 			line_scan = std::atoi(argv[++i]);
 		} else {
@@ -804,6 +977,9 @@ int main(int argc, char** argv) {
 		}
 	}
 
+	if (self_test) {
+		return runSelfTest(num_sets);
+	}
 	if (line_scan >= 0) {
 		runLineScan(line_scan);
 		return 0;

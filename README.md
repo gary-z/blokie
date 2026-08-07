@@ -20,6 +20,13 @@ Blokie's most critical component is its "board cleaniness" measurement. Roughly 
   - Avoid leaving a single empty space between two blocks.
   - Keep as many 3x3 cubes free as possible.
 
+### No, the game is not handing you a board-clearing set
+Playing Blokie's ordinary game, a set of three pieces that could clear the
+entire board turned up 9 times in 300,000 sets — about once every 33,000. Even
+a policy that throws the game away chasing them only manages one in 282, and
+the single best board in the game to be sitting on can only be wiped by 9.7% of
+piece sets. [The measurements are here](docs/board-wipes.md).
+
 ## Implementation details
 Blokie looks at all possible board states resulting from places the 3 pieces and chooses the the move that results in the best "board cleaniness" score.
 
