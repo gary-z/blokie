@@ -37,4 +37,7 @@ else()
 
 	add_executable(fitness fitness.cpp)
 	target_link_libraries(fitness PRIVATE solver Threads::Threads)
+
+	add_executable(perfect-clear perfect-clear.cpp)
+	target_link_libraries(perfect-clear PRIVATE solver)
 endif()
