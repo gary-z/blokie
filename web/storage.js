@@ -13,7 +13,7 @@ const COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365;  // a year
 // Bump when the field layout changes, so an older cookie is ignored rather
 // than read as garbage.
 const SAVE_VERSION = 1;
-// version, board (3), score, streak flag, then 3 pieces of 3 fields each.
+// version, board (3), score, streak length, then 3 pieces of 3 fields each.
 const SAVE_FIELDS = 15;
 
 // Each field of a bitboard carries 27 of the board's 81 squares.
@@ -57,7 +57,12 @@ function encodeGameState(game_state) {
         SAVE_VERSION,
         game.board.a, game.board.b, game.board.c,
         game.score,
-        game.previous_move_was_clear ? 1 : 0,
+        // How many moves in a row cleared. This field used to be the engine's
+        // 0/1 "did the last move clear" flag, and a count is a widening of it
+        // rather than a new field: a saved 1 meant a run of at least one clear,
+        // which is what a 1 means here too. So an older cookie still reads,
+        // only with a run that starts counting from where it was picked up.
+        game_state.clear_streak,
     ];
     for (const piece of game_state.piece_set) {
         fields.push(piece.a, piece.b, piece.c);
@@ -75,10 +80,10 @@ function decodeGameState(saved) {
     const fields = saved.split('.').map(Number);
     if (fields.length !== SAVE_FIELDS || fields[0] !== SAVE_VERSION) return null;
 
-    const [, board_a, board_b, board_c, score, was_clear] = fields;
+    const [, board_a, board_b, board_c, score, clear_streak] = fields;
     if (![board_a, board_b, board_c].every(isBitboardField)) return null;
     if (!Number.isInteger(score) || score < 0) return null;
-    if (was_clear !== 0 && was_clear !== 1) return null;
+    if (!Number.isInteger(clear_streak) || clear_streak < 0) return null;
 
     const piece_fields = fields.slice(6);
     if (!piece_fields.every(isBitboardField)) return null;
@@ -96,11 +101,14 @@ function decodeGameState(saved) {
             board: { a: board_a, b: board_b, c: board_c },
             previous_piece_placement: blokie.getEmptyPiece(),
             previous_piece: blokie.getEmptyPiece(),
-            previous_move_was_clear: was_clear === 1,
+            // A run in progress is a last move that cleared, which is the only
+            // part of it the engine scores with.
+            previous_move_was_clear: clear_streak > 0,
             score: score,
         },
         piece_set: piece_set,
         game_over: false,  // recomputed from the board and the deck
+        clear_streak: clear_streak,
     };
 }
 
