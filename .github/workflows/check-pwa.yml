@@ -19,3 +19,9 @@ jobs:
 
       - name: Check the precache list, the manifest, and the page agree
         run: node test/web/pwa-test.js
+
+      # The other way the installed app differs from a tab, and the other
+      # failure with nothing on screen to say so: iOS hands a home screen app
+      # back a dead audio context, and sound stops for the rest of the launch.
+      - name: Check sound survives the installed app's lifecycle
+        run: node test/web/sfx-test.js

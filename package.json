@@ -23,6 +23,7 @@
     "test:fitness": "node test/engine/fitness-test.js",
     "test:storage": "node test/web/storage-test.js",
     "test:pwa": "node test/web/pwa-test.js",
+    "test:sfx": "node test/web/sfx-test.js",
     "test:performance": "node test/engine/performance-test.js"
   }
 }

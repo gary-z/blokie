@@ -77,6 +77,44 @@ one format nothing has an opinion about, and it has no decoder delay to smear a
 short attack. Three clips come to 68 KB, fetched when sound is switched on and
 decoded on the gesture that switches it.
 
+## iOS, and the installed app
+
+Most of `web/sfx.js` is about one browser. WebKit gates starting and resuming an
+`AudioContext` on a user gesture, and it has a state the specification doesn't:
+**`interrupted`**, which a context enters whenever iOS takes the audio session
+away — a call, another app starting to play, or the app simply going to the
+background — and stays in until something asks for it back.
+
+Those two together are what broke sound in the app installed to a home screen
+while it kept working in a tab:
+
+- A tab is usually reloaded on the way back to it, which builds a fresh context.
+  An app opened from the home screen returns to the page it left, still holding
+  the context it left, interrupted. Anything that only checks for `suspended`
+  reads that as fine and plays into a stopped clock.
+- The app also launches with the setting already on, restored from the cookie.
+  Nobody presses the sound button, so the gesture that used to be what really
+  started the context never happens, and the one `pointerdown` listener that
+  stood in for it got one attempt per launch and no second chance.
+
+So the module asks whether the context is `running` and treats every other
+answer as something to fix: it listens for any of five gesture events until one
+of them gets a running context, puts those listeners back whenever it finds the
+context stopped — on returning to the foreground, or on a sound that can't play
+— and replaces a context outright when a resume during a gesture doesn't take,
+since iOS can leave one interrupted for the life of the page. Decoded clips
+outlive their context, so a replacement costs no download.
+
+`test/web/sfx-test.js` plays all of that out against a fake WebKit context. It
+has to be a fake: nothing can put a real context into `interrupted` on demand.
+
+One thing left alone: Web Audio in Safari runs under the `ambient` audio session,
+which the **Ring/Silent switch mutes**. A phone on silent is silent here, the same
+as it is for a native game, and that is worth ruling out before believing a bug
+report. `navigator.audioSession.type = 'playback'` would opt out of the switch,
+but `playback` is exclusive — it stops whatever the player had going in the
+background, which is a worse thing to do to someone than being quiet.
+
 ## Where each one fires
 
 Playing by hand, from the drag handlers in `web/script.js`: the pickup when the
