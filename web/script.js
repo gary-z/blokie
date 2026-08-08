@@ -13,6 +13,11 @@ function getNewGameState() {
         game: blokie.getNewGame(),
         piece_set: blokie.getRandomPieceSet(),
         game_over: false,  // true once nothing on deck fits anywhere
+        // How many moves in a row have cleared, counting the one just played.
+        // The engine only knows whether the move before this one cleared, which
+        // is all the score needs; a card that says how long the run has been
+        // needs the run's length, so it is counted here.
+        clear_streak: 0,
     };
 }
 
@@ -481,6 +486,10 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     }
 
     const game_state = state.game_state;
+    // A move that clears carries the run on; one that does not ends it.
+    const clear_streak = result.newGame.previous_move_was_clear
+        ? game_state.clear_streak + 1
+        : 0;
     // What the move paid, read before the new game replaces the old one below.
     // Held to the same bar the sounds are: at Max the moves land faster than a
     // card could be read, and the cards would only stack up over the board.
@@ -490,8 +499,11 @@ function commitMove(piece_index, result, { silent = false } = {}) {
         if (combo > 1) {
             bonuses.push(combo.toLocaleString() + 'x Combo!');
         }
-        if (game_state.game.previous_move_was_clear) {
-            bonuses.push('Streak!');
+        // Like the combo, the first one is not a streak yet: it takes a second
+        // clear in a row for the run to be worth naming, and from there the
+        // number says how long it has been going.
+        if (clear_streak > 1) {
+            bonuses.push(clear_streak.toLocaleString() + 'x Streak!');
         }
         showMoveScoreCard(result.newGame.score - game_state.game.score, result.placement, bonuses);
     }
@@ -511,6 +523,7 @@ function commitMove(piece_index, result, { silent = false } = {}) {
         pending_new_deck = !silent;
     }
     game_state.game = result.newGame;
+    game_state.clear_streak = clear_streak;
     refreshGameOver(game_state);
 }
 

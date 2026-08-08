@@ -26,6 +26,7 @@ function newGameState() {
         game: blokie.getNewGame(),
         piece_set: blokie.getRandomPieceSet(),
         game_over: false,
+        clear_streak: 0,
     };
 }
 
@@ -39,6 +40,9 @@ function playSomePieces(game_state) {
                 const result = blokie.tryPlacePiece(game_state.game, piece, r, c);
                 if (result) {
                     game_state.game = result.newGame;
+                    game_state.clear_streak = result.newGame.previous_move_was_clear
+                        ? game_state.clear_streak + 1
+                        : 0;
                     game_state.piece_set[i] = blokie.getEmptyPiece();
                     r = c = 9;
                 }
@@ -71,6 +75,7 @@ for (let i = 0; i < 100; ++i) {
         sameBitboard(restored.game.board, original.game.board) &&
         restored.game.score === original.game.score &&
         restored.game.previous_move_was_clear === original.game.previous_move_was_clear &&
+        restored.clear_streak === original.clear_streak &&
         restored.piece_set.every((p, j) => sameBitboard(p, original.piece_set[j])) &&
         restored.game_over === false;
     if (!matches) {
@@ -102,8 +107,22 @@ check(decodeGameState(encodeGameState(big)).game.score === 1500000,
 
 const streak = newGameState();
 streak.game = { ...streak.game, previous_move_was_clear: true };
-check(decodeGameState(encodeGameState(streak)).game.previous_move_was_clear === true,
-    "the clear streak flag round trips");
+streak.clear_streak = 7;
+const restored_streak = decodeGameState(encodeGameState(streak));
+check(restored_streak.clear_streak === 7
+    && restored_streak.game.previous_move_was_clear === true,
+    "a run of clears round trips as a length, not just a flag");
+
+// The streak used to be saved as a 0/1 flag in the same field, and a save
+// carrying one is a game someone is still in the middle of.
+const from_flag = decodeGameState("1.0.0.0.0.1.1.0.0.1.0.0.1.0.0");
+check(from_flag !== null && from_flag.clear_streak === 1
+    && from_flag.game.previous_move_was_clear === true,
+    "an older save's streak flag reads as a run of one");
+const flag_off = decodeGameState("1.0.0.0.0.0.1.0.0.1.0.0.1.0.0");
+check(flag_off !== null && flag_off.clear_streak === 0
+    && flag_off.game.previous_move_was_clear === false,
+    "an older save with no streak reads as no run");
 
 // Anything that isn't a save this version wrote is refused, so a bad cookie
 // starts a new game instead of loading a broken one.
@@ -117,7 +136,8 @@ const rejected = {
     "out-of-range board": "1.999999999.0.0.0.0.1.0.0.1.0.0.1.0.0",
     "negative field": "1.-1.0.0.0.0.1.0.0.1.0.0.1.0.0",
     "fractional field": "1.0.0.0.1e-3.0.1.0.0.1.0.0.1.0.0",
-    "streak flag that isn't a flag": "1.0.0.0.0.5.1.0.0.1.0.0.1.0.0",
+    "negative streak": "1.0.0.0.0.-1.1.0.0.1.0.0.1.0.0",
+    "fractional streak": "1.0.0.0.0.1e-3.1.0.0.1.0.0.1.0.0",
 };
 for (const [description, value] of Object.entries(rejected)) {
     check(decodeGameState(value) === null, `rejects ${description}`);
@@ -131,6 +151,7 @@ const longest = encodeGameState({
         previous_move_was_clear: true,
     },
     piece_set: [0, 1, 2].map(() => ({ a: 0x7FFFFFF, b: 0x7FFFFFF, c: 0x7FFFFFF })),
+    clear_streak: Number.MAX_SAFE_INTEGER,
 });
 check(longest.length < 200, `the largest possible save is small (${longest.length} bytes)`);
 
