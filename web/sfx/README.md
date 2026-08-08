@@ -108,6 +108,15 @@ outlive their context, so a replacement costs no download.
 `test/web/sfx-test.js` plays all of that out against a fake WebKit context. It
 has to be a fake: nothing can put a real context into `interrupted` on demand.
 
+None of this is Safari-only. Every browser on iOS is WebKit, Chrome included, so
+Chrome for iOS behaves the same way here — and it has one thing of its own:
+**it cannot register a service worker at all**, since WebKit only allows those in
+an app that has declared its domains up front. On that browser the clips really
+do come off the network every launch, with nothing cached behind them, which is
+why a request that fails is treated as a request to make again rather than as a
+browser that cannot play sound. One lost fetch used to turn the sound off for the
+rest of the session.
+
 One thing left alone: Web Audio in Safari runs under the `ambient` audio session,
 which the **Ring/Silent switch mutes**. A phone on silent is silent here, the same
 as it is for a native game, and that is worth ruling out before believing a bug

@@ -139,9 +139,14 @@ globalThis.document = {
     get cookie() { return cookie; },
     set cookie(value) { cookie = value.split(';')[0]; },
 };
+// Set to fail every request, standing in for a phone that has lost the network
+// on the way into a cold launch.
+let offline = false;
+
 globalThis.fetch = () => {
     fetches++;
-    return Promise.resolve({ arrayBuffer: () => Promise.resolve(new ArrayBuffer(64)) });
+    if (offline) return Promise.reject(new TypeError('Load failed'));
+    return Promise.resolve({ ok: true, arrayBuffer: () => Promise.resolve(new ArrayBuffer(64)) });
 };
 
 function fakeButton() {
@@ -171,6 +176,12 @@ const { initSfx, playSfx } = await import('../../web/sfx.js');
 
 // ------------------------------------------- a launch with sound already on
 
+// Straight into a lost network, which the installed app is the most exposed
+// to: the clips are fetched at launch off the restored setting rather than off
+// a button press, so nobody is watching when the request fails. On Chrome for
+// iOS there is no service worker to answer from a cache either.
+offline = true;
+
 initSfx(fakeButton());
 await settle();
 
@@ -185,6 +196,20 @@ await settle();
 
 check(contexts.length === 1, 'the first gesture builds the context');
 check(current().state === 'running', 'and it comes up running');
+
+playSfx('place');
+await settle();
+check(current().started.length === 0, 'a clip that never arrived plays nothing');
+
+// The next sound that wants the clip is what asks for it again: the context is
+// running by now, so there are no gesture listeners left to hang this on.
+const failed_fetches = fetches;
+offline = false;
+playSfx('place');
+await settle();
+
+check(fetches > failed_fetches, 'a lost clip is asked for again by the next sound');
+check(contexts.length === 1, 'and losing it was not mistaken for a broken decoder');
 
 const clips_fetched = fetches;
 playSfx('place');

@@ -71,12 +71,29 @@ function clipUrl(name) {
     return new URL(`sfx/${name}.wav`, import.meta.url);
 }
 
+// Never rejects: a clip that doesn't arrive resolves to null and is asked for
+// again on the next gesture.
+//
+// The distinction matters because the two failures are told apart nowhere else.
+// A rejected promise left sitting in the map is read later, where it is decoded,
+// as a browser that cannot decode a wav -- which turns the sound off for the
+// whole session over one lost request. Phones lose requests, and the service
+// worker isn't always there to answer from a cache: Chrome on iOS can't
+// register one at all, so on that browser every clip really does come off the
+// network, fetched during a cold launch with nobody watching.
+function fetchClip(name) {
+    return fetch(clipUrl(name))
+        .then(response => (response.ok ? response.arrayBuffer() : null))
+        .catch(() => null);
+}
+
 // Nothing is fetched until sound is turned on, so a player who leaves it off
-// never pays for the clips at all.
+// never pays for the clips at all. Called again on every gesture that warms the
+// context up, which is what re-asks for anything that went missing.
 function fetchClips() {
     for (const name of CLIPS) {
         if (!fetched.has(name) && !decoded.has(name)) {
-            fetched.set(name, fetch(clipUrl(name)).then(r => r.arrayBuffer()));
+            fetched.set(name, fetchClip(name));
         }
     }
 }
@@ -193,6 +210,9 @@ function warmUp(from_gesture) {
         audio_ctx = new AudioContextClass();
     }
     resumeContext(from_gesture);
+    // Re-asks for any clip that never arrived. Bounded by gestures, and a
+    // no-op once all three are decoded.
+    fetchClips();
     decodeClips();
 }
 
@@ -208,8 +228,12 @@ function decodeClips() {
         const bytes = fetched.get(name);
         fetched.delete(name);
         bytes
-            .then(b => ctx.decodeAudioData(b))
-            .then(buffer => decoded.set(name, buffer))
+            // A clip that never arrived is left out of the map entirely, so
+            // the fetchClips() on the next gesture asks for it again.
+            .then(b => (b === null ? null : ctx.decodeAudioData(b)))
+            .then(buffer => {
+                if (buffer !== null) decoded.set(name, buffer);
+            })
             .catch(() => {
                 // A decode that was in flight when its context was replaced
                 // says nothing about the browser's decoder: the bytes went
