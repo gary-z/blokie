@@ -362,54 +362,66 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const auto blocked_down = open - open.shiftUp();
 
 		const auto edges = BitBoard::row(0) | BitBoard::row(8) | BitBoard::column(0) | BitBoard::column(8);
+		// Accumulate equal-weight signals so each group needs only one multiply.
+		int squashed_empty = 0;
+		int squashed_empty_at_edge = 0;
+		int cornered_empty = 0;
+		int transitions = 0;
+		int aligned_transitions = 0;
 
 		// Sandwiched squares.
 		{
 			const auto horizontal_squashed = (blocked_right & blocked_left);
-			result += (horizontal_squashed -edges).count() * weights.getSquashedEmpty();
-			result += (horizontal_squashed &edges).count() * weights.getSquashedEmptyAtEdge();
+			squashed_empty += (horizontal_squashed - edges).count();
+			squashed_empty_at_edge += (horizontal_squashed & edges).count();
 		}
 
 		{
 			const auto verticle_squashed = (blocked_up & blocked_down);
-			result += (verticle_squashed - edges).count() * weights.getSquashedEmpty();
-			result += (verticle_squashed & edges).count() * weights.getSquashedEmptyAtEdge();
+			squashed_empty += (verticle_squashed - edges).count();
+			squashed_empty_at_edge += (verticle_squashed & edges).count();
 		}
 
 		// Cornerish.
 		const auto blocked_up_left = blocked_up & blocked_left;
-		result += (blocked_up_left - (BitBoard::row(0) | BitBoard::column(0))).count() * weights.getCorneredEmpty();
+		cornered_empty += (blocked_up_left - (BitBoard::row(0) | BitBoard::column(0))).count();
 
 		const auto blocked_up_right = blocked_up & blocked_right;
-		result += (blocked_up_right - (BitBoard::row(0) | BitBoard::column(8))).count() * weights.getCorneredEmpty();
+		cornered_empty += (blocked_up_right - (BitBoard::row(0) | BitBoard::column(8))).count();
 
 		const auto blocked_down_left = blocked_down & blocked_left;
-		result += (blocked_down_left - (BitBoard::row(8) | BitBoard::column(0))).count() * weights.getCorneredEmpty();
+		cornered_empty += (blocked_down_left - (BitBoard::row(8) | BitBoard::column(0))).count();
 
 		const auto blocked_down_right = blocked_down & blocked_right;
-		result += (blocked_down_right - (BitBoard::row(8) | BitBoard::column(8))).count() * weights.getCorneredEmpty();
+		cornered_empty += (blocked_down_right - (BitBoard::row(8) | BitBoard::column(8))).count();
 
 
 		{
 			const auto aligned_rows = BitBoard::row(3) | BitBoard::row(6);
-			result += (blocked_up - aligned_rows).count() * weights.getTransition();
-			result += (blocked_up & aligned_rows).count() * weights.getTransitionAligned();
+			transitions += (blocked_up - aligned_rows).count();
+			aligned_transitions += (blocked_up & aligned_rows).count();
 		}
 		{
 			const auto aligned_rows = BitBoard::row(2) | BitBoard::row(5);
-			result += (blocked_down - aligned_rows).count() * weights.getTransition();
-			result += (blocked_down & aligned_rows).count() * weights.getTransitionAligned();
+			transitions += (blocked_down - aligned_rows).count();
+			aligned_transitions += (blocked_down & aligned_rows).count();
 		}
 		{
 			const auto aligned_cols = BitBoard::column(3) | BitBoard::column(6);
-			result += (blocked_left - aligned_cols).count() * weights.getTransition();
-			result += (blocked_left & aligned_cols).count() * weights.getTransitionAligned();
+			transitions += (blocked_left - aligned_cols).count();
+			aligned_transitions += (blocked_left & aligned_cols).count();
 		}
 		{
 			const auto aligned_cols = BitBoard::column(2) | BitBoard::column(5);
-			result += (blocked_right - aligned_cols).count() * weights.getTransition();
-			result += (blocked_right & aligned_cols).count() * weights.getTransitionAligned();
+			transitions += (blocked_right - aligned_cols).count();
+			aligned_transitions += (blocked_right & aligned_cols).count();
 		}
+
+		result += squashed_empty * weights.getSquashedEmpty();
+		result += squashed_empty_at_edge * weights.getSquashedEmptyAtEdge();
+		result += cornered_empty * weights.getCorneredEmpty();
+		result += transitions * weights.getTransition();
+		result += aligned_transitions * weights.getTransitionAligned();
 	}
 
 	if (result >= max) {
