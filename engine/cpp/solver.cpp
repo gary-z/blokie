@@ -15,6 +15,26 @@ namespace {
 	const uint64_t LEFT_MOST_COLUMN_A = RIGHT_MOST_COLUMN_A >> 8;
 	const uint64_t LEFT_MOST_COLUMN_B = RIGHT_MOST_COLUMN_B >> 8;
 	const uint64_t ROW_5 = 0x1FFULL << (5 * 9);
+	const uint64_t CUBE_STARTS_A = 0x49ULL | (0x49ULL << 27);
+	const uint64_t CUBE_STARTS_B = 0x49ULL;
+
+	uint64_t completedRows(uint64_t bits, uint64_t row_starts) {
+		// Reduce each nine-bit row to its first bit, then expand the surviving
+		// markers back across their disjoint rows.
+		auto runs = bits & (bits >> 1);
+		runs &= runs >> 2;
+		runs &= runs >> 4;
+		runs &= bits >> 8;
+		return (runs & row_starts) * ROW_0;
+	}
+
+	uint64_t completedCubes(uint64_t bits, uint64_t cube_starts) {
+		// Reduce 3x3 cubes to their top-left bits. Multiplication expands those
+		// markers back into non-overlapping cube masks.
+		const auto horizontal = bits & (bits >> 1) & (bits >> 2);
+		const auto completed = horizontal & (horizontal >> 9) & (horizontal >> 18);
+		return (completed & cube_starts) * TOP_LEFT_CUBE;
+	}
 
 	// Shift the conceptual 81-bit value right across BitBoard's 54/27 split.
 	// A piece cell at offset N can use every anchor whose bit N places it on an
@@ -662,47 +682,21 @@ NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
 
 GameState NextGameStateIterator::operator*() const {
 	const auto after_add = original.getBitBoard() | next;
-	auto to_clear = BitBoard::empty();
 
-	// Clear columns that are completely filled.
-	for (int i = 0; i < 9; i++) {
-		{
-			const auto a_col_bits = RIGHT_MOST_COLUMN_A >> i;
-			const auto b_col_bits = RIGHT_MOST_COLUMN_B >> i;
-			if ((after_add.a & a_col_bits) == a_col_bits &&
-				(after_add.b & b_col_bits) == b_col_bits) {
-				to_clear.a |= a_col_bits;
-				to_clear.b |= b_col_bits;
-			}
-		}
-	}
+	// Reduce all nine columns together. The first expression covers rows 0-2;
+	// shifting it by 27 aligns rows 3-5, and b already begins with rows 6-8.
+	const auto top_columns = after_add.a & (after_add.a >> 9) & (after_add.a >> 18);
+	const auto completed_columns = top_columns & (top_columns >> 27) &
+		after_add.b & (after_add.b >> 9) & (after_add.b >> 18) & ROW_0;
 
-	// Clear rows that are completely filled.
-	for (int i = 0; i < 6; ++i) {
-		const auto row_bits = ROW_0 << (9 * i);
-		if ((after_add.a & row_bits) == row_bits) {
-			to_clear.a |= row_bits;
-		}
-	}
-	for (int i = 0; i < 3; ++i) {
-		const auto row_bits = ROW_0 << (9 * i);
-		if ((after_add.b & row_bits) == row_bits) {
-			to_clear.b |= row_bits;
-		}
-	}
-
-	// Clear 3x3s that are completely filled.
-	for (int r = 0; r < 2; r++) {
-		for (int c = 0; c < 3; c++) {
-			const auto cube_bits = TOP_LEFT_CUBE << (c * 3 + 27 * r);
-			if ((after_add.a & cube_bits) == cube_bits) {
-				to_clear.a |= cube_bits;
-			}
-			if (r == 0 && (after_add.b & cube_bits) == cube_bits) {
-				to_clear.b |= cube_bits;
-			}
-		}
-	}
+	const auto to_clear = BitBoard(
+		completedRows(after_add.a, LEFT_MOST_COLUMN_A) |
+			completed_columns * LEFT_MOST_COLUMN_A |
+			completedCubes(after_add.a, CUBE_STARTS_A),
+		completedRows(after_add.b, LEFT_MOST_COLUMN_B) |
+			completed_columns * LEFT_MOST_COLUMN_B |
+			completedCubes(after_add.b, CUBE_STARTS_B)
+	);
 
 	return GameState(after_add - to_clear);
 }
