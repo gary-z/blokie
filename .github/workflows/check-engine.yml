@@ -20,6 +20,15 @@ jobs:
         with:
           node-version: 22
 
+      - name: Configure native engine tests
+        run: cmake -S engine/cpp -B /tmp/blokie-native-tests -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build native engine tests
+        run: cmake --build /tmp/blokie-native-tests --parallel 2 --target eval-test search-test
+
+      - name: Native evaluation and search
+        run: ctest --test-dir /tmp/blokie-native-tests --output-on-failure
+
       - name: Placement rules
         run: node test/engine/placement-test.js
 

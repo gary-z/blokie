@@ -61,14 +61,25 @@ if(EMSCRIPTEN)
 		"SHELL:-s NO_EXIT_RUNTIME=1"
 	)
 else()
-	# Native build: solver + benchmark/fitness drivers.
+	# Native build: solver + benchmark/fitness drivers and regression tests.
 	find_package(Threads REQUIRED)
+	include(CTest)
 
 	add_executable(benchmark benchmark.cpp)
 	target_link_libraries(benchmark PRIVATE solver)
 
 	add_executable(fitness fitness.cpp)
 	target_link_libraries(fitness PRIVATE solver Threads::Threads)
+
+	if(BUILD_TESTING)
+		add_executable(eval-test eval-test.cpp)
+		target_link_libraries(eval-test PRIVATE solver)
+		add_test(NAME evaluation COMMAND eval-test)
+
+		add_executable(search-test search-test.cpp)
+		target_link_libraries(search-test PRIVATE solver)
+		add_test(NAME search COMMAND search-test)
+	endif()
 
 	# Release builds are -flto, so codegen happens at link and every target
 	# that contributes to it needs the flag, not just the one holding the
@@ -77,4 +88,8 @@ else()
 	target_enable_hardware_popcount(solver)
 	target_enable_hardware_popcount(benchmark)
 	target_enable_hardware_popcount(fitness)
+	if(BUILD_TESTING)
+		target_enable_hardware_popcount(eval-test)
+		target_enable_hardware_popcount(search-test)
+	endif()
 endif()
