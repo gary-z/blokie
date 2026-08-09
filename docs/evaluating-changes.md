@@ -68,10 +68,23 @@ Four things check out:
 So "after a certain point" turns out to mean after about 25 moves, not after
 some large fraction of a game.
 
-One caveat on the absolute constant: 51 deaths pins the rate only to ±14%, and
+Two caveats on the absolute constant. 51 deaths pins the rate only to ±14%, and
 the harness deals uniformly from all 47 pieces, which need not be the
 distribution behind any particular quoted average. 40,000 sits comfortably
-inside the interval. None of the math below depends on which constant is right.
+inside the interval.
+
+The other is provenance: those rates were measured against the evaluation as it
+stood before the crowded-piece scarcity term, so they describe that engine and
+not this one. The shape survives the change — re-measured on the current
+evaluation, occupancy still reaches its plateau by move ~25, so the burn-in is
+the same — but the rate itself would have to be re-measured to be quoted.
+Nothing below depends on which constant is right.
+
+Which is itself the point. Whether that term helped is not answerable at the
+scale these runs operate at: 350 games against the earlier 300 put the hazard
+ratio at 0.43 with a 95% interval of 0.11 to 1.71 and p = 0.32. Nine deaths
+between them can only catch a change of 198% or more. Settling it to 5% needs
+about 6,300 deaths an arm.
 
 ## Cutting games off
 
