@@ -27,6 +27,8 @@ Internally, the board state is represented as a bitboard using three 32-bit inte
 
 The board state evaluation weights were trained using a genetic learning algorithm written in C++. JavaScript is too slow for training.
 
+Games run about 40,000 sets long and their lengths are close to exponential, so telling a real improvement from noise takes more games than it looks like it should. [How to measure a change to the evaluation](docs/evaluating-changes.md) works out what that costs and what actually makes it cheaper.
+
 ## Can I have the computer play the phone games for me?
 No.
 
