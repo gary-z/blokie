@@ -477,10 +477,25 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			open & open_left & open_right & open_down_left & open_down_right,
 		};
 
+		const int crowded_blocks = std::max(0, bb.count() - 20);
+		int scarce_deadly_placements = 0;
 		for (const auto deadly_piece_placement: deadly_piece_placements) {
-			if (!deadly_piece_placement) {
+			const int placements = deadly_piece_placement.count();
+			if (placements == 0) {
 				result += weights.getDeadlyPiece();
 			}
+			if (crowded_blocks != 0 && placements < 4) {
+				scarce_deadly_placements += 4 - placements;
+			}
+		}
+
+		// The other pieces in a deal can consume a hard piece's last few legal
+		// placements. That scarcity only becomes dangerous on a crowded board;
+		// multiplying the two signals intervenes in the short failure cascade
+		// without disturbing the already-tuned sparse-board evaluation.
+		if (scarce_deadly_placements != 0) {
+			result += (uint64_t)scarce_deadly_placements * crowded_blocks
+				* weights.getCrowdedPieceScarcity();
 		}
 	}
 
@@ -605,7 +620,7 @@ NextGameStateIterator NextGameStateIteratorGenerator::end() const {
 // ===== Eval Weights
 EvalWeights EvalWeights::getDefault() {
 	EvalWeights r;
-	// 1358 524 6540 4450 18185 2665 204 908 1776 3386 1607 3067
+	// 1358 524 6540 4450 18185 2665 204 908 1776 3386 1607 3067 200
 	r.weights[0] = 1358; // CUBE;
 	r.weights[1] = 524; // SQUASHED_EMPTY;
 	r.weights[2] = 6540; // CORNERED_EMPTY;
@@ -618,6 +633,7 @@ EvalWeights EvalWeights::getDefault() {
 	r.weights[9] = 3386; // squashed at edge
 	r.weights[10] = 1607; // occupied center square
 	r.weights[11] = 3067; // occupied corner square
+	r.weights[12] = 200; // hard-piece placement scarcity on crowded boards
 	return r;
 }
 int EvalWeights::getOccupiedSideSquare() const {
@@ -659,6 +675,9 @@ int EvalWeights::getOccupiedCenterSquare() const {
 }
 int EvalWeights::getOccupiedCornerSquare() const {
 	return weights[11];
+}
+int EvalWeights::getCrowdedPieceScarcity() const {
+	return weights[12];
 }
 
 

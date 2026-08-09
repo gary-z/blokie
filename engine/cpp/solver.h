@@ -108,7 +108,7 @@ public:
 
 class EvalWeights {
 public:
-	static constexpr int NUM_WEIGHTS = 12;
+	static constexpr int NUM_WEIGHTS = 13;
 	static constexpr int MAX_WEIGHT = 40000;
 
 	int weights[NUM_WEIGHTS] = {0};
@@ -128,6 +128,8 @@ public:
 	int getSquashedEmptyAtEdge() const;
 	int getOccupiedCornerSquare() const;
 	int getOccupiedCenterSquare() const;
+	// Nonlinear penalty for scarce hard-piece placements on crowded boards.
+	int getCrowdedPieceScarcity() const;
 
 	static EvalWeights getDefault();
 };
