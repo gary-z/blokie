@@ -39,6 +39,40 @@ harness prints all of these. `--hazard-bins W` prints deaths and moves survived
 per `W` moves of depth, which shows the hazard directly and shows how deep you
 have to go before it stops trending.
 
+Measured, it holds up well. Three runs of different shapes:
+
+| run | deaths | exposure | hazard | implied mean |
+|---|---:|---:|---:|---:|
+| 700 games, cut at 3,000 | 37 | 2,052,938 | 1.80e-5 | 55,485 |
+| 300 games, cut at 800   |  6 |   237,848 | 2.52e-5 | 39,641 |
+| 8 games, played out     |  8 |   213,918 | 3.74e-5 | 26,740 |
+| **pooled**              | **51** | **2,504,704** | **2.04e-5** | **49,112** |
+
+Pooled 95% CI on the mean: 37,300 .. 64,600. Note that those three rows combine
+by adding deaths and adding exposure, despite being cut at different depths or
+not cut at all. That is the property worth having — designs that could not share
+an average share a rate.
+
+Four things check out:
+
+- **`cv = 1.03`** on the games played out, against the 1.00 an exponential
+  predicts. This is the number the whole cost problem comes from.
+- **The left tail is exponential.** 6 of 300 games died before move 800, or
+  2.00%, against the 1.98% an exponential with a 40,000 mean predicts.
+- **The hazard does not trend.** Splitting the first 3,000 moves at 100, 250,
+  500 and 1,000 and testing the early hazard against the rest gives p = 0.64,
+  0.77, 0.39, 0.73. Deaths per 1,000 moves of depth were 11, 10, 16 against
+  12.5, 12.3, 12.1 expected under a flat hazard.
+- **The burn-in is ~25 moves**, from the occupancy plateau above.
+
+So "after a certain point" turns out to mean after about 25 moves, not after
+some large fraction of a game.
+
+One caveat on the absolute constant: 51 deaths pins the rate only to ±14%, and
+the harness deals uniformly from all 47 pieces, which need not be the
+distribution behind any particular quoted average. 40,000 sits comfortably
+inside the interval. None of the math below depends on which constant is right.
+
 ## Cutting games off
 
 Stop a game at `X` moves and it is **right-censored**: you know it lasted longer
@@ -66,26 +100,32 @@ The `1/h` term does not move. A death costs `1/h` moves of exposure to produce
 no matter how you slice the exposure into games. Truncation gives you fewer
 deaths per game and proportionally cheaper games, and the ratio is fixed.
 
-| cutoff X | X/mean | P(dies first) | moves/death (b=0) | (b=200) | (b=1000) |
-|---------:|-------:|--------------:|------------------:|--------:|---------:|
-|     none |      — |         1.000 |            40,000 |  40,000 |   40,000 |
-|   80,000 |   2.00 |         0.865 |            40,000 |  40,231 |   41,161 |
-|   40,000 |   1.00 |         0.632 |            40,000 |  40,317 |   41,606 |
-|   10,000 |   0.25 |         0.221 |            40,000 |  40,920 |   44,963 |
-|    4,000 |   0.10 |         0.095 |            40,000 |  42,207 |   53,840 |
-|    1,000 |   0.03 |         0.025 |            40,000 |  50,100 |        — |
+The burn-in is the only thing a cutoff can waste, because every restart pays it
+again. Measured (700 games, 2.05M moves), it is about **25 moves**: mean board
+occupancy climbs from an empty start to its plateau of 18.2 cells by move ~25
+and never moves again. That is 0.06% of a game, so the `b/q` term stays small
+until the cutoff gets very aggressive:
 
-So the honest answer to "does a cutoff buy signal": **no.** It is very nearly
-free — under 1% of efficiency down to a quarter of the mean, as long as the
-burn-in is short — but it buys nothing per unit of compute. The only cost it
-does carry is re-paying the burn-in on every restart, which is the `b/q` term.
+| cutoff X | X/mean | P(dies first) | moves/death, b=25 | cost | at b=200 | at b=1000 |
+|---------:|-------:|--------------:|------------------:|-----:|---------:|----------:|
+|     none |      — |         1.000 |            40,000 |   0% |       0% |        0% |
+|   80,000 |   2.00 |         0.865 |            40,029 | 0.1% |     0.6% |      2.9% |
+|   40,000 |   1.00 |         0.632 |            40,040 | 0.1% |     0.8% |      4.0% |
+|   10,000 |   0.25 |         0.221 |            40,113 | 0.3% |     2.3% |     12.4% |
+|    4,000 |   0.10 |         0.095 |            40,264 | 0.7% |     5.5% |     34.6% |
+|    1,000 |   0.03 |         0.025 |            41,038 | 2.6% |    25.3% |         — |
+|      400 |   0.01 |         0.010 |            42,679 | 6.7% |   100.3% |         — |
+
+So the honest answer to "does a cutoff buy signal": **no.** At the measured
+burn-in it is very nearly free — under 1% of efficiency all the way down to a
+tenth of the mean — but it buys nothing per unit of compute either.
 
 ### What a cutoff is genuinely worth
 
 Not information, but scheduling. Game lengths are exponential, so with `n` games
 in flight the longest one runs `H_n / h` moves — 2.7× the mean for 8 games,
 4.7× for 64. Threads sit idle behind that straggler while it finishes. Capping
-at `X = 2/h` removes the tail for a 0.02% information cost.
+at `X = 2/h` removes the tail and costs 0.1%.
 
 It also turns one 40,000-move blocking unit into a stream of small ones, which
 is what makes sequential stopping practical: you can watch deaths arrive and
@@ -135,10 +175,16 @@ the test environment deadlier**, so that deaths arrive sooner:
 
 | regime | mean length | moves/arm @5% | core-hours | speedup |
 |---|---:|---:|---:|---:|
-| 3 pieces (current)         | 40,000 | 2.5e8 | 199 |   1× |
-| harder piece mix           |  8,000 | 5.0e7 |  40 |   5× |
-| 2 pieces (README: −98%)    |    800 | 5.0e6 |   4 |  50× |
-| 2 pieces, hard mix         |    200 | 1.3e6 |   1 | 200× |
+| 3 pieces (current)   | 40,000 | 2.5e8 | 199 |   1× |
+| a harder piece mix   |  8,000 | 5.0e7 |  40 |   5× |
+| 2 pieces             |    800 | 5.0e6 |   4 |  50× |
+| 2 pieces, hard mix   |    200 | 1.3e6 |   1 | 200× |
+
+Only the first row is measured. The rest are what the arithmetic gives at those
+mean lengths, and the mean lengths themselves are targets rather than
+measurements — the 800 is extrapolated from the README's note that two-piece
+play costs over 98% of the score, which is a claim about score and not directly
+about length. Measure whichever regime you pick before trusting its numbers.
 
 The catch is that a deadlier environment is a different game, and a weight
 vector that wins there need not win at three pieces. That is an empirical
@@ -172,7 +218,8 @@ for exactly this.
     # check the hazard really is flat before trusting any of this
     ./fitness 400 --max-moves 20000 --hazard-bins 2000
 
-    # verdict against a banked baseline
+    # verdict against a banked baseline -- deaths:exposure accumulated over
+    # every run of the current weights, here a baseline resolved to about 2.5%
     node engine/tools/compare-fitness.js 6200:248000000 candidate.txt
 
 Deaths are the currency. Everything else is bookkeeping.
