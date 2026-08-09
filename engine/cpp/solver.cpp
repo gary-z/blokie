@@ -2,6 +2,7 @@
 #include <cassert>
 #include <bitset>
 #include <algorithm>
+#include <array>
 
 namespace {
 	const uint64_t ROW_0 = 0x1FFULL;
@@ -14,6 +15,77 @@ namespace {
 	const uint64_t LEFT_MOST_COLUMN_A = RIGHT_MOST_COLUMN_A >> 8;
 	const uint64_t LEFT_MOST_COLUMN_B = RIGHT_MOST_COLUMN_B >> 8;
 	const uint64_t ROW_5 = 0x1FFULL << (5 * 9);
+
+	// Shift the conceptual 81-bit value right across BitBoard's 54/27 split.
+	// A piece cell at offset N can use every anchor whose bit N places it on an
+	// open square, so this translates open squares back into anchor squares.
+	BitBoard shiftOpenToAnchor(BitBoard open, unsigned offset) {
+		if (offset == 0) {
+			return open;
+		}
+		if (offset < 54) {
+			return BitBoard(
+				((open.getA() >> offset) | (open.getB() << (54 - offset))) & ALL_ALLOWED_BITS_IN_A,
+				(open.getB() >> offset) & ALL_ALLOWED_BITS_IN_B
+			);
+		}
+		return BitBoard((open.getB() >> (offset - 54)) & ALL_ALLOWED_BITS_IN_A, 0);
+	}
+
+	BitBoard translatePiece(BitBoard piece, unsigned offset) {
+		if (offset == 0) {
+			return piece;
+		}
+		if (offset < 54) {
+			return BitBoard(
+				(piece.getA() << offset) & ALL_ALLOWED_BITS_IN_A,
+				((piece.getA() >> (54 - offset)) | (piece.getB() << offset)) & ALL_ALLOWED_BITS_IN_B
+			);
+		}
+		return BitBoard(0, (piece.getA() << (offset - 54)) & ALL_ALLOWED_BITS_IN_B);
+	}
+
+	BitBoard placementAnchorBounds(unsigned max_row, unsigned max_col) {
+		const uint64_t anchor_row = (1ULL << (9 - max_col)) - 1;
+		auto bounds = BitBoard::empty();
+		for (unsigned row = 0; row <= 8 - max_row; ++row) {
+			if (row < 6) {
+				bounds = bounds | BitBoard(anchor_row << (row * 9), 0);
+			} else {
+				bounds = bounds | BitBoard(0, anchor_row << ((row - 6) * 9));
+			}
+		}
+		return bounds;
+	}
+
+	// Intersect the anchors allowed by every cell of an arbitrary piece. Game
+	// pieces use the precomputed form below; this keeps Piece(BitBoard) generic.
+	BitBoard validPlacementAnchors(BitBoard board, BitBoard piece) {
+		const auto open = ~board;
+		auto anchors = BitBoard::full();
+		unsigned max_row = 0;
+		unsigned max_col = 0;
+
+		auto piece_a = piece.getA();
+		while (piece_a != 0) {
+			const unsigned offset = (unsigned)__builtin_ctzll(piece_a);
+			max_row = std::max(max_row, offset / 9);
+			max_col = std::max(max_col, offset % 9);
+			anchors = anchors & shiftOpenToAnchor(open, offset);
+			piece_a &= piece_a - 1;
+		}
+
+		auto piece_b = piece.getB();
+		while (piece_b != 0) {
+			const unsigned offset = 54 + (unsigned)__builtin_ctzll(piece_b);
+			max_row = std::max(max_row, offset / 9);
+			max_col = std::max(max_col, offset % 9);
+			anchors = anchors & shiftOpenToAnchor(open, offset);
+			piece_b &= piece_b - 1;
+		}
+
+		return anchors & placementAnchorBounds(max_row, max_col);
+	}
 
 	// Stands in for the evaluation of a position a piece does not fit in at
 	// all. Small enough that one per piece still cannot overflow a uint64_t,
@@ -152,28 +224,6 @@ std::string BitBoard::str() const {
 	return result;
 }
 
-// ====== Piece
-Piece::Piece(uint64_t a) : bb(BitBoard(a, 0)) {}
-Piece::Piece(BitBoard bb) : bb(bb) {};
-Piece::Piece() : bb(BitBoard::empty()) {};
-BitBoard Piece::getBitBoard() const {
-	return bb;
-}
-
-PieceSet::PieceSet(Piece p1, Piece p2, Piece p3) {
-	pieces[0] = p1;
-	pieces[1] = p2;
-	pieces[2] = p3;
-}
-
-
-PieceIterator::PieceIterator(uint8_t i) : i(i) {}
-
-PieceIterator PieceIteratorGenerator::begin() const {
-	return PieceIterator(0);
-}
-
-
 namespace {
 
 	const uint64_t A = 1ULL << 0;
@@ -268,11 +318,83 @@ namespace {
 
 		B | F | G | H | J, // + sign
 	};
+
+	struct PiecePlacementData {
+		uint64_t bounds_a = 0;
+		uint64_t bounds_b = 0;
+		std::array<uint8_t, 5> offsets = {};
+		uint8_t count = 0;
+	};
+
+	// The standard pieces never change. Cache the exact shifts whose open-cell
+	// masks must intersect, along with the rectangle in which their anchors fit.
+	const auto PIECE_PLACEMENT_DATA = [] {
+		std::array<PiecePlacementData, Piece::NUM_PIECES> result;
+		for (int index = 0; index < Piece::NUM_PIECES; ++index) {
+			auto bits = PIECES[index];
+			unsigned max_row = 0;
+			unsigned max_col = 0;
+			while (bits != 0) {
+				const auto offset = (unsigned)__builtin_ctzll(bits);
+				result[index].offsets[result[index].count++] = offset;
+				max_row = std::max(max_row, offset / 9);
+				max_col = std::max(max_col, offset % 9);
+				bits &= bits - 1;
+			}
+
+			const auto bounds = placementAnchorBounds(max_row, max_col);
+			result[index].bounds_a = bounds.getA();
+			result[index].bounds_b = bounds.getB();
+		}
+		return result;
+	}();
+
+	uint8_t findPiecePlacementData(BitBoard piece) {
+		if (piece.getB() == 0) {
+			for (uint8_t index = 0; index < Piece::NUM_PIECES; ++index) {
+				if (piece.getA() == PIECES[index]) {
+					return index;
+				}
+			}
+		}
+		return Piece::NUM_PIECES;
+	}
+
+	BitBoard validPlacementAnchors(BitBoard board, const PiecePlacementData &data) {
+		const auto open = ~board;
+		auto anchors = BitBoard(data.bounds_a, data.bounds_b);
+		for (uint8_t index = 0; index < data.count; ++index) {
+			anchors = anchors & shiftOpenToAnchor(open, data.offsets[index]);
+		}
+		return anchors;
+	}
+}
+
+// ====== Piece
+Piece::Piece(uint64_t a) : Piece(BitBoard(a, 0)) {}
+Piece::Piece(BitBoard bb) : bb(bb), placement_data_index(findPiecePlacementData(bb)) {}
+Piece::Piece() : Piece(BitBoard::empty()) {}
+Piece::Piece(uint64_t a, uint8_t index) : bb(BitBoard(a, 0)), placement_data_index(index) {}
+BitBoard Piece::getBitBoard() const {
+	return bb;
+}
+
+PieceSet::PieceSet(Piece p1, Piece p2, Piece p3) {
+	pieces[0] = p1;
+	pieces[1] = p2;
+	pieces[2] = p3;
+}
+
+
+PieceIterator::PieceIterator(uint8_t i) : i(i) {}
+
+PieceIterator PieceIteratorGenerator::begin() const {
+	return PieceIterator(0);
 }
 
 Piece Piece::byIndex(int index) {
 	assert(index >= 0 && index < NUM_PIECES);
-	return Piece(PIECES[index]);
+	return Piece(PIECES[index], static_cast<uint8_t>(index));
 }
 
 bool Piece::operator<(Piece other) const {
@@ -284,7 +406,7 @@ PieceIterator PieceIteratorGenerator::end() const {
 }
 
 Piece PieceIterator::operator*() const {
-	return Piece(PIECES[i]);
+	return Piece::byIndex(i);
 }
 
 
@@ -524,10 +646,17 @@ uint64_t GameState::simpleEval(EvalWeights weights, uint64_t max) const {
 }
 
 
-NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece) :
-	original(state), next(piece.getBitBoard()), left(piece.getBitBoard()) {
-	if (!(piece.getBitBoard() == BitBoard::full()) && !canPlace()) {
-		operator++();
+NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
+	original(state), next(piece_arg.getBitBoard()), piece(piece_arg.getBitBoard()),
+	anchors(BitBoard::empty()) {
+	if (!(piece == BitBoard::empty()) && !(piece == BitBoard::full())) {
+		if (piece_arg.placement_data_index < Piece::NUM_PIECES) {
+			anchors = validPlacementAnchors(original.getBitBoard(),
+				PIECE_PLACEMENT_DATA[piece_arg.placement_data_index]);
+		} else {
+			anchors = validPlacementAnchors(original.getBitBoard(), piece);
+		}
+		setNextPlacement();
 	}
 }
 
@@ -587,32 +716,22 @@ void NextGameStateIterator::operator++() {
 		next = BitBoard::full();
 		return;
 	}
-
-	// We try placing the piece in each row.
-	// We try the left most columns first.
-	do {
-		// We've reached the right edge.
-		if (next & BitBoard::column(8)) {
-
-			// We've reached the bottom edge too.
-			if (left & BitBoard::row(8)) {
-				next = BitBoard::full();
-				break;
-			}
-
-			// Start at the first column of the next row.
-			left = left.shiftDown();
-			next = left;
-		}
-		else {
-			next = next.shiftRight();
-		}
-	} while (!canPlace());
+	setNextPlacement();
 }
 
-
-bool NextGameStateIterator::canPlace() const {
-	return !(next & original.getBitBoard());
+void NextGameStateIterator::setNextPlacement() {
+	unsigned offset;
+	if (anchors.a != 0) {
+		offset = (unsigned)__builtin_ctzll(anchors.a);
+		anchors.a &= anchors.a - 1;
+	} else if (anchors.b != 0) {
+		offset = 54 + (unsigned)__builtin_ctzll(anchors.b);
+		anchors.b &= anchors.b - 1;
+	} else {
+		next = BitBoard::full();
+		return;
+	}
+	next = translatePiece(piece, offset);
 }
 
 NextGameStateIteratorGenerator::NextGameStateIteratorGenerator(

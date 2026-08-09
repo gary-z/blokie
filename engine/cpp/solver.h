@@ -66,6 +66,9 @@ class PieceIteratorGenerator;
 class Piece {
 private:
 	BitBoard bb;
+	uint8_t placement_data_index;
+	Piece(uint64_t a, uint8_t placement_data_index);
+	friend class NextGameStateIterator;
 
 public:
 	explicit Piece(uint64_t a);
@@ -165,8 +168,8 @@ public:
 private:
 	explicit NextGameStateIterator(GameState state, Piece piece);
 	const GameState original;
-	BitBoard next, left;
-	bool canPlace() const;
+	BitBoard next, piece, anchors;
+	void setNextPlacement();
 	friend class NextGameStateIteratorGenerator;
 };
 
