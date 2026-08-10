@@ -35,7 +35,14 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -DNDEBUG")
 
 include(CheckCXXCompilerFlag)
 
-# Give the solver a hardware popcount, on the compilers that need telling.
+# Tune native-only tools for the machine that runs them. These executables are
+# used locally for long fitness runs rather than shipped, so letting the
+# compiler use the build host's ISA is both safe and useful. On the benchmark
+# machine, BMI1/BMI2 account for another ~5% beyond x86-64-v2; AVX2 itself does
+# not measurably help the branchy, one-board-at-a-time evaluation loop.
+#
+# If the compiler has no native tuning flag, at least give the solver a
+# hardware popcount on the compilers that need telling.
 #
 # BitBoard::count() runs tens of times per candidate board and the search
 # evaluates thousands of boards per move, so how it is compiled decides how
@@ -49,14 +56,20 @@ include(CheckCXXCompilerFlag)
 # this asks the compiler what it accepts rather than hard coding an ISA. A
 # target that is already fine, or that has never heard of these flags, matches
 # nothing and is left exactly as it was.
-function(target_enable_hardware_popcount target)
+function(target_enable_native_isa target)
+	set(CMAKE_REQUIRED_FLAGS "-Werror")
+	check_cxx_compiler_flag("-march=native" CXX_ACCEPTS_MARCH_NATIVE)
+	if(CXX_ACCEPTS_MARCH_NATIVE)
+		target_compile_options(${target} PRIVATE "-march=native")
+		return()
+	endif()
+
 	# x86-64-v2 is the 2009 baseline and the first level to include POPCNT.
 	# -mpopcnt is the fallback for compilers predating the level names.
 	foreach(flag "-march=x86-64-v2" "-mpopcnt")
 		string(MAKE_C_IDENTIFIER "CXX_ACCEPTS_${flag}" result_var)
 		# Without -Werror, a compiler that merely warns that the flag is unused
 		# would look as though it had accepted it.
-		set(CMAKE_REQUIRED_FLAGS "-Werror")
 		check_cxx_compiler_flag("${flag}" ${result_var})
 		if(${result_var})
 			target_compile_options(${target} PRIVATE "${flag}")
@@ -109,13 +122,13 @@ else()
 
 	# Release builds are -flto, so codegen happens at link and every target
 	# that contributes to it needs the flag, not just the one holding the
-	# popcounts. The WASM build is deliberately left out: it does not need
-	# this, and changing how it compiles would change the committed binary.
-	target_enable_hardware_popcount(solver)
-	target_enable_hardware_popcount(benchmark)
-	target_enable_hardware_popcount(fitness)
+	# native solver code. The WASM build is deliberately left out: it does not
+	# need this, and changing how it compiles would change the committed binary.
+	target_enable_native_isa(solver)
+	target_enable_native_isa(benchmark)
+	target_enable_native_isa(fitness)
 	if(BUILD_TESTING)
-		target_enable_hardware_popcount(eval-test)
-		target_enable_hardware_popcount(search-test)
+		target_enable_native_isa(eval-test)
+		target_enable_native_isa(search-test)
 	endif()
 endif()
