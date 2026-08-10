@@ -471,26 +471,31 @@ std::vector<GameState> GameState::nextStatesClearsFirst(Piece piece) const {
 uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t max) {
 	uint64_t result = 0;
 
-	// Occupied cubes.
-	for (int r = 0; r < 3; r++) {
-		for (int c = 0; c < 3; c++) {
-			const auto cube = BitBoard::cube(r, c) & bb;
-			if (cube) {
-				if (r == 1 && c == 1) {
-					result += weights.getOccupiedCenterCube();
-					result += cube.count() * weights.getOccupiedCenterSquare();
-				} else if (r == 1 || c == 1) {
-					result += weights.getOccupiedSideCube();
-					result += cube.count() * weights.getOccupiedSideSquare();
-				} else {
-					result += weights.getOccupiedCornerCube();
-					result += cube.count() * weights.getOccupiedCornerSquare();
-				}
-
-			}
-		}
-	}
-
+	// Occupied cubes and squares. Square weights only depend on a cube's
+	// category, so count each category together instead of popcounting all nine
+	// cubes independently. The individual tests are still needed for the fixed
+	// cost of making each cube nonempty.
+	const auto center_cube = BitBoard::cube(1, 1) & bb;
+	const auto side_squares = (BitBoard::cube(0, 1) | BitBoard::cube(1, 0) |
+		BitBoard::cube(1, 2) | BitBoard::cube(2, 1)) & bb;
+	const auto corner_squares = (BitBoard::cube(0, 0) | BitBoard::cube(0, 2) |
+		BitBoard::cube(2, 0) | BitBoard::cube(2, 2)) & bb;
+	const int occupied_side_cubes =
+		static_cast<bool>(BitBoard::cube(0, 1) & bb) +
+		static_cast<bool>(BitBoard::cube(1, 0) & bb) +
+		static_cast<bool>(BitBoard::cube(1, 2) & bb) +
+		static_cast<bool>(BitBoard::cube(2, 1) & bb);
+	const int occupied_corner_cubes =
+		static_cast<bool>(BitBoard::cube(0, 0) & bb) +
+		static_cast<bool>(BitBoard::cube(0, 2) & bb) +
+		static_cast<bool>(BitBoard::cube(2, 0) & bb) +
+		static_cast<bool>(BitBoard::cube(2, 2) & bb);
+	result += static_cast<bool>(center_cube) * weights.getOccupiedCenterCube();
+	result += center_cube.count() * weights.getOccupiedCenterSquare();
+	result += occupied_side_cubes * weights.getOccupiedSideCube();
+	result += side_squares.count() * weights.getOccupiedSideSquare();
+	result += occupied_corner_cubes * weights.getOccupiedCornerCube();
+	result += corner_squares.count() * weights.getOccupiedCornerSquare();
 	if (result >= max) {
 		return max;
 	}
@@ -503,67 +508,69 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const auto blocked_up = open - open.shiftDown();
 		const auto blocked_down = open - open.shiftUp();
 
-		const auto edges = BitBoard::row(0) | BitBoard::row(8) | BitBoard::column(0) | BitBoard::column(8);
-		// Accumulate equal-weight signals so each group needs only one multiply.
-		int squashed_empty = 0;
-		int squashed_empty_at_edge = 0;
+		// Every horizontal or vertical run of open squares has one transition
+		// at each end. Count just the upper and left ends, then double them.
+		// The four aligned boundary masks do not overlap, so their contributions
+		// can be unioned before counting as well.
+		const int transition_weight = weights.getTransition();
+		const int aligned_transition_weight = weights.getTransitionAligned();
+		const int base_transition_weight = std::min(transition_weight,
+			aligned_transition_weight);
+		const int all_transitions = 2 *
+			(blocked_up.count() + blocked_left.count());
+		result += all_transitions * base_transition_weight;
+		if (result >= max) {
+			return max;
+		}
+
+		const auto aligned_vertical =
+			(blocked_up & (BitBoard::row(3) | BitBoard::row(6))) |
+			(blocked_down & (BitBoard::row(2) | BitBoard::row(5)));
+		const auto aligned_horizontal =
+			(blocked_left & (BitBoard::column(3) | BitBoard::column(6))) |
+			(blocked_right & (BitBoard::column(2) | BitBoard::column(5)));
+		const int aligned_transitions = aligned_vertical.count() +
+			aligned_horizontal.count();
+		const int transitions = all_transitions - aligned_transitions;
+		result += transitions * (transition_weight - base_transition_weight) +
+			aligned_transitions *
+				(aligned_transition_weight - base_transition_weight);
+		if (result >= max) {
+			return max;
+		}
+
+		// Cornerish squares carry the next strongest signal. Evaluate them before
+		// the cheaper-weighted squashed-square features so a losing candidate can
+		// stop without calculating either kind of squash.
 		int cornered_empty = 0;
-		int transitions = 0;
-		int aligned_transitions = 0;
-
-		// Sandwiched squares.
-		{
-			const auto horizontal_squashed = (blocked_right & blocked_left);
-			squashed_empty += (horizontal_squashed - edges).count();
-			squashed_empty_at_edge += (horizontal_squashed & edges).count();
-		}
-
-		{
-			const auto verticle_squashed = (blocked_up & blocked_down);
-			squashed_empty += (verticle_squashed - edges).count();
-			squashed_empty_at_edge += (verticle_squashed & edges).count();
-		}
-
-		// Cornerish.
 		const auto blocked_up_left = blocked_up & blocked_left;
-		cornered_empty += (blocked_up_left - (BitBoard::row(0) | BitBoard::column(0))).count();
-
+		cornered_empty += (blocked_up_left -
+			(BitBoard::row(0) | BitBoard::column(0))).count();
 		const auto blocked_up_right = blocked_up & blocked_right;
-		cornered_empty += (blocked_up_right - (BitBoard::row(0) | BitBoard::column(8))).count();
-
+		cornered_empty += (blocked_up_right -
+			(BitBoard::row(0) | BitBoard::column(8))).count();
 		const auto blocked_down_left = blocked_down & blocked_left;
-		cornered_empty += (blocked_down_left - (BitBoard::row(8) | BitBoard::column(0))).count();
-
+		cornered_empty += (blocked_down_left -
+			(BitBoard::row(8) | BitBoard::column(0))).count();
 		const auto blocked_down_right = blocked_down & blocked_right;
-		cornered_empty += (blocked_down_right - (BitBoard::row(8) | BitBoard::column(8))).count();
-
-
-		{
-			const auto aligned_rows = BitBoard::row(3) | BitBoard::row(6);
-			transitions += (blocked_up - aligned_rows).count();
-			aligned_transitions += (blocked_up & aligned_rows).count();
-		}
-		{
-			const auto aligned_rows = BitBoard::row(2) | BitBoard::row(5);
-			transitions += (blocked_down - aligned_rows).count();
-			aligned_transitions += (blocked_down & aligned_rows).count();
-		}
-		{
-			const auto aligned_cols = BitBoard::column(3) | BitBoard::column(6);
-			transitions += (blocked_left - aligned_cols).count();
-			aligned_transitions += (blocked_left & aligned_cols).count();
-		}
-		{
-			const auto aligned_cols = BitBoard::column(2) | BitBoard::column(5);
-			transitions += (blocked_right - aligned_cols).count();
-			aligned_transitions += (blocked_right & aligned_cols).count();
-		}
-
-		result += squashed_empty * weights.getSquashedEmpty();
-		result += squashed_empty_at_edge * weights.getSquashedEmptyAtEdge();
+		cornered_empty += (blocked_down_right -
+			(BitBoard::row(8) | BitBoard::column(8))).count();
 		result += cornered_empty * weights.getCorneredEmpty();
-		result += transitions * weights.getTransition();
-		result += aligned_transitions * weights.getTransitionAligned();
+		if (result >= max) {
+			return max;
+		}
+
+		const auto edges = BitBoard::row(0) | BitBoard::row(8) |
+			BitBoard::column(0) | BitBoard::column(8);
+		const auto horizontal_squashed = blocked_right & blocked_left;
+		const auto verticle_squashed = blocked_up & blocked_down;
+		const int squashed_empty = (horizontal_squashed - edges).count() +
+			(verticle_squashed - edges).count();
+		const int squashed_empty_at_edge =
+			(horizontal_squashed & edges).count() +
+			(verticle_squashed & edges).count();
+		result += squashed_empty * weights.getSquashedEmpty() +
+			squashed_empty_at_edge * weights.getSquashedEmptyAtEdge();
 	}
 
 	if (result >= max) {
@@ -600,40 +607,9 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			return max;
 		}
 
-		const auto deadly_piece_placements = {
-			// 5 bars
-			open & open_left & open_2_left & open_right & open_2_right,
-			open & open_up & open_2_up & open_down & open_2_down,
-
-			// L
-			open & open_up & open_2_up & open_right & open_2_right,
-			open & open_up & open_2_up & open_left & open_2_left,
-			open & open_down & open_2_down & open_right & open_2_right,
-			open & open_down & open_2_down & open_left & open_2_left,
-
-			// T
-			open & open_left & open_right & open_down & open_2_down,
-			open & open_left & open_right & open_up & open_2_up,
-			open & open_up & open_down & open_left & open_2_left,
-			open & open_up & open_down & open_right & open_2_right,
-
-			// +
-			open & open_left & open_right & open_up & open_down,
-
-			// 3 star
-			open & open_down_left & open_up_right,
-			open & open_up_left & open_down_right,
-
-			// C
-			open & open_up & open_down & open_up_right & open_down_right,
-			open & open_up & open_down & open_up_left & open_down_left,
-			open & open_left & open_right & open_up_left & open_up_right,
-			open & open_left & open_right & open_down_left & open_down_right,
-		};
-
 		const int crowded_blocks = std::max(0, bb.count() - 20);
 		int scarce_deadly_placements = 0;
-		for (const auto deadly_piece_placement: deadly_piece_placements) {
+		const auto score_deadly_piece = [&](BitBoard deadly_piece_placement) {
 			const int placements = deadly_piece_placement.count();
 			if (placements == 0) {
 				result += weights.getDeadlyPiece();
@@ -641,7 +617,36 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			if (crowded_blocks != 0 && placements < 4) {
 				scarce_deadly_placements += 4 - placements;
 			}
-		}
+		};
+
+		// 5 bars
+		score_deadly_piece(open & open_left & open_2_left & open_right & open_2_right);
+		score_deadly_piece(open & open_up & open_2_up & open_down & open_2_down);
+
+		// L
+		score_deadly_piece(open & open_up & open_2_up & open_right & open_2_right);
+		score_deadly_piece(open & open_up & open_2_up & open_left & open_2_left);
+		score_deadly_piece(open & open_down & open_2_down & open_right & open_2_right);
+		score_deadly_piece(open & open_down & open_2_down & open_left & open_2_left);
+
+		// T
+		score_deadly_piece(open & open_left & open_right & open_down & open_2_down);
+		score_deadly_piece(open & open_left & open_right & open_up & open_2_up);
+		score_deadly_piece(open & open_up & open_down & open_left & open_2_left);
+		score_deadly_piece(open & open_up & open_down & open_right & open_2_right);
+
+		// +
+		score_deadly_piece(open & open_left & open_right & open_up & open_down);
+
+		// 3 star
+		score_deadly_piece(open & open_down_left & open_up_right);
+		score_deadly_piece(open & open_up_left & open_down_right);
+
+		// C
+		score_deadly_piece(open & open_up & open_down & open_up_right & open_down_right);
+		score_deadly_piece(open & open_up & open_down & open_up_left & open_down_left);
+		score_deadly_piece(open & open_left & open_right & open_up_left & open_up_right);
+		score_deadly_piece(open & open_left & open_right & open_down_left & open_down_right);
 
 		// The other pieces in a deal can consume a hard piece's last few legal
 		// placements. That scarcity only becomes dangerous on a crowded board;
