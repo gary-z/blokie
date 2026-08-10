@@ -167,10 +167,16 @@ public:
 	bool operator!=(NextGameStateIterator other) const;
 	void operator++();
 	BitBoard getPlacement() const { return next; }
+
+	// Where the current placement sits, as the bit the piece's top left corner
+	// was shifted to. The placement is the piece translated by it, so this is
+	// the placement in one byte.
+	uint8_t getAnchor() const { return anchor; }
 private:
 	explicit NextGameStateIterator(GameState state, Piece piece);
 	const GameState original;
 	BitBoard next, piece, anchors;
+	uint8_t anchor;
 	void setNextPlacement();
 	friend class NextGameStateIteratorGenerator;
 };
@@ -199,11 +205,19 @@ private:
 	static constexpr size_t MAX_STATES = 81;
 	std::array<StoredState, MAX_STATES> clears;
 	std::array<StoredState, MAX_STATES> no_clears;
+	// Where each stored board's placement was anchored, and the piece every one
+	// of them is a translation of. A search reads boards at every node it
+	// visits and placements only for the handful that win, so keeping the
+	// anchor rather than the placement leaves the arrays above the size they
+	// were and rebuilds the bitboard on the rare occasion one is asked for.
+	std::array<uint8_t, MAX_STATES> clear_anchors;
+	std::array<uint8_t, MAX_STATES> no_clear_anchors;
+	BitBoard piece;
 	uint8_t num_clears;
 	uint8_t num_no_clears;
 
-	ClearsFirstGameStates();
-	void add(GameState state, bool cleared);
+	explicit ClearsFirstGameStates(BitBoard piece);
+	void add(GameState state, uint8_t anchor, bool cleared);
 	void finish();
 	friend class GameState;
 
@@ -218,6 +232,9 @@ public:
 
 	public:
 		GameState operator*() const;
+
+		// The squares the piece covers on the board it was placed on.
+		BitBoard getPlacement() const;
 		bool operator!=(Iterator other) const;
 		void operator++();
 	};
@@ -228,10 +245,27 @@ public:
 	GameState operator[](size_t index) const;
 };
 
+// What a search settled on: the board it would leave, and the placements that
+// reach it, in the order they are played. Replaying them in that order is
+// therefore always legal, which orderings that depend on an earlier clear
+// making room are not.
+//
+// The evaluation is UINT64_MAX when nothing was found, which is the search
+// being unable to place every piece it was given. The board is then full and
+// every placement empty, so a caller that only plays moves reads the result the
+// same way whether or not it checks.
+class MoveResult {
+public:
+	GameState state = GameState(BitBoard::full());
+	BitBoard placements[3] = {
+		BitBoard::empty(), BitBoard::empty(), BitBoard::empty()};
+	uint64_t evaluation = UINT64_MAX;
+};
+
 class AI {
 public:
 	// Return the state with the lowest score after placing the 3 pieces.
-	static GameState makeMoveSimple(EvalWeights weights, GameState state, PieceSet piece_set);
+	static MoveResult makeMoveSimple(EvalWeights weights, GameState state, PieceSet piece_set);
 
 	// Similar to makeMoveSimple, but considers possible placements of the 4th piece.
 	static GameState makeMoveLookahead(EvalWeights weights, GameState state, PieceSet piece_set);

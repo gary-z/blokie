@@ -137,6 +137,77 @@ void testClearingStatesComeFirst() {
 	}
 }
 
+// The clears-first buffer keeps an anchor per board rather than the placement
+// itself, and rebuilds the bitboard when asked. What is checked here is that
+// what comes back out is the placement that produced the board stored beside
+// it: a search reports its move from these, so an anchor filed against the
+// wrong board would hand back a move that was never searched.
+void testClearsFirstPlacements() {
+	const auto empty_states = GameState(BitBoard::empty())
+		.nextStatesClearsFirst(Piece());
+	test::require(empty_states.size() == 1, "a blank slot has one placement");
+	test::require(empty_states.begin().getPlacement() == BitBoard::empty(),
+		"a blank slot places nothing");
+
+	test::Random random(20260810);
+	for (int trial = 0; trial < 200; ++trial) {
+		const auto density = random.below(6);
+		const auto board = test::clearCompletedLines(random.board(density));
+		const auto piece = Piece::byIndex((int)random.below(Piece::NUM_PIECES));
+		const auto states = GameState(board).nextStatesClearsFirst(piece);
+		const auto context = "trial " + std::to_string(trial);
+		for (auto it = states.begin(), end = states.end(); it != end; ++it) {
+			const auto placement = it.getPlacement();
+			test::require(!(placement & board),
+				context + ": clears-first placement overlaps the board");
+			test::require(placement.count() == piece.getBitBoard().count(),
+				context + ": clears-first placement is not the whole piece");
+			test::require((*it).getBitBoard() ==
+				test::clearCompletedLines(board | placement),
+				context + ": clears-first placement does not produce its board");
+		}
+	}
+}
+
+// A search reports the placements that reach the board it settled on, in the
+// order it played them. JS replays exactly that order to work out what the move
+// scores, so an order that did not fit, or that landed somewhere else, would be
+// a move it could not play.
+void testMoveResultPlacementsReplay() {
+	test::Random random(987654321);
+	int with_a_move = 0;
+	for (int trial = 0; trial < 150; ++trial) {
+		const auto density = random.below(7);
+		const auto board = test::clearCompletedLines(random.board(density));
+		Piece pieces[3];
+		for (auto &piece : pieces) {
+			piece = Piece::byIndex((int)random.below(Piece::NUM_PIECES));
+		}
+		const auto move = AI::makeMoveSimple(EvalWeights::getDefault(),
+			GameState(board), PieceSet(pieces[0], pieces[1], pieces[2]));
+		const auto context = "trial " + std::to_string(trial);
+		if (move.evaluation == std::numeric_limits<uint64_t>::max()) {
+			test::require(move.state.getBitBoard() == BitBoard::full(),
+				context + ": a search that found nothing is not a game over");
+			continue;
+		}
+		++with_a_move;
+
+		auto current = board;
+		for (const auto &placement : move.placements) {
+			test::require(!(placement & current),
+				context + ": a placement does not fit where it is played");
+			current = test::clearCompletedLines(current | placement);
+		}
+		test::require(current == move.state.getBitBoard(),
+			context + ": replaying the placements misses the board searched");
+		test::require(move.evaluation ==
+			GameState(current).simpleEval(EvalWeights::getDefault()),
+			context + ": the evaluation is not the one for that board");
+	}
+	test::require(with_a_move > 0, "fixture produced searches with a move");
+}
+
 bool referenceCanClearWithTwo(BitBoard board, const PieceSet &pieces) {
 	for (int first = 0; first < 3; ++first) {
 		const auto p0 = pieces.pieces[first];
@@ -243,7 +314,8 @@ void requireSimpleSearchOptimal(BitBoard board, PieceSet pieces,
 	collectReachableBoards(board, held, reachable);
 
 	const auto weights = EvalWeights::getDefault();
-	const auto actual = AI::makeMoveSimple(weights, GameState(board), pieces).getBitBoard();
+	const auto actual = AI::makeMoveSimple(weights, GameState(board), pieces)
+		.state.getBitBoard();
 	if (reachable.empty()) {
 		test::require(actual == BitBoard::full(), context + ": expected game over");
 		return;
@@ -398,6 +470,8 @@ int main() {
 		{"generic and sentinel pieces", testGenericAndSentinelPieces},
 		{"parallel line-clear cases", testParallelLineClearCases},
 		{"clearing states ordered first", testClearingStatesComeFirst},
+		{"clears-first placements", testClearsFirstPlacements},
+		{"search placements replay to its board", testMoveResultPlacementsReplay},
 		{"two-piece clear detection", testCanClearWithTwoPieces},
 		{"held-piece counting", testPieceCounting},
 		{"ordering-sensitive searches", testKnownOrderingSensitiveSearches},

@@ -52,7 +52,7 @@ int main(int argc, char** argv) {
             pieces[j] = Piece::byIndex(idx);
         }
         PieceSet ps(pieces[0], pieces[1], pieces[2]);
-        game = AI::makeMoveSimple(weights, game, ps);
+        game = AI::makeMoveSimple(weights, game, ps).state;
         if (game.isOver()) {
             game = newGame();
         }

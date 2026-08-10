@@ -87,7 +87,7 @@ GameResult playOneGame(uint64_t seed, const EvalWeights& weights,
         Piece p0 = Piece::byIndex(piece_dist(rng));
         Piece p1 = Piece::byIndex(piece_dist(rng));
         Piece p2 = Piece::byIndex(piece_dist(rng));
-        game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2));
+        game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2)).state;
         ++moves;
     }
     return {seed, moves, true};

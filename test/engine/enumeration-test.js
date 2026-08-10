@@ -40,11 +40,9 @@ function gameWithBoard(board, previous_move_was_clear = false) {
 
 const key = (bb) => `${bb.a},${bb.b},${bb.c}`;
 
-// The solver's board evaluation, which is otherwise only visible inside the
-// WASM module: asked to place nothing at all, it reports what it thinks of the
-// board it was handed.
+// The solver's board evaluation.
 function evaluate(board) {
-    return blokie.getAIMove(gameWithBoard(board), [EMPTY, EMPTY, EMPTY]).evaluation;
+    return blokie.evaluate(board);
 }
 
 // Every legal placement of one piece, as the move it would produce.
@@ -204,6 +202,26 @@ checkPosition("the best scoring order of a deck holding two of a kind",
         { a: 525315, b: 0, c: 0 },
     ],
     /*previous_move_was_clear=*/true);
+
+// The search walks the orderings with the piece that has the most placements
+// first, and takes the first of them as having already seen every board no
+// clear can move -- so the first ordering is the one that must not skip
+// anything. It used to get that for free by walking the deck in sorted order.
+// Sorting by how many placements a piece has does not keep the first two
+// pieces sorted, and once the first ordering started skipping the half of its
+// pairs that were back to front, it took the best board here down with it.
+checkPosition("the first ordering is the flexible one, not the sorted one",
+    // ...###...  ....##...  ...##....  #........  .........  ##.......
+    // .........  .........  ##.......
+    { a: 6316088, b: 786433, c: 786432 },
+    [
+        // ..#  ###  ..#
+        { a: 1052164, b: 0, c: 0 },
+        // ..#  ###  ..#
+        { a: 1052164, b: 0, c: 0 },
+        // ##  ##
+        { a: 1539, b: 0, c: 0 },
+    ]);
 
 // === A sweep of random positions ===
 
