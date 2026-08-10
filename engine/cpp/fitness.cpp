@@ -16,6 +16,7 @@ namespace {
 
 struct Options {
     int num_games = 8;
+    unsigned num_threads = 0;  // 0 => one worker per available logical CPU
     uint64_t seed_base = 0;    // 0 => non-deterministic via random_device
     uint64_t max_moves = 0;    // 0 => play every game out
     uint64_t burn_in = 0;      // leading moves left out of the hazard fit
@@ -105,6 +106,8 @@ void usage(const char* argv0) {
     std::fprintf(stderr,
         "usage: %s [num_games] [options]\n"
         "\n"
+        "  --threads N       use N worker threads (default: all available,\n"
+        "                    capped at the number of games)\n"
         "  --seed-base S     start per-game seeds at S instead of drawing them\n"
         "                    at random, so a run repeats exactly\n"
         "  --max-moves X     stop a game after X moves instead of playing it\n"
@@ -124,7 +127,13 @@ void usage(const char* argv0) {
 int main(int argc, char** argv) {
     Options opt;
     for (int i = 1; i < argc; ++i) {
-        if (std::strcmp(argv[i], "--seed-base") == 0 && i + 1 < argc) {
+        if (std::strcmp(argv[i], "--threads") == 0 && i + 1 < argc) {
+            opt.num_threads = (unsigned)std::strtoul(argv[++i], nullptr, 10);
+            if (opt.num_threads == 0) {
+                std::fprintf(stderr, "--threads must be positive\n");
+                return 1;
+            }
+        } else if (std::strcmp(argv[i], "--seed-base") == 0 && i + 1 < argc) {
             opt.seed_base = std::strtoull(argv[++i], nullptr, 10);
         } else if (std::strcmp(argv[i], "--max-moves") == 0 && i + 1 < argc) {
             opt.max_moves = std::strtoull(argv[++i], nullptr, 10);
@@ -157,8 +166,10 @@ int main(int argc, char** argv) {
 
     unsigned hw_threads = std::thread::hardware_concurrency();
     if (hw_threads == 0) hw_threads = 1;
+    const unsigned requested_threads =
+        opt.num_threads == 0 ? hw_threads : opt.num_threads;
     unsigned num_threads =
-        std::min<unsigned>(hw_threads, (unsigned)opt.num_games);
+        std::min<unsigned>(requested_threads, (unsigned)opt.num_games);
 
     const auto weights = EvalWeights::getDefault();
 
@@ -237,7 +248,9 @@ int main(int argc, char** argv) {
 
     uint64_t deaths = 0;
     uint64_t exposure = 0;
+    uint64_t total_moves = 0;
     for (const auto& r : results) {
+        total_moves += r.moves;
         if (r.moves > opt.burn_in) exposure += r.moves - opt.burn_in;
         if (r.ended && r.moves > opt.burn_in) ++deaths;
     }
@@ -350,6 +363,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::fprintf(stderr, "\nwall=%.1fs\n", total_secs);
+    std::fprintf(stderr, "\nwall=%.1fs  throughput=%.0f move-sets/s\n",
+                 total_secs, total_moves / total_secs);
     return 0;
 }
