@@ -857,23 +857,96 @@ int EvalWeights::getCrowdedPieceScarcity() const {
 	return weights[12];
 }
 
+namespace {
+	struct PiecePermutations {
+		std::array<std::array<Piece, 3>, 6> values;
+		int count = 0;
+	};
+
+	// This search enumerates every placement rather than stopping at the first
+	// solution. Putting the flexible piece first lets the more constrained next
+	// piece reject occupied partial boards before the third-level expansion.
+	int countPlacements(GameState game, Piece piece) {
+		const auto states = game.nextStates(piece);
+		int count = 0;
+		for (auto current = states.begin(), finish = states.end();
+			current != finish; ++current) {
+			++count;
+		}
+		return count;
+	}
+
+	PiecePermutations piecePermutationsMostFlexibleFirst(
+		GameState game, PieceSet piece_set, bool need_all) {
+		std::sort(piece_set.pieces, piece_set.pieces + 3);
+		const int num_pieces = AI::countPieces(piece_set);
+		PiecePermutations result;
+		do {
+			std::copy_n(piece_set.pieces, 3, result.values[result.count].begin());
+			++result.count;
+		} while (need_all && std::next_permutation(
+			piece_set.pieces, piece_set.pieces + num_pieces));
+
+		// Count on the original board once. Blank slots stay at the end because
+		// num_pieces excludes them from both the counts and the comparisons.
+		std::array<int, 3> placement_counts = {};
+		for (int index = 0; index < num_pieces; ++index) {
+			placement_counts[index] = countPlacements(game, result.values[0][index]);
+		}
+		const auto placementsFor = [&](Piece piece) {
+			for (int index = 0; index < num_pieces; ++index) {
+				if (piece.getBitBoard() == result.values[0][index].getBitBoard()) {
+					return placement_counts[index];
+				}
+			}
+			return 0;
+		};
+		if (result.count == 1) {
+			std::sort(result.values[0].begin(),
+				result.values[0].begin() + num_pieces,
+				[&](Piece left, Piece right) {
+					const int left_count = placementsFor(left);
+					const int right_count = placementsFor(right);
+					return left_count != right_count
+						? left_count > right_count
+						: left < right;
+				});
+			return result;
+		}
+		std::sort(result.values.begin(), result.values.begin() + result.count,
+			[&](const std::array<Piece, 3> &left,
+				const std::array<Piece, 3> &right) {
+				for (int index = 0; index < num_pieces; ++index) {
+					const int left_count = placementsFor(left[index]);
+					const int right_count = placementsFor(right[index]);
+					if (left_count != right_count) {
+						return left_count > right_count;
+					}
+					if (left[index] < right[index]) return true;
+					if (right[index] < left[index]) return false;
+				}
+				return false;
+			});
+		return result;
+	}
+}
+
 
 // ====== AI
 GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet piece_set) {
-	std::sort(piece_set.pieces, piece_set.pieces + 3);
-	const int num_pieces = AI::countPieces(piece_set);
-
 	uint64_t bestScore = UINT64_MAX;
 	auto bestNext = GameState(BitBoard::full());
 
 	const auto can_clear_with_2_pieces = AI::canClearWith2PiecesOrFewer(game, piece_set);
+	const auto permutations = piecePermutationsMostFlexibleFirst(
+		game, piece_set, can_clear_with_2_pieces);
 
 	// Foreach permutation of the pieces.
-	bool is_first_permutation = true;
-	do {
-		const auto p0 = piece_set.pieces[0];
-		const auto p1 = piece_set.pieces[1];
-		const auto p2 = piece_set.pieces[2];
+	for (int permutation = 0; permutation < permutations.count; ++permutation) {
+		const bool is_first_permutation = permutation == 0;
+		const auto p0 = permutations.values[permutation][0];
+		const auto p1 = permutations.values[permutation][1];
+		const auto p2 = permutations.values[permutation][2];
 		for (const auto after_p0 : game.nextStatesClearsFirst(p0)) {
 			for (const auto after_p1 : after_p0.nextStatesClearsFirst(p1)) {
 				const auto after_p1_max_count = game.getBitBoard().count() +
@@ -882,13 +955,14 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 				// Nothing cleared, so these two placements land on the same
 				// board played the other way round, in an ordering that
 				// next_permutation also walks. See makeMoveSimple.
-				if (p1 < p0 && after_p1.getBitBoard().count() == after_p1_max_count) {
+				if (can_clear_with_2_pieces && p1 < p0 &&
+					after_p1.getBitBoard().count() == after_p1_max_count) {
 					continue;
 				}
 
 				for (const auto after_p2 : after_p1.nextStates(p2)) {
 					// No clears anywhere, so this board is the union of three
-					// disjoint placements and the first (sorted) ordering
+					// disjoint placements and the first ordering
 					// already reached it.
 					if (!is_first_permutation &&
 						after_p2.getBitBoard().count() == game.getBitBoard().count()
@@ -934,30 +1008,24 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 				}
 			}
 		}
-		is_first_permutation = false;
-	} while (can_clear_with_2_pieces &&
-		std::next_permutation(piece_set.pieces, piece_set.pieces + num_pieces));
+	}
 
 	return bestNext;
 }
 
 GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet piece_set) {
-	std::sort(piece_set.pieces, piece_set.pieces + 3);
-	// Blank slots sort to the end and are placed by doing nothing, so where
-	// they fall in the order cannot change a board. Permuting only the pieces
-	// that are really there keeps a two piece deck to two orderings.
-	const int num_pieces = AI::countPieces(piece_set);
-
 	const auto can_clear_with_2_pieces = AI::canClearWith2PiecesOrFewer(game, piece_set);
+	const auto permutations = piecePermutationsMostFlexibleFirst(
+		game, piece_set, can_clear_with_2_pieces);
 
 	uint64_t bestScore = UINT64_MAX;
 	auto bestNext = GameState(BitBoard::full());
 
-	bool is_first_permutation = true;
-	do {
-		const auto p0 = piece_set.pieces[0];
-		const auto p1 = piece_set.pieces[1];
-		const auto p2 = piece_set.pieces[2];
+	for (int permutation = 0; permutation < permutations.count; ++permutation) {
+		const bool is_first_permutation = permutation == 0;
+		const auto p0 = permutations.values[permutation][0];
+		const auto p1 = permutations.values[permutation][1];
+		const auto p2 = permutations.values[permutation][2];
 		for (const auto after_p0 : game.nextStatesClearsFirst(p0)) {
 			for (const auto after_p1 : after_p0.nextStatesClearsFirst(p1)) {
 				const auto after_p1_max_count = game.getBitBoard().count() +
@@ -968,7 +1036,8 @@ GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet
 				// is an ordering next_permutation also walks, in which p0 and
 				// p1 are the right way up and this test does not fire. Skip the
 				// half of those pairs that are back to front.
-				if (p1 < p0 && after_p1.getBitBoard().count() == after_p1_max_count) {
+				if (can_clear_with_2_pieces && p1 < p0 &&
+					after_p1.getBitBoard().count() == after_p1_max_count) {
 					continue;
 				}
 				for (const auto after_p2 : after_p1.nextStates(p2)) {
@@ -989,10 +1058,7 @@ GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet
 				}
 			}
 		}
-		is_first_permutation = false;
-	} while (can_clear_with_2_pieces &&
-		std::next_permutation(piece_set.pieces, piece_set.pieces + num_pieces)
-	);
+	}
 
 	return bestNext;
 }
