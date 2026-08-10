@@ -341,7 +341,7 @@ void testKnownOrderingSensitiveSearches() {
 		PieceSet pieces;
 		const char *name;
 	};
-	const std::array<Fixture, 3> fixtures = {{
+	const std::array<Fixture, 4> fixtures = {{
 		{test::boardFromJs(6815804, 161655, 99374901),
 			PieceSet(Piece(test::boardFromJs(787459, 0, 0)),
 				Piece(test::boardFromJs(525319, 0, 0)),
@@ -357,6 +357,17 @@ void testKnownOrderingSensitiveSearches() {
 				Piece(test::boardFromJs(262663, 0, 0)),
 				Piece(test::boardFromJs(525315, 0, 0))),
 			"duplicate shapes in ordering-sensitive deck"},
+		// The search takes its first ordering as having reached every board no
+		// clear can move, so that ordering is the one that must not skip
+		// anything. Walking the deck in sorted order used to guarantee it. The
+		// same position is in test/engine/enumeration-test.js, but that one only
+		// runs against a rebuilt .wasm; this is the C++ the weights are trained
+		// against, and it is where the ordering rule lives.
+		{test::boardFromJs(6316088, 786433, 786432),
+			PieceSet(Piece(test::boardFromJs(1052164, 0, 0)),
+				Piece(test::boardFromJs(1052164, 0, 0)),
+				Piece(test::boardFromJs(1539, 0, 0))),
+			"first ordering must not skip its back-to-front pairs"},
 	}};
 	for (const auto &fixture : fixtures) {
 		requireSimpleSearchOptimal(fixture.board, fixture.pieces, fixture.name);
@@ -404,6 +415,102 @@ void testRandomSearchAgainstBruteForce() {
 	}
 	test::require(positions_with_complete_play >= 10,
 		"random sweep should include enough fully playable decks");
+}
+
+// What the search would settle on with every one of its pruning rules switched
+// off: all six orderings walked, no back-to-front pair skipped, no board
+// dropped for being one an earlier ordering is argued to have reached.
+//
+// Unlike the reference above this shares nextStates and simpleEval with the
+// search, which the placement sweeps in this file and eval-test check against
+// independent oracles. What it isolates is the pruning, and the pruning is the
+// part that is an argument rather than a calculation: one rule decides which
+// ordering is searched in full and another decides which pairs are redundant,
+// and if the two stop agreeing about the same ordering, the boards each thought
+// the other was covering are reached by neither.
+struct UnprunedSearch {
+	bool any_line_of_play = false;
+	uint64_t best = std::numeric_limits<uint64_t>::max();
+	// The best board no clear can move: three disjoint placements, so every
+	// ordering reaches it and only one of them is meant to score it. These are
+	// the boards the rules above argue about, and the only ones they can lose.
+	uint64_t best_no_clear_can_move = std::numeric_limits<uint64_t>::max();
+};
+
+UnprunedSearch searchWithoutPruning(BitBoard board, const PieceSet &pieces) {
+	const auto weights = EvalWeights::getDefault();
+	const int untouched_count = board.count() +
+		pieces.pieces[0].getBitBoard().count() +
+		pieces.pieces[1].getBitBoard().count() +
+		pieces.pieces[2].getBitBoard().count();
+	UnprunedSearch result;
+	int order[3] = {0, 1, 2};
+	do {
+		for (const auto after_p0 :
+			GameState(board).nextStates(pieces.pieces[order[0]])) {
+			for (const auto after_p1 : after_p0.nextStates(pieces.pieces[order[1]])) {
+				for (const auto after_p2 :
+					after_p1.nextStates(pieces.pieces[order[2]])) {
+					result.any_line_of_play = true;
+					const auto score = after_p2.simpleEval(weights);
+					result.best = std::min(result.best, score);
+					if (after_p2.getBitBoard().count() == untouched_count) {
+						result.best_no_clear_can_move =
+							std::min(result.best_no_clear_can_move, score);
+					}
+				}
+			}
+		}
+	} while (std::next_permutation(order, order + 3));
+	return result;
+}
+
+// Open boards, which is what the engine spends a game on and what the sweep
+// above cannot reach: at 5 to 7 squares in 8 a clear is nearly always there for
+// the taking, so the best board almost always has one and the boards no clear
+// can move never decide anything. On a quarter-full board a deck often plays
+// out without completing a line at all, and then the whole move rests on the
+// pruning agreeing with itself.
+void testSearchPruningOnOpenBoards() {
+	const auto weights = EvalWeights::getDefault();
+	test::Random random(0xF1B5C0DEULL);
+	int playable = 0;
+	int decided_by_a_board_no_clear_can_move = 0;
+	for (int sample = 0; sample < 240; ++sample) {
+		const auto board = test::clearCompletedLines(random.board(2));
+		// The smallest pieces fit almost everywhere on a board this open, which
+		// costs the unpruned reference a great deal and tests nothing extra.
+		const PieceSet pieces(
+			Piece::byIndex(13 + static_cast<int>(random.below(Piece::NUM_PIECES - 13))),
+			Piece::byIndex(13 + static_cast<int>(random.below(Piece::NUM_PIECES - 13))),
+			Piece::byIndex(13 + static_cast<int>(random.below(Piece::NUM_PIECES - 13))));
+		const auto context = "open board sample " + std::to_string(sample);
+
+		const auto reference = searchWithoutPruning(board, pieces);
+		const auto move = AI::makeMoveSimple(weights, GameState(board), pieces);
+		if (!reference.any_line_of_play) {
+			test::require(move.evaluation == std::numeric_limits<uint64_t>::max(),
+				context + ": search found a move where nothing can be played");
+			continue;
+		}
+		++playable;
+		if (reference.best_no_clear_can_move == reference.best &&
+			AI::canClearWith2PiecesOrFewer(GameState(board), pieces)) {
+			++decided_by_a_board_no_clear_can_move;
+		}
+		test::require(move.evaluation == reference.best,
+			context + ": search settled for " + std::to_string(move.evaluation) +
+			", searching the same deck without pruning finds " +
+			std::to_string(reference.best));
+	}
+
+	test::require(playable >= 200,
+		"open board sweep should be mostly playable decks");
+	// Without positions of this kind the sweep passes whatever the pruning does,
+	// because every board it could drop was worse than one it kept anyway.
+	test::require(decided_by_a_board_no_clear_can_move >= 5,
+		"open board sweep should include decks that could have cleared early but "
+		"whose best board no clear can move");
 }
 
 void testLookaheadGameOver() {
@@ -477,6 +584,7 @@ int main() {
 		{"ordering-sensitive searches", testKnownOrderingSensitiveSearches},
 		{"blank and game-over searches", testBlankAndGameOverSearches},
 		{"random search against brute force", testRandomSearchAgainstBruteForce},
+		{"search pruning on open boards", testSearchPruningOnOpenBoards},
 		{"lookahead game-over handling", testLookaheadGameOver},
 		{"lookahead against brute force", testLookaheadAgainstReference},
 	});
