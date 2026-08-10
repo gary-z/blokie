@@ -110,6 +110,11 @@ void testParallelLineClearCases() {
 }
 
 void testClearingStatesComeFirst() {
+	const auto maximum_placements = GameState(BitBoard::empty())
+		.nextStatesClearsFirst(Piece::byIndex(0));
+	test::require(maximum_placements.size() == 81,
+		"clears-first fixed buffer capacity");
+
 	const auto missing = test::square(3, 4);
 	const auto board = BitBoard::row(3) - missing;
 	const auto piece = Piece::byIndex(0);

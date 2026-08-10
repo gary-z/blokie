@@ -454,18 +454,14 @@ NextGameStateIteratorGenerator GameState::nextStates(Piece piece) const {
 	return NextGameStateIteratorGenerator(*this, piece);
 }
 
-std::vector<GameState> GameState::nextStatesClearsFirst(Piece piece) const {
+ClearsFirstGameStates GameState::nextStatesClearsFirst(Piece piece) const {
 	const auto expected_count = bb.count() + piece.getBitBoard().count();
-	std::vector<GameState> clears, no_clears;
+	ClearsFirstGameStates result;
 	for (const auto state : nextStates(piece)) {
-		if (state.getBitBoard().count() < expected_count) {
-			clears.push_back(state);
-		} else {
-			no_clears.push_back(state);
-		}
+		result.add(state, state.getBitBoard().count() < expected_count);
 	}
-	clears.insert(clears.end(), no_clears.begin(), no_clears.end());
-	return clears;
+	result.finish();
+	return result;
 }
 
 uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t max) {
@@ -745,6 +741,57 @@ NextGameStateIterator NextGameStateIteratorGenerator::begin() const {
 
 NextGameStateIterator NextGameStateIteratorGenerator::end() const {
 	return NextGameStateIterator(state, Piece(BitBoard::full()));
+}
+
+ClearsFirstGameStates::ClearsFirstGameStates() :
+	num_clears(0), num_no_clears(0) {}
+
+void ClearsFirstGameStates::add(GameState state, bool cleared) {
+	assert(size() < MAX_STATES);
+	const auto board = state.getBitBoard();
+	auto &count = cleared ? num_clears : num_no_clears;
+	auto &destination = cleared ? clears : no_clears;
+	destination[count++] = {board.getA(), board.getB()};
+}
+
+void ClearsFirstGameStates::finish() {
+	for (uint8_t index = 0; index < num_no_clears; ++index) {
+		clears[num_clears + index] = no_clears[index];
+	}
+}
+
+ClearsFirstGameStates::Iterator::Iterator(
+	const ClearsFirstGameStates *states, size_t index) :
+	states(states), index(index) {}
+
+GameState ClearsFirstGameStates::Iterator::operator*() const {
+	const auto &stored = states->clears[index];
+	return GameState(BitBoard(stored.a, stored.b));
+}
+
+bool ClearsFirstGameStates::Iterator::operator!=(Iterator other) const {
+	return index != other.index;
+}
+
+void ClearsFirstGameStates::Iterator::operator++() {
+	++index;
+}
+
+ClearsFirstGameStates::Iterator ClearsFirstGameStates::begin() const {
+	return Iterator(this, 0);
+}
+
+ClearsFirstGameStates::Iterator ClearsFirstGameStates::end() const {
+	return Iterator(this, size());
+}
+
+size_t ClearsFirstGameStates::size() const {
+	return static_cast<size_t>(num_clears) + num_no_clears;
+}
+
+GameState ClearsFirstGameStates::operator[](size_t index) const {
+	assert(index < size());
+	return *Iterator(this, index);
 }
 
 // ===== Eval Weights

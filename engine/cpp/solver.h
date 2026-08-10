@@ -1,10 +1,12 @@
 #pragma once
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
-#include <vector>
 
 class GameState;
 class NextGameStateIterator;
+class ClearsFirstGameStates;
 
 
 class BitBoard {
@@ -152,7 +154,7 @@ public:
 	explicit GameState(BitBoard bb);
 	BitBoard getBitBoard() const;
 	NextGameStateIteratorGenerator nextStates(Piece piece) const;
-	std::vector<GameState> nextStatesClearsFirst(Piece piece) const;
+	ClearsFirstGameStates nextStatesClearsFirst(Piece piece) const;
 	uint64_t simpleEval(EvalWeights weights, uint64_t max = UINT64_MAX) const;
 	bool isOver() const;
 };
@@ -182,6 +184,48 @@ private:
 public:
 	NextGameStateIterator begin() const;
 	NextGameStateIterator end() const;
+};
+
+// Stores the placements that clear followed by the placements that do not,
+// preserving placement order within each group. One piece has at most 81
+// placements, so a fixed stack buffer avoids allocation in every search node.
+class ClearsFirstGameStates {
+private:
+	struct StoredState {
+		uint64_t a;
+		uint64_t b;
+	};
+
+	static constexpr size_t MAX_STATES = 81;
+	std::array<StoredState, MAX_STATES> clears;
+	std::array<StoredState, MAX_STATES> no_clears;
+	uint8_t num_clears;
+	uint8_t num_no_clears;
+
+	ClearsFirstGameStates();
+	void add(GameState state, bool cleared);
+	void finish();
+	friend class GameState;
+
+public:
+	class Iterator {
+	private:
+		const ClearsFirstGameStates *states;
+		size_t index;
+
+		Iterator(const ClearsFirstGameStates *states, size_t index);
+		friend class ClearsFirstGameStates;
+
+	public:
+		GameState operator*() const;
+		bool operator!=(Iterator other) const;
+		void operator++();
+	};
+
+	Iterator begin() const;
+	Iterator end() const;
+	size_t size() const;
+	GameState operator[](size_t index) const;
 };
 
 class AI {
