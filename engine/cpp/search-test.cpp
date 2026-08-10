@@ -235,6 +235,52 @@ bool referenceCanClearWithTwo(BitBoard board, const PieceSet &pieces) {
 	return false;
 }
 
+void testClearingPlacementsOnly() {
+	// nextStatesThatClear exists so the search can skip building placements it
+	// would discard, which is only sound if it drops exactly the ones that
+	// clear nothing. Check it against the placements themselves, over boards
+	// crowded enough for lines to be within reach of a piece.
+	test::Random random(0x0C1EA125ULL);
+	size_t total_clearing = 0;
+	for (int sample = 0; sample < 120; ++sample) {
+		const auto board = test::clearCompletedLines(random.board(4 + random.below(4)));
+		for (int piece_index = 0; piece_index < Piece::NUM_PIECES; ++piece_index) {
+			const auto piece = Piece::byIndex(piece_index);
+			const auto context = "random board " + std::to_string(sample) +
+				", piece " + std::to_string(piece_index);
+
+			const auto expected_count = board.count() + piece.getBitBoard().count();
+			std::vector<BitBoard> expected;
+			for (const auto &placement : test::actualPlacements(GameState(board), piece)) {
+				if (placement.board.count() < expected_count) {
+					expected.push_back(placement.board);
+				}
+			}
+
+			std::vector<BitBoard> actual;
+			auto states = GameState(board).nextStatesThatClear(piece);
+			for (auto current = states.begin(), finish = states.end();
+				current != finish; ++current) {
+				actual.push_back((*current).getBitBoard());
+			}
+
+			test::require(actual.size() == expected.size(), context +
+				": expected " + std::to_string(expected.size()) +
+				" clearing placements, got " + std::to_string(actual.size()) +
+				"\n" + test::describe(board));
+			for (size_t index = 0; index < expected.size(); ++index) {
+				test::require(actual[index] == expected[index], context +
+					": clearing placement differs at " + std::to_string(index));
+			}
+			total_clearing += expected.size();
+		}
+	}
+	// Returning nothing at all would agree with every board that had no
+	// clearing placement to find, so say that the corpus had plenty.
+	test::require(total_clearing > 1000, "corpus holds " +
+		std::to_string(total_clearing) + " clearing placements, too few to test on");
+}
+
 void testCanClearWithTwoPieces() {
 	const auto one = Piece::byIndex(0);
 	const auto two_horizontal = Piece::byIndex(1);
@@ -470,6 +516,7 @@ int main() {
 		{"generic and sentinel pieces", testGenericAndSentinelPieces},
 		{"parallel line-clear cases", testParallelLineClearCases},
 		{"clearing states ordered first", testClearingStatesComeFirst},
+		{"clearing placements only", testClearingPlacementsOnly},
 		{"clears-first placements", testClearsFirstPlacements},
 		{"search placements replay to its board", testMoveResultPlacementsReplay},
 		{"two-piece clear detection", testCanClearWithTwoPieces},

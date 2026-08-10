@@ -154,6 +154,9 @@ public:
 	explicit GameState(BitBoard bb);
 	BitBoard getBitBoard() const;
 	NextGameStateIteratorGenerator nextStates(Piece piece) const;
+	// Only the placements that complete a row, column or cube. A caller that
+	// would throw the rest away is spared building them.
+	NextGameStateIteratorGenerator nextStatesThatClear(Piece piece) const;
 	ClearsFirstGameStates nextStatesClearsFirst(Piece piece) const;
 	uint64_t simpleEval(EvalWeights weights, uint64_t max = UINT64_MAX) const;
 	bool isOver() const;
@@ -173,7 +176,8 @@ public:
 	// the placement in one byte.
 	uint8_t getAnchor() const { return anchor; }
 private:
-	explicit NextGameStateIterator(GameState state, Piece piece);
+	explicit NextGameStateIterator(GameState state, Piece piece,
+		bool clearing_only = false);
 	const GameState original;
 	BitBoard next, piece, anchors;
 	uint8_t anchor;
@@ -185,7 +189,9 @@ class NextGameStateIteratorGenerator {
 private:
 	const GameState state;
 	const Piece piece;
-	explicit NextGameStateIteratorGenerator(GameState state, Piece piece);
+	const bool clearing_only;
+	explicit NextGameStateIteratorGenerator(GameState state, Piece piece,
+		bool clearing_only = false);
 	friend class GameState;
 public:
 	NextGameStateIterator begin() const;

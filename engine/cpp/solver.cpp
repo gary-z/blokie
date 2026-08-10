@@ -344,6 +344,12 @@ namespace {
 		uint64_t bounds_b = 0;
 		std::array<uint8_t, 5> offsets = {};
 		uint8_t count = 0;
+		// The piece reflected through its last cell. Shifting that cell onto a
+		// square names every anchor whose placement covers the square, in one
+		// operation rather than one per cell of the piece.
+		uint64_t reflected_a = 0;
+		uint64_t reflected_b = 0;
+		uint8_t max_offset = 0;
 	};
 
 	// The standard pieces never change. Cache the exact shifts whose open-cell
@@ -365,6 +371,41 @@ namespace {
 			const auto bounds = placementAnchorBounds(max_row, max_col);
 			result[index].bounds_a = bounds.getA();
 			result[index].bounds_b = bounds.getB();
+
+			// Offsets come out of the loop above in increasing order, so the
+			// last one is the piece's furthest cell.
+			const uint8_t max_offset =
+				result[index].offsets[result[index].count - 1];
+			result[index].max_offset = max_offset;
+			auto reflected = BitBoard::empty();
+			for (uint8_t cell = 0; cell < result[index].count; ++cell) {
+				reflected = reflected | translatePiece(BitBoard(1, 0),
+					max_offset - result[index].offsets[cell]);
+			}
+			result[index].reflected_a = reflected.getA();
+			result[index].reflected_b = reflected.getB();
+		}
+		return result;
+	}();
+
+	// Every row, column and cube, built once.
+	struct LineMask { uint64_t a, b; };
+	const auto LINE_MASKS = [] {
+		std::array<LineMask, 27> result = {};
+		size_t at = 0;
+		const auto store = [&](BitBoard line) {
+			result[at++] = {line.getA(), line.getB()};
+		};
+		for (unsigned r = 0; r < 9; ++r) {
+			store(BitBoard::row(r));
+		}
+		for (unsigned c = 0; c < 9; ++c) {
+			store(BitBoard::column(c));
+		}
+		for (unsigned r = 0; r < 3; ++r) {
+			for (unsigned c = 0; c < 3; ++c) {
+				store(BitBoard::cube(r, c));
+			}
 		}
 		return result;
 	}();
@@ -387,6 +428,51 @@ namespace {
 			anchors = anchors & shiftOpenToAnchor(open, data.offsets[index]);
 		}
 		return anchors;
+	}
+
+	// The anchors whose placement covers the square at `offset`. The dual of
+	// the loop above: there an anchor survives only if every cell of the piece
+	// lands on an open square, and each cell costs a shift. Here one square has
+	// to be covered by some cell, and the reflected piece names all the anchors
+	// that manage it at once.
+	BitBoard coveringAnchors(unsigned offset, const PiecePlacementData &data) {
+		const auto reflected = BitBoard(data.reflected_a, data.reflected_b);
+		if (offset >= data.max_offset) {
+			return translatePiece(reflected, offset - data.max_offset);
+		}
+		return shiftOpenToAnchor(reflected, data.max_offset - offset);
+	}
+
+	// The anchors at which the piece completes a row, column or cube. A line is
+	// completed only by a placement covering every square still open in it, so
+	// each line contributes the anchors common to all of its open squares, and
+	// a line with more open squares than the piece has cells contributes none.
+	BitBoard clearingAnchors(BitBoard board, const PiecePlacementData &data) {
+		const auto open = ~board;
+		auto result = BitBoard::empty();
+		for (const auto line : LINE_MASKS) {
+			const auto need = open & BitBoard(line.a, line.b);
+			if (need.count() > data.count) {
+				continue;
+			}
+			auto anchors = BitBoard::full();
+			auto need_a = need.getA();
+			auto need_b = need.getB();
+			// Each square narrows the candidates. Most lines run out of them
+			// long before their squares run out.
+			while (need_a != 0 && (bool)anchors) {
+				anchors = anchors &
+					coveringAnchors((unsigned)__builtin_ctzll(need_a), data);
+				need_a &= need_a - 1;
+			}
+			while (need_b != 0 && (bool)anchors) {
+				anchors = anchors &
+					coveringAnchors(54 + (unsigned)__builtin_ctzll(need_b), data);
+				need_b &= need_b - 1;
+			}
+			result = result | anchors;
+		}
+		return result;
 	}
 }
 
@@ -452,6 +538,10 @@ BitBoard GameState::getBitBoard() const {
 }
 NextGameStateIteratorGenerator GameState::nextStates(Piece piece) const {
 	return NextGameStateIteratorGenerator(*this, piece);
+}
+
+NextGameStateIteratorGenerator GameState::nextStatesThatClear(Piece piece) const {
+	return NextGameStateIteratorGenerator(*this, piece, true);
 }
 
 ClearsFirstGameStates GameState::nextStatesClearsFirst(Piece piece) const {
@@ -671,14 +761,21 @@ uint64_t GameState::simpleEval(EvalWeights weights, uint64_t max) const {
 }
 
 
-NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
+NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg,
+	bool clearing_only) :
 	original(state), next(piece_arg.getBitBoard()), piece(piece_arg.getBitBoard()),
 	anchors(BitBoard::empty()), anchor(0) {
 	if (!(piece == BitBoard::empty()) && !(piece == BitBoard::full())) {
 		if (piece_arg.placement_data_index < Piece::NUM_PIECES) {
-			anchors = validPlacementAnchors(original.getBitBoard(),
-				PIECE_PLACEMENT_DATA[piece_arg.placement_data_index]);
+			const auto &data = PIECE_PLACEMENT_DATA[piece_arg.placement_data_index];
+			anchors = validPlacementAnchors(original.getBitBoard(), data);
+			if (clearing_only) {
+				anchors = anchors & clearingAnchors(original.getBitBoard(), data);
+			}
 		} else {
+			// Only the standard pieces have the cached form the clearing
+			// anchors are built from, and only the search asks for them.
+			assert(!clearing_only);
 			anchors = validPlacementAnchors(original.getBitBoard(), piece);
 		}
 		setNextPlacement();
@@ -735,12 +832,12 @@ void NextGameStateIterator::setNextPlacement() {
 }
 
 NextGameStateIteratorGenerator::NextGameStateIteratorGenerator(
-	GameState state, Piece piece) :
-	state(state), piece(piece) {
+	GameState state, Piece piece, bool clearing_only) :
+	state(state), piece(piece), clearing_only(clearing_only) {
 }
 
 NextGameStateIterator NextGameStateIteratorGenerator::begin() const {
-	return NextGameStateIterator(state, piece);
+	return NextGameStateIterator(state, piece, clearing_only);
 }
 
 
@@ -1079,19 +1176,24 @@ MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSe
 					after_p1.getBitBoard().count() == after_p1_max_count) {
 					continue;
 				}
-				const auto states_2 = after_p1.nextStates(p2);
+				// Nothing cleared at any point, so all three placements are
+				// disjoint and this board is their union however they were
+				// ordered, and the first ordering reached every one of them
+				// with nothing skipped. So all a later ordering has left to
+				// contribute here is what the third piece clears -- which was
+				// worth saying as a test on each board only while building one
+				// was cheap next to keeping it. It is not: nearly every board
+				// these nodes build is thrown straight back out, and together
+				// they are most of the boards the search builds at all. Ask for
+				// the placements that clear instead.
+				const bool only_clears_are_new = !is_first_permutation &&
+					after_p1.getBitBoard().count() == after_p1_max_count;
+				const auto states_2 = only_clears_are_new
+					? after_p1.nextStatesThatClear(p2)
+					: after_p1.nextStates(p2);
 				const auto last_2 = states_2.end();
 				for (auto it_2 = states_2.begin(); it_2 != last_2; ++it_2) {
 					const auto after_p2 = *it_2;
-					// Nothing cleared at any point, so all three placements are
-					// disjoint and this board is their union however they were
-					// ordered. The pieces start sorted, so the first ordering
-					// reaches every one of those boards with nothing skipped.
-					if (!is_first_permutation &&
-						after_p2.getBitBoard().count() == after_p1_max_count + p2.getBitBoard().count()
-						) {
-						continue;
-					}
 					const auto score = after_p2.simpleEval(weights, best.evaluation);
 					if (score < best.evaluation) {
 						best.evaluation = score;
