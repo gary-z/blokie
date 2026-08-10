@@ -56,7 +56,6 @@ const LEFT_BITS = 1 | (1 << 9) | (1 << 18);
 const RIGHT_BITS = LEFT_BITS << 8;
 const TOP_LEFT_CUBE = 0x7 | (0x7 << 9) | (0x7 << 18);
 
-const INF_SCORE = 9999999;
 function bitboard(a, b, c) {
     return { a: a, b: b, c: c };
 }
@@ -83,60 +82,26 @@ function _popcount(x) {
     x += x >> 16
     return x & 0x7f
 }
-console.assert(_popcount(USED_BITS) === 27);
-console.assert(_popcount(ROW_0) === 9);
-console.assert(_popcount(TOP_LEFT_CUBE) === 9);
-
 function count(bb) {
     return _popcount(bb.a) + _popcount(bb.b) + _popcount(bb.c);
 }
-console.assert(count(bitboard(1, 3, 7)) === 6);
-console.assert(count(FULL) === 81);
-console.assert(count(EMPTY) === 0);
-
-function compare(a, b) {
-    return a.a - b.a || a.b - b.b || a.c - b.c;
-}
-
 function equal(a, b) {
     return a.a === b.a && a.b === b.b && a.c === b.c;
 }
-console.assert(equal(EMPTY, EMPTY));
-console.assert(equal(FULL, FULL));
-console.assert(!equal(EMPTY, FULL));
-console.assert(!equal(EMPTY, bitboard(1, 0, 0)));
-console.assert(!equal(EMPTY, bitboard(0, 1, 0)));
-console.assert(!equal(EMPTY, bitboard(0, 0, 1)));
 function any(bb) {
     return bb.a + bb.b + bb.c !== 0;
 }
 function is_empty(bb) {
     return !any(bb);
 }
-console.assert(is_empty(EMPTY));
-console.assert(!is_empty(FULL));
-console.assert(!is_empty(bitboard(1, 0, 0)));
-console.assert(!is_empty(bitboard(0, 1, 0)));
-console.assert(!is_empty(bitboard(0, 0, 1)));
-
 function not(bb) {
     return bitboard(~bb.a & USED_BITS, ~bb.b & USED_BITS, ~bb.c & USED_BITS);
 }
-console.assert(equal(not(FULL), EMPTY));
-console.assert(equal(not(EMPTY), FULL));
-console.assert(count(not(bitboard(1, 1, 1))) === 78);
-
 function and(a, b) {
     return bitboard(a.a & b.a, a.b & b.b, a.c & b.c);
 }
 function is_disjoint(a, b) {
     return (a.a & b.a) === 0 && (a.b & b.b) === 0 && (a.c & b.c) === 0;
-}
-function count_intersection(a, b) {
-    return _popcount(a.a & b.a) + _popcount(a.b & b.b) + _popcount(a.c & b.c);
-}
-function count_diff(a, b) {
-    return _popcount(a.a & ~b.a) + _popcount(a.b & ~b.b) + _popcount(a.c & ~b.c);
 }
 function or(a, b) {
     return bitboard(a.a | b.a, a.b | b.b, a.c | b.c);
@@ -168,29 +133,12 @@ function row(r) {
     return ROWS[r];
 }
 
-for (let r = 0; r < 9; ++r) {
-    console.assert(!is_empty(row(r)));
-    console.assert(count(row(r)) === 9);
-}
-
 function _column(c) {
     return bitboard(LEFT_BITS << c, LEFT_BITS << c, LEFT_BITS << c);
 }
 const COLS = Array.from({ length: 10 }, (_, i) => _column(i));
 function column(c) {
     return COLS[c];
-}
-
-for (let c = 0; c < 9; ++c) {
-    console.assert(!is_empty(row(c)));
-    console.assert(count(row(c)) === 9);
-    for (let r = 0; r < 9; ++r) {
-        console.assert(count(and(column(c), row(r))) === 1);
-        console.assert(count(or(column(c), row(r))) === 17);
-        console.assert(count(diff(column(c), row(r))) === 8);
-        console.assert(at(FULL, r, c));
-        console.assert(!at(EMPTY, r, c));
-    }
 }
 
 function _cube(i) {
@@ -203,33 +151,12 @@ function cube(i) {
     return CUBES[i];
 }
 
-for (let i = 0; i < 9; ++i) {
-    console.assert(count(cube(i)) === 9);
-    let num_cols_spanned = 0;
-    let num_rows_spanned = 0;
-    for (let j = 0; j < 9; ++j) {
-        if (any(and(cube(i), row(j)))) {
-            num_rows_spanned++;
-        }
-        if (any(and(cube(i), column(j)))) {
-            num_cols_spanned++;
-        }
-    }
-    console.assert(num_cols_spanned === 3);
-    console.assert(num_rows_spanned === 3);
-}
-
-
 function shift_right(bb) {
     return bitboard((bb.a & ~RIGHT_BITS) << 1, (bb.b & ~RIGHT_BITS) << 1, (bb.c & ~RIGHT_BITS) << 1);
 }
-console.assert(count(shift_right(FULL)) === 72);
-
 function shift_left(bb) {
     return bitboard((bb.a & ~LEFT_BITS) >> 1, (bb.b & ~LEFT_BITS) >> 1, (bb.c & ~LEFT_BITS) >> 1);
 }
-console.assert(count(shift_left(FULL)) === 72);
-
 function shift_down(bb) {
     return bitboard(
         (bb.a << 9) & USED_BITS,
@@ -244,26 +171,6 @@ function shift_up(bb) {
         bb.c >> 9,
     );
 }
-
-function str(bb) {
-    let result = "";
-    for (let r = 0; r < 9; ++r) {
-        for (let c = 0; c < 9; ++c) {
-            result += at(bb, r, c) ? '#' : '.';
-        }
-        result += "\n";
-    }
-    return result;
-}
-
-
-for (let c = 0; c < 8; ++c) {
-    console.assert(equal(shift_down(row(c)), row(c + 1)));
-    console.assert(equal(shift_up(shift_down(row(c))), row(c)));
-    console.assert(equal(shift_right(column(c)), column(c + 1)));
-    console.assert(equal(shift_left(shift_right(column(c))), column(c)));
-}
-
 // === PIECES
 const PIECES = [
     bitboard(1, 0, 0),
@@ -320,158 +227,6 @@ function get_random_piece() {
 function get_random_piece_set() {
     return [get_random_piece(), get_random_piece(), get_random_piece()];
 }
-for (let i = 0; i < 100; ++i) {
-    console.assert(any(get_random_piece()));
-}
-
-for (const p of PIECES) {
-    console.assert(count(p) >= 1);
-    console.assert(count(p) <= 5);
-    for (let i = 5; i < 9; ++i) {
-        console.assert(is_empty(and(row(i), p)));
-        console.assert(is_empty(and(column(i), p)));
-    }
-
-    // Pieces are left-top justified;
-    console.assert(count(shift_left(p)) !== count(p));
-    console.assert(count(shift_up(p)) !== count(p));
-
-    console.assert(!equal(p, shift_right(p)));
-    console.assert(!equal(p, shift_down(p)));
-
-    console.assert(equal(p, shift_left(shift_right(p))));
-    console.assert(equal(p, shift_up(shift_down(p))));
-
-}
-
-function rotate(bb) {
-    let result = EMPTY;
-    for (let r = 0; r < 9; ++r) {
-        for (let c = 0; c < 9; ++c) {
-            if (at(bb, r, c)) {
-                const rotated_r = c;
-                const rotated_c = 8 - r;
-                result = or(result, bit(rotated_r, rotated_c));
-            }
-        }
-    }
-    return result;
-}
-
-console.assert(equal(rotate(EMPTY), EMPTY));
-console.assert(equal(rotate(FULL), FULL));
-console.assert(equal(rotate(bit(0, 0)), bit(0, 8)));
-console.assert(equal(rotate(rotate(bit(0, 0))), bit(8, 8)));
-console.assert(equal(rotate(rotate(rotate(bit(0, 0)))), bit(8, 0)));
-
-for (const test_piece of PIECES) {
-    console.assert(count(rotate(test_piece)) === count(test_piece));
-    console.assert(equal(rotate(rotate(rotate(rotate(test_piece)))), test_piece));
-
-    const top_right = rotate(test_piece);
-    console.assert(count(top_right) !== count(shift_right(top_right)));
-    console.assert(count(top_right) !== count(shift_up(top_right)));
-    console.assert(equal(top_right, shift_right(shift_left(top_right))));
-    console.assert(equal(top_right, shift_up(shift_down(top_right))));
-
-    const bottom_right = rotate(top_right);
-    console.assert(count(bottom_right) !== count(shift_right(bottom_right)));
-    console.assert(count(bottom_right) !== count(shift_down(bottom_right)));
-    console.assert(equal(bottom_right, shift_right(shift_left(bottom_right))));
-    console.assert(equal(bottom_right, shift_down(shift_up(bottom_right))));
-
-    const bottom_left = rotate(bottom_right);
-    console.assert(count(bottom_left) !== count(shift_left(bottom_left)));
-    console.assert(count(bottom_left) !== count(shift_down(bottom_left)));
-    console.assert(equal(bottom_left, shift_left(shift_right(bottom_left))));
-    console.assert(equal(bottom_left, shift_down(shift_up(bottom_left))));
-}
-
-function mirror(bb) {
-    let result = EMPTY;
-    for (let r = 0; r < 9; ++r) {
-        for (let c = 0; c < 9; ++c) {
-            if (at(bb, r, c)) {
-                result = or(result, bit(r, 8 - c));
-            }
-        }
-    }
-    return result;
-}
-console.assert(equal(mirror(EMPTY), EMPTY));
-console.assert(equal(mirror(FULL), FULL));
-console.assert(equal(mirror(bit(0, 0)), bit(0, 8)));
-
-for (let test_piece of PIECES) {
-    console.assert(count(mirror(test_piece)) === count(test_piece));
-    console.assert(equal(rotate(rotate(rotate(rotate(test_piece)))), test_piece));
-}
-
-function get_all_transformations(bb) {
-    const transformations = [];
-
-    let rotated = bb;
-    for (let i = 0; i < 4; ++i) {
-        rotated = rotate(rotated);
-        const mirrored = mirror(rotated);
-
-        transformations.push(rotated);
-        transformations.push(mirrored);
-    }
-
-    return transformations;
-}
-const empty_transformations = get_all_transformations(EMPTY);
-console.assert(empty_transformations.length === 8);
-console.assert(empty_transformations.every(t => equal(t, EMPTY)));
-
-const full_transformations = get_all_transformations(FULL);
-console.assert(full_transformations.length === 8);
-console.assert(full_transformations.every(t => equal(t, FULL)));
-
-const test_piece = bit(0, 0);
-const piece_transformations = get_all_transformations(test_piece);
-console.assert(piece_transformations.length === 8);
-
-function get_random_board(fullness) {
-    let result = EMPTY;
-    for (let r = 0; r < 9; ++r) {
-        for (let c = 0; c < 9; ++c) {
-            if (Math.random() < fullness) {
-                result = or(result, bit(r, c));
-            }
-        }
-    }
-    return result;
-}
-
-console.assert(equal(get_random_board(0), EMPTY));
-console.assert(equal(get_random_board(1), FULL));
-
-
-for (let p of PIECES) {
-    let height = 0;
-    let width = 0;
-    for (let i = 0; i < 9; ++i) {
-        if (any(and(p, row(i)))) {
-            height = i + 1;
-        }
-        if (any(and(p, column(i)))) {
-            width = i + 1;
-        }
-    }
-    let num_next_boards = 0;
-    for (let next_board of get_next_boards(EMPTY, p)) {
-        num_next_boards++;
-    }
-
-    console.assert(num_next_boards === (9 - height + 1) * (9 - width + 1));
-
-    for (let next_board of get_next_boards(FULL, p)) {
-        // Can't place the piece on a full board.
-        console.assert(false);
-    }
-}
 
 function perform_clears(board) {
     let to_remove = EMPTY;
@@ -495,72 +250,11 @@ function perform_clears(board) {
 
     return diff(board, to_remove);
 }
-console.assert(is_empty(perform_clears(FULL)));
-console.assert(is_empty(perform_clears(EMPTY)));
-for (let p of PIECES) {
-    for (let { placement } of get_next_boards(EMPTY, p)) {
-        console.assert(equal(placement, perform_clears(placement)));
-    }
-}
-for (let i = 0; i < 9; ++i) {
-    console.assert(is_empty(perform_clears(row(i))));
-    console.assert(is_empty(perform_clears(column(i))));
-    console.assert(is_empty(perform_clears(cube(i))));
-}
 
-function get_next_boards(board, p, clears_first = false) {
-    if (is_empty(p)) {
-        return [{ placement: p, board: board }];
-    }
-
-    let result = [];
-
-    let left = p;
-    const col8 = column(8);
-    const row8 = row(8);
-    while (true) {
-        if (is_disjoint(board, p)) {
-            result.push({ placement: p, board: perform_clears(or(board, p)) });
-        }
-        if (!is_disjoint(p, col8)) {
-            if (!is_disjoint(left, row8)) {
-                break;
-            }
-            left = shift_down(left);
-            p = left;
-        } else {
-            p = shift_right(p);
-        }
-    }
-    // A clear always takes the square that completed the line with it, so a
-    // placement still standing whole on the board it produced is one that
-    // cleared nothing.
-    function cleared(placement_pair) {
-        return !is_subset(placement_pair.board, placement_pair.placement);
-    }
-    if (clears_first) {
-        result.sort((a, b) => cleared(b) - cleared(a));
-    }
-    return result;
-}
-
-// Left to itself the walk starts at the top left, so a clear at the bottom of
-// the board comes last; asked for clears first, it leads.
-{
-    const row_8_missing_one = diff(row(8), bit(8, 4));
-    const natural = get_next_boards(row_8_missing_one, PIECES[0]);
-    console.assert(equal(natural[0].placement, bit(0, 0)));
-    console.assert(!is_empty(natural[0].board));
-
-    const clears_leading = get_next_boards(row_8_missing_one, PIECES[0], true);
-    console.assert(equal(clears_leading[0].placement, bit(8, 4)));
-    console.assert(is_empty(clears_leading[0].board));
-    console.assert(clears_leading.length === natural.length);
-}
-
-// Returns true if `piece` fits anywhere on `board`. Mirrors the placement walk
-// in get_next_boards, but short circuits on the first fit instead of building
-// every resulting board.
+// Returns true if `piece` fits anywhere on `board`. Walks the piece across the
+// board the way the solver's enumeration does, but stops at the first fit
+// instead of building every resulting board. The one thing over here that has
+// to agree with the search: it is what says the game is over.
 function can_place_piece(board, piece) {
     let p = left_top_justify_piece(piece);
     if (is_empty(p)) {
@@ -591,17 +285,6 @@ function has_valid_move(board, piece_set) {
     return piece_set.some(p => can_place_piece(board, p));
 }
 
-console.assert(!can_place_piece(EMPTY, EMPTY));
-console.assert(!has_valid_move(EMPTY, [EMPTY, EMPTY, EMPTY]));
-for (const p of PIECES) {
-    console.assert(can_place_piece(EMPTY, p));
-    console.assert(can_place_piece(EMPTY, center_piece(p)));
-    console.assert(!can_place_piece(FULL, p));
-    console.assert(can_place_piece(diff(FULL, p), p));
-    console.assert(has_valid_move(EMPTY, [EMPTY, p, EMPTY]));
-    console.assert(!has_valid_move(FULL, [p, p, p]));
-}
-
 // === SCORING AND PLACEMENT ===
 
 function get_combo_magnitude(mid_clear) {
@@ -620,43 +303,12 @@ function get_combo_magnitude(mid_clear) {
 
     return result;
 }
-console.assert(get_combo_magnitude(EMPTY) === 0);
-console.assert(get_combo_magnitude(FULL) === 9 * 3);
-for (const piece of PIECES) {
-    for (const transformed of get_all_transformations(piece)) {
-        console.assert(get_combo_magnitude(transformed) === 0);
-    }
-}
-for (let i = 0; i < 9; ++i) {
-    console.assert(get_combo_magnitude(row(i)) === 1);
-    console.assert(get_combo_magnitude(column(i)) === 1);
-    for (let j = 0; j < 9; ++j) {
-        console.assert(get_combo_magnitude(or(row(i), column(j))) === 2);
-        if (i !== j) {
-            console.assert(get_combo_magnitude(or(row(i), row(j))) === 2);
-            console.assert(get_combo_magnitude(or(column(i), column(j))) === 2);
-        }
-
-        for (let k = 0; k < 9; ++k) {
-            console.assert(get_combo_magnitude(or(cube(k), or(row(i), column(j)))) === 3);
-        }
-    }
-    for (let k = 0; k < 9; ++k) {
-        console.assert(get_combo_magnitude(or(row(i), cube(k))) === 2);
-        console.assert(get_combo_magnitude(or(column(i), cube(k))) === 2);
-    }
-}
-for (let k = 0; k < 9; ++k) {
-    console.assert(get_combo_magnitude(cube(k)) === 1);
-}
-
 
 function get_placement_combo_magnitude(prev, placement) {
     return get_combo_magnitude(or(prev, placement));
 }
 
 function get_move_score(previous_was_clear, prev, placement, after) {
-    console.assert(is_empty(and(prev, placement)));
     // 1 point for each block placed that was not cleared.
     let result = count(diff(after, prev));
     const combo = get_placement_combo_magnitude(prev, placement);
@@ -771,47 +423,168 @@ function nearest_valid_placement(game, piece, row, col, max_distance) {
     return best === null ? null : place_piece(game, piece, best);
 }
 
-// Held over a square it fits in, a piece goes in that square. Held over one it
-// does not, it is nudged into the nearest square it does. Held nowhere near a
-// square it fits in, it goes nowhere.
-console.assert(equal(
-    nearest_valid_placement(get_new_game(), PIECES[0], 4.1, 3.9, 1.5).placement, bit(4, 4)));
-console.assert(is_disjoint(
-    nearest_valid_placement({ ...get_new_game(), board: bit(4, 4) }, PIECES[0], 4, 4, 1.5).placement,
-    bit(4, 4)));
-console.assert(equal(
-    nearest_valid_placement(get_new_game(), PIECES[0], -0.8, 0, 1.5).placement, bit(0, 0)));
-console.assert(nearest_valid_placement(get_new_game(), PIECES[0], 4, 12, 1.5) === null);
-console.assert(nearest_valid_placement(get_new_game(), getEmpty(), 4, 4, 1.5) === null);
-
 // === AI (powered by WASM) ===
 
+// What the solver thinks of a board with nothing placed on it: lower is
+// tidier, and it is the whole of how the search picks between boards.
+function evaluate(board) {
+    return solver.evaluate(board.a, board.b, board.c);
+}
+
+// The six orders three slots can be played in, walked in this order. Orderings
+// that score the same are settled by the last one seen, so the order here is
+// part of which move comes back.
+const _SLOT_ORDERS = [
+    [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
+];
+
+// Which slot of the deck each of the search's placements was made with. A
+// placement is its piece moved onto the board, so justifying it gives the piece
+// back. Two slots holding the same shape are interchangeable, so the first one
+// still free is as good as either.
+//
+// Answers with the placement each slot takes, and the slots in the order the
+// search played them.
+function _match_placements(piece_set, placements) {
+    const placement_of_slot = [getEmpty(), getEmpty(), getEmpty()];
+    const search_order = [];
+    const taken = [false, false, false];
+    for (const placement of placements) {
+        const shape = left_top_justify_piece(placement);
+        for (let slot = 0; slot < 3; ++slot) {
+            if (!taken[slot] && equal(piece_set[slot], shape)) {
+                taken[slot] = true;
+                placement_of_slot[slot] = placement;
+                search_order.push(slot);
+                break;
+            }
+        }
+    }
+    return { placement_of_slot: placement_of_slot, search_order: search_order };
+}
+
+// Plays the slots in `order`, each into the placement the search picked for it,
+// and answers with the state every move leaves behind. Null when one of them
+// does not fit where it is being put, which is how an ordering that only works
+// because an earlier placement cleared a line reads when the clear has not
+// happened yet.
+function _play_placements(game, piece_set, placement_of_slot, order) {
+    const states = [];
+    let current = game;
+    for (const slot of order) {
+        const placement = placement_of_slot[slot];
+        // A blank slot is not a move: it neither clears nor breaks the run the
+        // move before it started. Reading it as a move that failed to clear
+        // would cost the streak bonus on the move after it.
+        if (is_empty(placement)) {
+            states.push({
+                board: current.board,
+                previous_piece_placement: getEmpty(),
+                piece_index: slot,
+                previous_move_was_clear: current.previous_move_was_clear,
+                score: current.score,
+            });
+            continue;
+        }
+        const move = place_piece(current, piece_set[slot], placement);
+        if (move === null) {
+            return null;
+        }
+        current = move.newGame;
+        states.push({
+            board: current.board,
+            previous_piece_placement: placement,
+            piece_index: slot,
+            previous_move_was_clear: current.previous_move_was_clear,
+            score: current.score,
+        });
+    }
+    return states;
+}
+
+// Nothing the solver was given can be placed. That is a full board and nothing
+// played -- and the score the game came in with, since nothing was played to
+// change it.
+function _no_move(game, original_piece_set, evaluation) {
+    return {
+        evaluation: evaluation,
+        new_game_states: [0, 1, 2].map(i => ({
+            board: getFull(),
+            previous_piece_placement: getEmpty(),
+            piece_index: i,
+            previous_piece: original_piece_set[i],
+            previous_move_was_clear: false,
+            score: game.score,
+        })),
+    };
+}
+
+// The best move the solver can find, as the three states playing it leaves
+// behind. The search decides where the pieces go; which piece goes in which of
+// those placements, what each move scores and the order they are played in are
+// worked out here, down the same path a move made by hand takes -- so the rules
+// of the game are written once, in one language.
 function ai_make_move(game, original_piece_set) {
     const piece_set = original_piece_set.map(p => left_top_justify_piece(p));
     const board = game.board;
 
     const result = solver.aiMakeMove(
         board.a, board.b, board.c,
-        game.score,
-        game.previous_move_was_clear,
         piece_set[0].a, piece_set[0].b, piece_set[0].c,
         piece_set[1].a, piece_set[1].b, piece_set[1].c,
         piece_set[2].a, piece_set[2].b, piece_set[2].c,
     );
+    if (!result.found) {
+        return _no_move(game, original_piece_set, result.evaluation);
+    }
+
+    const { placement_of_slot, search_order } =
+        _match_placements(piece_set, result.placements);
+    // Every placement belongs to a piece that was on deck. One that does not
+    // means the search answered about a deck it was not asked about, and there
+    // is no move here to play.
+    const searched = search_order.length === 3
+        ? _play_placements(game, piece_set, placement_of_slot, search_order)
+        : null;
+    if (searched === null) {
+        return _no_move(game, original_piece_set, result.evaluation);
+    }
+
+    // The order the search played them in always fits, so it settles the board
+    // this move ends on. Every other order has to reach that same board to be
+    // the same move at all: a clear part way through takes squares a later
+    // piece was going to sit on away with it.
+    const target = searched[2].board;
+    let best = null;
+    for (const order of _SLOT_ORDERS) {
+        const states = _play_placements(game, piece_set, placement_of_slot, order);
+        if (states === null || !equal(states[2].board, target)) {
+            continue;
+        }
+        if (best !== null) {
+            if (states[2].score < best[2].score) {
+                continue;
+            }
+            // A tie goes to the order that ends on a clear, which is the one
+            // that carries a streak into the move after it.
+            if (states[2].score === best[2].score
+                && !states[2].previous_move_was_clear) {
+                continue;
+            }
+        }
+        best = states;
+    }
 
     return {
         evaluation: result.evaluation,
-        new_game_states: [0, 1, 2].map(i => {
-            const s = result.new_game_states[i];
-            return {
-                board: s.board,
-                previous_piece_placement: s.previous_piece_placement,
-                piece_index: s.piece_index,
-                previous_piece: original_piece_set[s.piece_index],
-                previous_move_was_clear: s.previous_move_was_clear,
-                score: s.score,
-            };
-        }),
+        new_game_states: best.map(state => ({
+            board: state.board,
+            previous_piece_placement: state.previous_piece_placement,
+            piece_index: state.piece_index,
+            previous_piece: original_piece_set[state.piece_index],
+            previous_move_was_clear: state.previous_move_was_clear,
+            score: state.score,
+        })),
     };
 }
 
@@ -925,21 +698,6 @@ function get_piece_bounds(piece) {
     return { rows: rows, cols: cols };
 }
 
-for (const p of PIECES) {
-    const centered = center_piece(p);
-    console.assert(count(p) === count(centered));
-    console.assert(equal(p, left_top_justify_piece(p)));
-    console.assert(equal(p, left_top_justify_piece(center_piece(p))));
-
-    // The box is the smallest one the piece fits in, whether the piece comes in
-    // justified or centered on deck.
-    const bounds = get_piece_bounds(p);
-    console.assert(bounds.rows === get_piece_bounds(centered).rows);
-    console.assert(bounds.cols === get_piece_bounds(centered).cols);
-    console.assert(any(and(p, row(bounds.rows - 1))) && is_empty(and(p, row(bounds.rows))));
-    console.assert(any(and(p, column(bounds.cols - 1))) && is_empty(and(p, column(bounds.cols))));
-}
-
 // Where the fitness and performance harnesses below stop: they deal a fresh
 // deck every move, so the only thing that can end them is running out of board.
 // A played game ends earlier and for a different reason -- see has_valid_move.
@@ -994,6 +752,7 @@ var blokie = {
     getEmptyPiece: getEmpty,
     getAIMove: ai_make_move,
     getAIPlan: get_ai_plan,
+    evaluate: evaluate,
     at: at,
     isOver: is_over,
     canPlacePiece: can_place_piece,
@@ -1011,4 +770,19 @@ var blokie = {
     nearestValidPlacement: nearest_valid_placement,
 };
 
-export { blokie, init };
+// The bitboard layer underneath, for test/engine/bitboard-test.js. These used
+// to be checked by console.assert calls sitting at the top level of this file,
+// which meant every page load and every worker start paid for a run of the
+// engine's unit tests before it could draw anything. Nothing outside the tests
+// should reach in here.
+const _internals = {
+    bitboard, getEmpty, getFull, EMPTY, FULL, USED_BITS, ROW_0, TOP_LEFT_CUBE,
+    _popcount, count, equal, any, is_empty, not, and, or, xor, diff, is_subset,
+    is_disjoint, bit, at, row, column, cube,
+    shift_left, shift_right, shift_up, shift_down,
+    PIECES, get_random_piece, perform_clears, can_place_piece, has_valid_move,
+    get_combo_magnitude, center_piece, left_top_justify_piece, get_piece_bounds,
+    nearest_valid_placement, get_new_game,
+};
+
+export { blokie, init, _internals };

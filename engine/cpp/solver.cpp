@@ -456,9 +456,13 @@ NextGameStateIteratorGenerator GameState::nextStates(Piece piece) const {
 
 ClearsFirstGameStates GameState::nextStatesClearsFirst(Piece piece) const {
 	const auto expected_count = bb.count() + piece.getBitBoard().count();
-	ClearsFirstGameStates result;
-	for (const auto state : nextStates(piece)) {
-		result.add(state, state.getBitBoard().count() < expected_count);
+	ClearsFirstGameStates result(piece.getBitBoard());
+	const auto generator = nextStates(piece);
+	const auto last = generator.end();
+	for (auto it = generator.begin(); it != last; ++it) {
+		const auto state = *it;
+		result.add(state, it.getAnchor(),
+			state.getBitBoard().count() < expected_count);
 	}
 	result.finish();
 	return result;
@@ -669,7 +673,7 @@ uint64_t GameState::simpleEval(EvalWeights weights, uint64_t max) const {
 
 NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
 	original(state), next(piece_arg.getBitBoard()), piece(piece_arg.getBitBoard()),
-	anchors(BitBoard::empty()) {
+	anchors(BitBoard::empty()), anchor(0) {
 	if (!(piece == BitBoard::empty()) && !(piece == BitBoard::full())) {
 		if (piece_arg.placement_data_index < Piece::NUM_PIECES) {
 			anchors = validPlacementAnchors(original.getBitBoard(),
@@ -726,6 +730,7 @@ void NextGameStateIterator::setNextPlacement() {
 		next = BitBoard::full();
 		return;
 	}
+	anchor = (uint8_t)offset;
 	next = translatePiece(piece, offset);
 }
 
@@ -743,20 +748,23 @@ NextGameStateIterator NextGameStateIteratorGenerator::end() const {
 	return NextGameStateIterator(state, Piece(BitBoard::full()));
 }
 
-ClearsFirstGameStates::ClearsFirstGameStates() :
-	num_clears(0), num_no_clears(0) {}
+ClearsFirstGameStates::ClearsFirstGameStates(BitBoard piece) :
+	piece(piece), num_clears(0), num_no_clears(0) {}
 
-void ClearsFirstGameStates::add(GameState state, bool cleared) {
+void ClearsFirstGameStates::add(GameState state, uint8_t anchor, bool cleared) {
 	assert(size() < MAX_STATES);
 	const auto board = state.getBitBoard();
 	auto &count = cleared ? num_clears : num_no_clears;
 	auto &destination = cleared ? clears : no_clears;
+	auto &destination_anchors = cleared ? clear_anchors : no_clear_anchors;
+	destination_anchors[count] = anchor;
 	destination[count++] = {board.getA(), board.getB()};
 }
 
 void ClearsFirstGameStates::finish() {
 	for (uint8_t index = 0; index < num_no_clears; ++index) {
 		clears[num_clears + index] = no_clears[index];
+		clear_anchors[num_clears + index] = no_clear_anchors[index];
 	}
 }
 
@@ -767,6 +775,10 @@ ClearsFirstGameStates::Iterator::Iterator(
 GameState ClearsFirstGameStates::Iterator::operator*() const {
 	const auto &stored = states->clears[index];
 	return GameState(BitBoard(stored.a, stored.b));
+}
+
+BitBoard ClearsFirstGameStates::Iterator::getPlacement() const {
+	return translatePiece(states->piece, states->clear_anchors[index]);
 }
 
 bool ClearsFirstGameStates::Iterator::operator!=(Iterator other) const {
@@ -889,13 +901,23 @@ namespace {
 
 		// Count on the original board once. Blank slots stay at the end because
 		// num_pieces excludes them from both the counts and the comparisons.
+		//
+		// The counts are looked up by matching a piece against this list, so it
+		// is a copy rather than result.values[0]: both sorts below move that
+		// entry, and a lookup table the sort reorders under itself answers
+		// differently depending on how far along the sort is. A comparator that
+		// does not answer the same way twice is undefined behaviour, and the
+		// answer really did depend on the standard library -- libstdc++ and the
+		// libc++ the WASM build uses disagreed, so the shipped solver and the
+		// one the weights are trained against played different games.
+		const std::array<Piece, 3> counted_order = result.values[0];
 		std::array<int, 3> placement_counts = {};
 		for (int index = 0; index < num_pieces; ++index) {
-			placement_counts[index] = countPlacements(game, result.values[0][index]);
+			placement_counts[index] = countPlacements(game, counted_order[index]);
 		}
 		const auto placementsFor = [&](Piece piece) {
 			for (int index = 0; index < num_pieces; ++index) {
-				if (piece.getBitBoard() == result.values[0][index].getBitBoard()) {
+				if (piece.getBitBoard() == counted_order[index].getBitBoard()) {
 					return placement_counts[index];
 				}
 			}
@@ -953,9 +975,9 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 					p0.getBitBoard().count() +
 					p1.getBitBoard().count();
 				// Nothing cleared, so these two placements land on the same
-				// board played the other way round, in an ordering that
-				// next_permutation also walks. See makeMoveSimple.
-				if (can_clear_with_2_pieces && p1 < p0 &&
+				// board played the other way round, in an ordering the loop
+				// also walks. Off on the first ordering. See makeMoveSimple.
+				if (!is_first_permutation && p1 < p0 &&
 					after_p1.getBitBoard().count() == after_p1_max_count) {
 					continue;
 				}
@@ -1013,34 +1035,54 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 	return bestNext;
 }
 
-GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet piece_set) {
+MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet piece_set) {
 	const auto can_clear_with_2_pieces = AI::canClearWith2PiecesOrFewer(game, piece_set);
 	const auto permutations = piecePermutationsMostFlexibleFirst(
 		game, piece_set, can_clear_with_2_pieces);
 
-	uint64_t bestScore = UINT64_MAX;
-	auto bestNext = GameState(BitBoard::full());
+	MoveResult best;
 
+	// The three levels below are walked with explicit iterators rather than a
+	// range-for because a winning candidate needs the placement each level is
+	// holding, and only the iterator knows it. Reading one costs a shift, so they
+	// are read where a winner is recorded rather than at every node.
 	for (int permutation = 0; permutation < permutations.count; ++permutation) {
 		const bool is_first_permutation = permutation == 0;
 		const auto p0 = permutations.values[permutation][0];
 		const auto p1 = permutations.values[permutation][1];
 		const auto p2 = permutations.values[permutation][2];
-		for (const auto after_p0 : game.nextStatesClearsFirst(p0)) {
-			for (const auto after_p1 : after_p0.nextStatesClearsFirst(p1)) {
+		const auto states_0 = game.nextStatesClearsFirst(p0);
+		const auto last_0 = states_0.end();
+		for (auto it_0 = states_0.begin(); it_0 != last_0; ++it_0) {
+			const auto after_p0 = *it_0;
+			const auto states_1 = after_p0.nextStatesClearsFirst(p1);
+			const auto last_1 = states_1.end();
+			for (auto it_1 = states_1.begin(); it_1 != last_1; ++it_1) {
+				const auto after_p1 = *it_1;
 				const auto after_p1_max_count = game.getBitBoard().count() +
 					p0.getBitBoard().count() +
 					p1.getBitBoard().count();
 				// Nothing cleared, so these two placements land on the same
 				// board played the other way round -- and the other way round
-				// is an ordering next_permutation also walks, in which p0 and
-				// p1 are the right way up and this test does not fire. Skip the
-				// half of those pairs that are back to front.
-				if (can_clear_with_2_pieces && p1 < p0 &&
+				// is an ordering the loop also walks, in which p0 and p1 are
+				// the right way up and this test does not fire. Skip the half
+				// of those pairs that are back to front.
+				//
+				// Never on the first ordering, which the third-level test below
+				// takes as having seen every board no clear can move. That used
+				// to come for free: the orderings were walked in sorted order,
+				// so p1 < p0 could not hold on the first one. Ordering them by
+				// how many placements a piece has does not keep p0 and p1
+				// sorted, and a first ordering that skipped half its pairs
+				// would take those boards down with it.
+				if (!is_first_permutation && p1 < p0 &&
 					after_p1.getBitBoard().count() == after_p1_max_count) {
 					continue;
 				}
-				for (const auto after_p2 : after_p1.nextStates(p2)) {
+				const auto states_2 = after_p1.nextStates(p2);
+				const auto last_2 = states_2.end();
+				for (auto it_2 = states_2.begin(); it_2 != last_2; ++it_2) {
+					const auto after_p2 = *it_2;
 					// Nothing cleared at any point, so all three placements are
 					// disjoint and this board is their union however they were
 					// ordered. The pieces start sorted, so the first ordering
@@ -1050,17 +1092,20 @@ GameState AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet
 						) {
 						continue;
 					}
-					const auto score = after_p2.simpleEval(weights, bestScore);
-					if (score < bestScore) {
-						bestScore = score;
-						bestNext = after_p2;
+					const auto score = after_p2.simpleEval(weights, best.evaluation);
+					if (score < best.evaluation) {
+						best.evaluation = score;
+						best.state = after_p2;
+						best.placements[0] = it_0.getPlacement();
+						best.placements[1] = it_1.getPlacement();
+						best.placements[2] = it_2.getPlacement();
 					}
 				}
 			}
 		}
 	}
 
-	return bestNext;
+	return best;
 }
 
 int AI::countPieces(const PieceSet &piece_set) {

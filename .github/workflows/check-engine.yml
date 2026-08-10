@@ -29,6 +29,9 @@ jobs:
       - name: Native evaluation and search
         run: ctest --test-dir /tmp/blokie-native-tests --output-on-failure
 
+      - name: Bitboards, pieces and clearing
+        run: node test/engine/bitboard-test.js
+
       - name: Placement rules
         run: node test/engine/placement-test.js
 
