@@ -1,29 +1,49 @@
 cmake_minimum_required (VERSION 3.14)
 
 # Native fitness runs are built with GCC 16: with both compilers targeting this
-# host, it measured about 4% faster than GCC 12 on the all-core benchmark.
-# Select it before project() initializes the compiler, while leaving explicit
-# toolchains (notably Emscripten) alone.
+# host, it measured about 4% faster than GCC 12 on the all-core benchmark. Use
+# it when it is installed, choosing it before project() initializes the
+# compiler and leaving explicit toolchains (notably Emscripten) alone.
+#
+# Preferred, not required. Which compiler produced a number is what makes two
+# fitness runs comparable, and that is an argument about measurements, not
+# about correctness: the regression tests below check what the search returns,
+# which is the same answer whoever compiled it. Requiring GCC 16 to configure
+# at all would mean no stock CI image and no contributor with a distribution
+# toolchain could build the tests, to protect timings those builds never take.
+# Turn BLOKIE_REQUIRE_GCC16 on for a build whose measurements have to line up
+# with the recorded ones, and anything older becomes an error instead.
+option(BLOKIE_REQUIRE_GCC16
+	"Fail configuration unless the native build uses GCC 16 or newer" OFF)
+
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND
 	NOT DEFINED CMAKE_CXX_COMPILER AND
 	"$ENV{CXX}" STREQUAL "")
 	find_program(BLOKIE_GXX16 NAMES g++-16)
-	if(NOT BLOKIE_GXX16)
+	if(BLOKIE_GXX16)
+		set(CMAKE_CXX_COMPILER "${BLOKIE_GXX16}" CACHE FILEPATH
+			"C++ compiler used by the Blokie native build")
+	elseif(BLOKIE_REQUIRE_GCC16)
 		message(FATAL_ERROR
-			"GCC 16 was not found. Install g++-16 or configure with "
-			"CXX=/path/to/g++-16 cmake ...")
+			"BLOKIE_REQUIRE_GCC16 is on but g++-16 was not found. Install "
+			"g++-16 or configure with CXX=/path/to/g++-16 cmake ...")
+	else()
+		# Timings from this build are not comparable with the recorded ones, so
+		# say which compiler is standing in rather than letting a fitness run
+		# quietly attribute its numbers to the wrong one.
+		message(STATUS
+			"g++-16 not found; building with the default compiler. Fitness "
+			"and benchmark timings will not be comparable with GCC 16 runs.")
 	endif()
-	set(CMAKE_CXX_COMPILER "${BLOKIE_GXX16}" CACHE FILEPATH
-		"C++ compiler used by the Blokie native build")
 endif()
 
 project ("blokie-solver")
 
-if(NOT EMSCRIPTEN AND
+if(BLOKIE_REQUIRE_GCC16 AND NOT EMSCRIPTEN AND
 	(NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR
 	 CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16))
 	message(FATAL_ERROR
-		"Native builds require GCC 16 or newer; found "
+		"BLOKIE_REQUIRE_GCC16 is on, which needs GCC 16 or newer; found "
 		"${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 endif()
 
