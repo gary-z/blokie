@@ -177,14 +177,15 @@ Mean game length moves as the reciprocal, so a hazard ratio of 0.95 is a 5.3%
 longer game. Report the ratio: it is the scale on which the interval is
 symmetric and on which a cutoff changes nothing.
 
-## Where the real speedup is
+## Where the speedup would have to come from
 
 Precision is `1/√D`, and a death costs `1/h` moves. So
 
     sd(log ĥ) = 1 / √(M · h)     for a budget of M moves
 
-Compute scales as `1/h`. The only lever that changes the exponent is **making
-the test environment deadlier**, so that deaths arrive sooner:
+Compute scales as `1/h`. Nothing about how the exposure is sliced into games
+changes that, which leaves one lever: **make the test environment deadlier**, so
+that deaths arrive sooner.
 
 | regime | mean length | moves/arm @5% | core-hours | speedup |
 |---|---:|---:|---:|---:|
@@ -194,23 +195,86 @@ the test environment deadlier**, so that deaths arrive sooner:
 | 2 pieces, hard mix   |    200 | 1.3e6 |   1 | 200× |
 
 Only the first row is measured. The rest are what the arithmetic gives at those
-mean lengths, and the mean lengths themselves are targets rather than
+mean lengths, and the mean lengths themselves were targets rather than
 measurements — the 800 is extrapolated from the README's note that two-piece
 play costs over 98% of the score, which is a claim about score and not directly
-about length. Measure whichever regime you pick before trusting its numbers.
+about length.
 
-The catch is that a deadlier environment is a different game, and a weight
-vector that wins there need not win at three pieces. That is an empirical
-question, and a cheap one:
+The lever works. The problem is what it does to the answer.
 
-1. Take 8–12 weight vectors whose full-regime order you already know.
+## Two deadlier regimes, and why they failed
+
+Both of these were built and run:
+
+- **Two pieces per set.** Deal two pieces instead of three and play them as one
+  move. The solver already handles a short set — `AI::countPieces` reads a
+  trailing empty piece as a smaller set — so `PieceSet(p0, p1, Piece())` is a
+  legal two-piece move and nothing else has to change.
+- **Three pieces, no small pieces.** Keep the set size, but stop dealing
+  anything of two squares or fewer: the single square, the two dominoes and the
+  two diagonal pairs. Those are the first five entries of the piece table, so it
+  is `piece_dist(5, Piece::NUM_PIECES - 1)` in place of `piece_dist(0,
+  Piece::NUM_PIECES - 1)`, leaving 42 pieces dealt uniformly.
+
+Both did exactly what they were built to do. Deaths arrived far sooner, and
+comparisons that were hopeless at three pieces — the kind that end in "this run
+could only have caught a change of 198% or more" — came back significant on an
+ordinary amount of compute.
+
+Then the weights tuned against them were taken back to the real game, and did
+not hold up. **Neither accelerated regime produced values that extended to three
+pieces with the full piece set.** The speedup was real and the significance was
+real. The transfer was not.
+
+### Why, most likely
+
+Untested, but it is the obvious reading and it says which future attempts are
+worth making: neither regime is the same game played faster. Each one deletes
+something the evaluation exists to handle.
+
+Small pieces are how a bad board gets escaped. A single square fits any hole;
+nothing else does. Stop dealing them and the recovery move is gone, so the cost
+of a hole stops being "you need a 1 to fix it" and becomes "you are dead" — and
+a tuner will overpay to keep holes off a board that will never be dealt the
+piece that would have used one.
+
+Three pieces is what a clear gets planned across. The README's own figure is
+that dropping to two costs over 98% of the score, which is not the signature of
+a harder version of the same problem. It is the signature of a different one.
+
+Both accelerations are deadlier because a *skill* was removed, and the tuner
+answers by spending its weight elsewhere. That is the failure to expect from any
+acceleration built by taking something away.
+
+### If you want to try again
+
+The weaker use of a deadly regime is a **screen**: rank many candidates cheaply,
+then spend real compute on the finalists only. That survives only if the
+ordering carries over, which is the thing that just failed. It is still cheap to
+check, but it is now a prerequisite and not a formality:
+
+1. Take 8–12 weight vectors whose three-piece order you already know.
 2. Measure them in the accelerated regime.
-3. Check the rank correlation.
+3. Check the rank correlation — and check it on the vectors that sit close
+   together, because a screen that only orders the obvious cases is not a screen.
 
-If it holds, use the accelerated regime as a **screen** over many candidates and
-spend full-regime compute only on the two or three finalists. Prefer the mildest
-acceleration that gives the speedup you need — a slightly harder piece
-distribution at three pieces distorts less than dropping to two.
+Prefer accelerations that leave every skill in the game and shorten it some
+other way. Removing a piece class or a set slot has now been tried in its
+strongest form, and the values did not come back.
+
+## Still open
+
+**There is no cheap experiment on the real game.** Deadlier environments are the
+only lever that attacks the exponent, and the two that were tried bought their
+speed by changing what was being measured. What is left is constant factors, all
+of it below: banking the baseline is worth about 4× per experiment, and capping
+the stragglers and stopping early buy scheduling rather than information. None
+of it touches the `1/h`.
+
+So a 5% change still costs on the order of 100 core-hours with the baseline
+banked, and 1% is out of reach. Changes smaller than that remain, in practice,
+unmeasurable. Anything that fixes this has to make deaths arrive sooner
+*without* making the deaths be about something else.
 
 ## Bank the baseline
 
