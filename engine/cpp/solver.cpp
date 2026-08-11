@@ -45,11 +45,11 @@ namespace {
 		}
 		if (offset < 54) {
 			return BitBoard(
-				((open.getA() >> offset) | (open.getB() << (54 - offset))) & ALL_ALLOWED_BITS_IN_A,
-				(open.getB() >> offset) & ALL_ALLOWED_BITS_IN_B
+				(open.getA() >> offset) | (open.getB() << (54 - offset)),
+				open.getB() >> offset
 			);
 		}
-		return BitBoard((open.getB() >> (offset - 54)) & ALL_ALLOWED_BITS_IN_A, 0);
+		return BitBoard(open.getB() >> (offset - 54), 0);
 	}
 
 	BitBoard translatePiece(uint64_t piece, unsigned offset) {
@@ -59,10 +59,10 @@ namespace {
 		if (offset < 54) {
 			return BitBoard(
 				(piece << offset) & ALL_ALLOWED_BITS_IN_A,
-				(piece >> (54 - offset)) & ALL_ALLOWED_BITS_IN_B
+				piece >> (54 - offset)
 			);
 		}
-		return BitBoard(0, (piece << (offset - 54)) & ALL_ALLOWED_BITS_IN_B);
+		return BitBoard(0, piece << (offset - 54));
 	}
 
 	BitBoard placementAnchorBounds(unsigned max_row, unsigned max_col) {
