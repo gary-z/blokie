@@ -67,16 +67,22 @@ public:
 class PieceIteratorGenerator;
 class Piece {
 private:
-	BitBoard bb;
+	// Pieces are left/top normalized and occupy at most five rows, so their
+	// shape always fits in BitBoard's first word. Keeping that invariant in the
+	// type avoids carrying a permanently-zero second word through the search.
+	uint64_t bits;
 	uint8_t placement_data_index;
 	Piece(uint64_t a, uint8_t placement_data_index);
 	friend class NextGameStateIterator;
+	friend class GameState;
 
 public:
 	explicit Piece(uint64_t a);
 	explicit Piece(BitBoard bb);
 	Piece();
 	BitBoard getBitBoard() const;
+	int count() const;
+	bool isEmpty() const;
 	static PieceIteratorGenerator getAll();
 	static constexpr int NUM_PIECES = 47;
 	static Piece byIndex(int index);
@@ -175,7 +181,8 @@ public:
 private:
 	explicit NextGameStateIterator(GameState state, Piece piece);
 	const GameState original;
-	BitBoard next, piece, anchors;
+	BitBoard next, anchors;
+	uint64_t piece;
 	uint8_t anchor;
 	void setNextPlacement();
 	friend class NextGameStateIteratorGenerator;
@@ -212,11 +219,11 @@ private:
 	// were and rebuilds the bitboard on the rare occasion one is asked for.
 	std::array<uint8_t, MAX_STATES> clear_anchors;
 	std::array<uint8_t, MAX_STATES> no_clear_anchors;
-	BitBoard piece;
+	uint64_t piece;
 	uint8_t num_clears;
 	uint8_t num_no_clears;
 
-	explicit ClearsFirstGameStates(BitBoard piece);
+	explicit ClearsFirstGameStates(uint64_t piece);
 	void add(GameState state, uint8_t anchor, bool cleared);
 	void finish();
 	friend class GameState;
