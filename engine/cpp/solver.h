@@ -124,26 +124,44 @@ public:
 
 	int weights[NUM_WEIGHTS] = {0};
 
-	EvalWeights() = default;
+	constexpr EvalWeights() = default;
 
-	int getOccupiedSideSquare() const;
-	int getOccupiedSideCube() const;
-	int getSquashedEmpty() const;
-	int getCorneredEmpty() const;
-	int getTransition() const;
-	int getDeadlyPiece() const;
-	int get3Bar() const;
-	int getOccupiedCenterCube() const;
-	int getOccupiedCornerCube() const;
-	int getTransitionAligned() const;
-	int getSquashedEmptyAtEdge() const;
-	int getOccupiedCornerSquare() const;
-	int getOccupiedCenterSquare() const;
+	constexpr int getOccupiedSideSquare() const { return 2000; }
+	constexpr int getOccupiedSideCube() const { return weights[0]; }
+	constexpr int getSquashedEmpty() const { return weights[1]; }
+	constexpr int getCorneredEmpty() const { return weights[2]; }
+	constexpr int getTransition() const { return weights[3]; }
+	constexpr int getDeadlyPiece() const { return weights[4]; }
+	constexpr int get3Bar() const { return weights[5]; }
+	constexpr int getOccupiedCenterCube() const { return weights[6]; }
+	constexpr int getOccupiedCornerCube() const { return weights[7]; }
+	constexpr int getTransitionAligned() const { return weights[8]; }
+	constexpr int getSquashedEmptyAtEdge() const { return weights[9]; }
+	constexpr int getOccupiedCornerSquare() const { return weights[11]; }
+	constexpr int getOccupiedCenterSquare() const { return weights[10]; }
 	// Nonlinear penalty for scarce hard-piece placements on crowded boards.
-	int getCrowdedPieceScarcity() const;
+	constexpr int getCrowdedPieceScarcity() const { return weights[12]; }
 
-	static EvalWeights getDefault();
+	static constexpr EvalWeights getDefault();
 };
+
+constexpr EvalWeights EvalWeights::getDefault() {
+	EvalWeights result;
+	result.weights[0] = 1358;  // occupied side cube
+	result.weights[1] = 524;   // squashed empty
+	result.weights[2] = 6540;  // cornered empty
+	result.weights[3] = 4450;  // transition
+	result.weights[4] = 18185; // deadly piece
+	result.weights[5] = 2665;  // three bar
+	result.weights[6] = 204;   // occupied center cube
+	result.weights[7] = 908;   // occupied corner cube
+	result.weights[8] = 1776;  // aligned transition
+	result.weights[9] = 3386;  // squashed empty at edge
+	result.weights[10] = 1607; // occupied center square
+	result.weights[11] = 3067; // occupied corner square
+	result.weights[12] = 200;  // crowded-piece scarcity
+	return result;
+}
 
 
 class NextGameStateIteratorGenerator;
@@ -162,6 +180,9 @@ public:
 	NextGameStateIteratorGenerator nextStates(Piece piece) const;
 	ClearsFirstGameStates nextStatesClearsFirst(Piece piece) const;
 	uint64_t simpleEval(EvalWeights weights, uint64_t max = UINT64_MAX) const;
+	// Gives the native optimizer the built-in weights as scalar constants. The
+	// generic entry point above remains available for tuning and tests.
+	uint64_t simpleEvalDefault(uint64_t max = UINT64_MAX) const;
 	bool isOver() const;
 };
 
@@ -273,6 +294,9 @@ class AI {
 public:
 	// Return the state with the lowest score after placing the 3 pieces.
 	static MoveResult makeMoveSimple(EvalWeights weights, GameState state, PieceSet piece_set);
+	// Same search specialized for getDefault(), so its inlined evaluation can
+	// use immediate weights instead of loading an EvalWeights object.
+	static MoveResult makeMoveSimpleDefault(GameState state, PieceSet piece_set);
 
 	// Similar to makeMoveSimple, but considers possible placements of the 4th piece.
 	static GameState makeMoveLookahead(EvalWeights weights, GameState state, PieceSet piece_set);

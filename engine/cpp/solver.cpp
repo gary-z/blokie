@@ -5,18 +5,19 @@
 #include <array>
 
 namespace {
-	const uint64_t ROW_0 = 0x1FFULL;
-	const uint64_t TOP_LEFT_CUBE = 0x7ULL | (0x7ULL << 9) | (0x7ULL << 18);
-	const uint64_t ALL_ALLOWED_BITS_IN_A = 0x3FFFFFFFFFFFFFULL;
-	const uint64_t ALL_ALLOWED_BITS_IN_B = 0x7FFFFFFULL;
-	const uint64_t RIGHT_MOST_COLUMN_B = (1ULL << 8) | (1ULL << 17) | (1ULL << 26);
-	const uint64_t RIGHT_MOST_COLUMN_A = RIGHT_MOST_COLUMN_B
+	constexpr uint64_t ROW_0 = 0x1FFULL;
+	constexpr uint64_t TOP_LEFT_CUBE = 0x7ULL | (0x7ULL << 9) | (0x7ULL << 18);
+	constexpr uint64_t ALL_ALLOWED_BITS_IN_A = 0x3FFFFFFFFFFFFFULL;
+	constexpr uint64_t ALL_ALLOWED_BITS_IN_B = 0x7FFFFFFULL;
+	constexpr uint64_t RIGHT_MOST_COLUMN_B =
+		(1ULL << 8) | (1ULL << 17) | (1ULL << 26);
+	constexpr uint64_t RIGHT_MOST_COLUMN_A = RIGHT_MOST_COLUMN_B
 		| (1ULL << 35) | (1ULL << 44) | (1ULL << 53);
-	const uint64_t LEFT_MOST_COLUMN_A = RIGHT_MOST_COLUMN_A >> 8;
-	const uint64_t LEFT_MOST_COLUMN_B = RIGHT_MOST_COLUMN_B >> 8;
-	const uint64_t ROW_5 = 0x1FFULL << (5 * 9);
-	const uint64_t CUBE_STARTS_A = 0x49ULL | (0x49ULL << 27);
-	const uint64_t CUBE_STARTS_B = 0x49ULL;
+	constexpr uint64_t LEFT_MOST_COLUMN_A = RIGHT_MOST_COLUMN_A >> 8;
+	constexpr uint64_t LEFT_MOST_COLUMN_B = RIGHT_MOST_COLUMN_B >> 8;
+	constexpr uint64_t ROW_5 = 0x1FFULL << (5 * 9);
+	constexpr uint64_t CUBE_STARTS_A = 0x49ULL | (0x49ULL << 27);
+	constexpr uint64_t CUBE_STARTS_B = 0x49ULL;
 
 	uint64_t completedRows(uint64_t bits, uint64_t row_starts) {
 		// Reduce each nine-bit row to its first bit, then expand the surviving
@@ -110,7 +111,8 @@ namespace {
 	// Stands in for the evaluation of a position a piece does not fit in at
 	// all. Small enough that one per piece still cannot overflow a uint64_t,
 	// large enough to outweigh any real board evaluation.
-	const uint64_t GAME_OVER_PENALTY = UINT64_MAX / (Piece::NUM_PIECES + 1);
+	constexpr uint64_t GAME_OVER_PENALTY =
+		UINT64_MAX / (Piece::NUM_PIECES + 1);
 }
 
 // === BIT BOARD
@@ -246,26 +248,26 @@ std::string BitBoard::str() const {
 
 namespace {
 
-	const uint64_t A = 1ULL << 0;
-	const uint64_t B = 1ULL << 1;
-	const uint64_t C = 1ULL << 2;
-	const uint64_t D = 1ULL << 3;
-	const uint64_t E = 1ULL << 4;
-	const uint64_t F = 1ULL << 9;
-	const uint64_t G = 1ULL << 10;
-	const uint64_t H = 1ULL << 11;
-	const uint64_t I = 1ULL << 18;
-	const uint64_t J = 1ULL << 19;
-	const uint64_t K = 1ULL << 20;
-	const uint64_t L = 1ULL << 27;
-	const uint64_t M = 1ULL << 36;
+	constexpr uint64_t A = 1ULL << 0;
+	constexpr uint64_t B = 1ULL << 1;
+	constexpr uint64_t C = 1ULL << 2;
+	constexpr uint64_t D = 1ULL << 3;
+	constexpr uint64_t E = 1ULL << 4;
+	constexpr uint64_t F = 1ULL << 9;
+	constexpr uint64_t G = 1ULL << 10;
+	constexpr uint64_t H = 1ULL << 11;
+	constexpr uint64_t I = 1ULL << 18;
+	constexpr uint64_t J = 1ULL << 19;
+	constexpr uint64_t K = 1ULL << 20;
+	constexpr uint64_t L = 1ULL << 27;
+	constexpr uint64_t M = 1ULL << 36;
 	/*
 	A B C D E
 	F G H
 	I J K
 	L
 	M */
-	const uint64_t PIECES[] = {
+	constexpr uint64_t PIECES[] = {
 		// 1 square
 		A,
 
@@ -346,25 +348,37 @@ namespace {
 		uint8_t count = 0;
 	};
 
-	// The standard pieces never change. Cache the exact shifts whose open-cell
-	// masks must intersect, along with the rectangle in which their anchors fit.
-	const auto PIECE_PLACEMENT_DATA = [] {
+	constexpr PiecePlacementData makePiecePlacementData(uint64_t bits) {
+		PiecePlacementData result;
+		unsigned max_row = 0;
+		unsigned max_col = 0;
+		while (bits != 0) {
+			unsigned offset = 0;
+			while ((bits & (1ULL << offset)) == 0) ++offset;
+			result.offsets[result.count++] = (uint8_t)offset;
+			max_row = std::max(max_row, offset / 9);
+			max_col = std::max(max_col, offset % 9);
+			bits &= bits - 1;
+		}
+
+		const uint64_t anchor_row = (1ULL << (9 - max_col)) - 1;
+		for (unsigned row = 0; row <= 8 - max_row; ++row) {
+			if (row < 6) {
+				result.bounds_a |= anchor_row << (row * 9);
+			} else {
+				result.bounds_b |= anchor_row << ((row - 6) * 9);
+			}
+		}
+		return result;
+	}
+
+	// The standard pieces never change. Build the exact shifts whose open-cell
+	// masks must intersect, along with the rectangle in which their anchors fit,
+	// at compile time so the finished table can live in read-only data.
+	constexpr auto PIECE_PLACEMENT_DATA = []() constexpr {
 		std::array<PiecePlacementData, Piece::NUM_PIECES> result;
 		for (int index = 0; index < Piece::NUM_PIECES; ++index) {
-			auto bits = PIECES[index];
-			unsigned max_row = 0;
-			unsigned max_col = 0;
-			while (bits != 0) {
-				const auto offset = (unsigned)__builtin_ctzll(bits);
-				result[index].offsets[result[index].count++] = offset;
-				max_row = std::max(max_row, offset / 9);
-				max_col = std::max(max_col, offset % 9);
-				bits &= bits - 1;
-			}
-
-			const auto bounds = placementAnchorBounds(max_row, max_col);
-			result[index].bounds_a = bounds.getA();
-			result[index].bounds_b = bounds.getB();
+			result[index] = makePiecePlacementData(PIECES[index]);
 		}
 		return result;
 	}();
@@ -684,6 +698,16 @@ uint64_t GameState::simpleEval(EvalWeights weights, uint64_t max) const {
 	return result;
 }
 
+uint64_t GameState::simpleEvalDefault(uint64_t max) const {
+	const auto result = simpleEvalImpl(EvalWeights::getDefault(), bb, max);
+
+	assert(bb == bb.topDownFlip().topDownFlip());
+	assert(max != UINT64_MAX || result ==
+		simpleEvalImpl(EvalWeights::getDefault(), bb.topDownFlip()));
+
+	return result;
+}
+
 
 NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
 	original(state), next(piece_arg.getBitBoard()), anchors(BitBoard::empty()),
@@ -824,69 +848,6 @@ GameState ClearsFirstGameStates::operator[](size_t index) const {
 	return *Iterator(this, index);
 }
 
-// ===== Eval Weights
-EvalWeights EvalWeights::getDefault() {
-	EvalWeights r;
-	// 1358 524 6540 4450 18185 2665 204 908 1776 3386 1607 3067 200
-	r.weights[0] = 1358; // CUBE;
-	r.weights[1] = 524; // SQUASHED_EMPTY;
-	r.weights[2] = 6540; // CORNERED_EMPTY;
-	r.weights[3] = 4450; // ALTERNATING;
-	r.weights[4] = 18185; // DEADLY_PIECE;
-	r.weights[5] = 2665; // THREE_BAR.
-	r.weights[6] = 204; // 3bar
-	r.weights[7] = 908; // Occupied corner cube
-	r.weights[8] = 1776; // alternating aligned
-	r.weights[9] = 3386; // squashed at edge
-	r.weights[10] = 1607; // occupied center square
-	r.weights[11] = 3067; // occupied corner square
-	r.weights[12] = 200; // hard-piece placement scarcity on crowded boards
-	return r;
-}
-int EvalWeights::getOccupiedSideSquare() const {
-	return 2000;
-}
-
-int EvalWeights::getOccupiedSideCube() const {
-	return weights[0];
-}
-int EvalWeights::getSquashedEmpty() const {
-	return weights[1];
-}
-int EvalWeights::getCorneredEmpty() const {
-	return weights[2];
-}
-int EvalWeights::getTransition() const {
-	return weights[3];
-}
-int EvalWeights::getDeadlyPiece() const {
-	return weights[4];
-}
-int EvalWeights::get3Bar() const {
-	return weights[5];
-}
-int EvalWeights::getOccupiedCenterCube() const {
-	return weights[6];
-}
-int EvalWeights::getOccupiedCornerCube() const {
-	return weights[7];
-}
-int EvalWeights::getTransitionAligned() const {
-	return weights[8];
-}
-int EvalWeights::getSquashedEmptyAtEdge() const {
-	return weights[9];
-}
-int EvalWeights::getOccupiedCenterSquare() const {
-	return weights[10];
-}
-int EvalWeights::getOccupiedCornerSquare() const {
-	return weights[11];
-}
-int EvalWeights::getCrowdedPieceScarcity() const {
-	return weights[12];
-}
-
 // ====== AI
 GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet piece_set) {
 	std::sort(piece_set.pieces, piece_set.pieces + 3);
@@ -971,7 +932,10 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 	return bestNext;
 }
 
-MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSet piece_set) {
+namespace {
+template<typename Evaluate>
+MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
+	Evaluate evaluate) {
 	std::sort(piece_set.pieces, piece_set.pieces + 3);
 	// Blank slots sort to the end and are placed by doing nothing, so where
 	// they fall in the order cannot change a board. Permuting only the pieces
@@ -1033,7 +997,7 @@ MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSe
 						) {
 						continue;
 					}
-					const auto score = after_p2.simpleEval(weights, best.evaluation);
+					const auto score = evaluate(after_p2, best.evaluation);
 					if (score < best.evaluation) {
 						best.evaluation = score;
 						best.state = after_p2;
@@ -1049,6 +1013,22 @@ MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSe
 		std::next_permutation(piece_set.pieces, piece_set.pieces + num_pieces));
 
 	return best;
+}
+}
+
+MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game,
+	PieceSet piece_set) {
+	return makeMoveSimpleImpl(game, piece_set,
+		[weights](GameState state, uint64_t max) {
+			return state.simpleEval(weights, max);
+		});
+}
+
+MoveResult AI::makeMoveSimpleDefault(GameState game, PieceSet piece_set) {
+	return makeMoveSimpleImpl(game, piece_set,
+		[](GameState state, uint64_t max) {
+			return state.simpleEvalDefault(max);
+		});
 }
 
 int AI::countPieces(const PieceSet &piece_set) {
