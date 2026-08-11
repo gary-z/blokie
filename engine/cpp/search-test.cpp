@@ -316,6 +316,10 @@ void requireSimpleSearchOptimal(BitBoard board, PieceSet pieces,
 	const auto weights = EvalWeights::getDefault();
 	const auto actual = AI::makeMoveSimple(weights, GameState(board), pieces)
 		.state.getBitBoard();
+	const auto default_actual =
+		AI::makeMoveSimpleDefault(GameState(board), pieces).state.getBitBoard();
+	test::require(default_actual == actual,
+		context + ": constexpr default search differs from generic search");
 	if (reachable.empty()) {
 		test::require(actual == BitBoard::full(), context + ": expected game over");
 		return;

@@ -309,6 +309,9 @@ void testEvaluationCutoff() {
 			test::require(actual == std::min(expected, cutoff),
 				"cutoff " + std::to_string(cutoff) + " on sample " +
 				std::to_string(sample));
+			test::require(GameState(board).simpleEvalDefault(cutoff) == actual,
+				"constexpr default cutoff " + std::to_string(cutoff) +
+					" on sample " + std::to_string(sample));
 		}
 	}
 }

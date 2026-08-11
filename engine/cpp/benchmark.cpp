@@ -39,7 +39,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    const auto weights = EvalWeights::getDefault();
     Sfc32 rng(1, 2, 3, 4);
 
     GameState game = newGame();
@@ -52,7 +51,7 @@ int main(int argc, char** argv) {
             pieces[j] = Piece::byIndex(idx);
         }
         PieceSet ps(pieces[0], pieces[1], pieces[2]);
-        game = AI::makeMoveSimple(weights, game, ps).state;
+        game = AI::makeMoveSimpleDefault(game, ps).state;
         if (game.isOver()) {
             game = newGame();
         }

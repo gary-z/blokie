@@ -62,6 +62,9 @@ static val aiMakeMove(
         Piece(bbFromJS(p1_a, p1_b, p1_c)),
         Piece(bbFromJS(p2_a, p2_b, p2_c))
     );
+    // Emscripten's optimizer measured slightly faster through the compact
+    // generic evaluator; the native harness uses makeMoveSimpleDefault(),
+    // whose immediate weights are faster under GCC.
     const auto move = AI::makeMoveSimple(EvalWeights::getDefault(), game, pieces);
 
     val placements = val::array();

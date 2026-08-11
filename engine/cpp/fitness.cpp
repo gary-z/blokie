@@ -73,8 +73,7 @@ struct HazardTable {
 // max_moves is non-zero. A game stopped at the cutoff is right-censored: all it
 // reports is that it outlasted every set it was dealt, which is what the hazard
 // estimate needs and is all a longer game would have added per move anyway.
-GameResult playOneGame(uint64_t seed, const EvalWeights& weights,
-                       uint64_t max_moves) {
+GameResult playOneGame(uint64_t seed, uint64_t max_moves) {
     // Each game has its own RNG; callers pass a non-deterministic seed by
     // default. Seeds are reported so any individual game can be reproduced.
     std::mt19937_64 rng(seed);
@@ -87,7 +86,7 @@ GameResult playOneGame(uint64_t seed, const EvalWeights& weights,
         Piece p0 = Piece::byIndex(piece_dist(rng));
         Piece p1 = Piece::byIndex(piece_dist(rng));
         Piece p2 = Piece::byIndex(piece_dist(rng));
-        game = AI::makeMoveSimple(weights, game, PieceSet(p0, p1, p2)).state;
+        game = AI::makeMoveSimpleDefault(game, PieceSet(p0, p1, p2)).state;
         ++moves;
     }
     return {seed, moves, true};
@@ -171,8 +170,6 @@ int main(int argc, char** argv) {
     unsigned num_threads =
         std::min<unsigned>(requested_threads, (unsigned)opt.num_games);
 
-    const auto weights = EvalWeights::getDefault();
-
     // Pre-generate per-game seeds so each game's seed is stable.
     std::vector<uint64_t> seeds(opt.num_games);
     if (opt.seed_base == 0) {
@@ -210,7 +207,7 @@ int main(int argc, char** argv) {
                 if (id >= opt.num_games) return;
 
                 const auto g_start = std::chrono::steady_clock::now();
-                GameResult r = playOneGame(seeds[id], weights, opt.max_moves);
+                GameResult r = playOneGame(seeds[id], opt.max_moves);
                 const auto g_end = std::chrono::steady_clock::now();
                 const double g_secs =
                     std::chrono::duration<double>(g_end - g_start).count();
