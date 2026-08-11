@@ -58,8 +58,8 @@ void testGenericAndSentinelPieces() {
 	const std::array<Piece, 5> pieces = {
 		Piece(),
 		Piece(test::square(0, 0) | test::square(0, 2) | test::square(2, 1)),
-		Piece(test::square(0, 0) | test::square(5, 8) | test::square(6, 0)),
-		Piece(test::square(1, 1) | test::square(7, 7)),
+		Piece(test::square(0, 0) | test::square(4, 8) | test::square(5, 0)),
+		Piece(test::square(1, 1) | test::square(5, 7)),
 		Piece(BitBoard::full()),
 	};
 	test::Random random(0xA8B17A4EULL);

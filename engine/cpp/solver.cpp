@@ -52,17 +52,17 @@ namespace {
 		return BitBoard((open.getB() >> (offset - 54)) & ALL_ALLOWED_BITS_IN_A, 0);
 	}
 
-	BitBoard translatePiece(BitBoard piece, unsigned offset) {
+	BitBoard translatePiece(uint64_t piece, unsigned offset) {
 		if (offset == 0) {
-			return piece;
+			return BitBoard(piece, 0);
 		}
 		if (offset < 54) {
 			return BitBoard(
-				(piece.getA() << offset) & ALL_ALLOWED_BITS_IN_A,
-				((piece.getA() >> (54 - offset)) | (piece.getB() << offset)) & ALL_ALLOWED_BITS_IN_B
+				(piece << offset) & ALL_ALLOWED_BITS_IN_A,
+				(piece >> (54 - offset)) & ALL_ALLOWED_BITS_IN_B
 			);
 		}
-		return BitBoard(0, (piece.getA() << (offset - 54)) & ALL_ALLOWED_BITS_IN_B);
+		return BitBoard(0, (piece << (offset - 54)) & ALL_ALLOWED_BITS_IN_B);
 	}
 
 	BitBoard placementAnchorBounds(unsigned max_row, unsigned max_col) {
@@ -369,12 +369,10 @@ namespace {
 		return result;
 	}();
 
-	uint8_t findPiecePlacementData(BitBoard piece) {
-		if (piece.getB() == 0) {
-			for (uint8_t index = 0; index < Piece::NUM_PIECES; ++index) {
-				if (piece.getA() == PIECES[index]) {
-					return index;
-				}
+	uint8_t findPiecePlacementData(uint64_t piece) {
+		for (uint8_t index = 0; index < Piece::NUM_PIECES; ++index) {
+			if (piece == PIECES[index]) {
+				return index;
 			}
 		}
 		return Piece::NUM_PIECES;
@@ -391,12 +389,28 @@ namespace {
 }
 
 // ====== Piece
-Piece::Piece(uint64_t a) : Piece(BitBoard(a, 0)) {}
-Piece::Piece(BitBoard bb) : bb(bb), placement_data_index(findPiecePlacementData(bb)) {}
-Piece::Piece() : Piece(BitBoard::empty()) {}
-Piece::Piece(uint64_t a, uint8_t index) : bb(BitBoard(a, 0)), placement_data_index(index) {}
+Piece::Piece(uint64_t a) : bits(a), placement_data_index(findPiecePlacementData(a)) {}
+Piece::Piece(BitBoard bb) : bits(bb.getA()),
+	placement_data_index(findPiecePlacementData(bb.getA())) {
+	// BitBoard::full() is the private iterator end sentinel. Every real piece,
+	// including shapes reconstructed at the WASM boundary, is normalized into
+	// the first word.
+	assert(bb.getB() == 0 || bb == BitBoard::full());
+	if (bb == BitBoard::full()) {
+		placement_data_index = Piece::NUM_PIECES + 1;
+	}
+}
+Piece::Piece() : Piece(uint64_t{0}) {}
+Piece::Piece(uint64_t a, uint8_t index) : bits(a), placement_data_index(index) {}
 BitBoard Piece::getBitBoard() const {
-	return bb;
+	return placement_data_index == Piece::NUM_PIECES + 1 ?
+		BitBoard::full() : BitBoard(bits, 0);
+}
+int Piece::count() const {
+	return (int)std::bitset<64>(bits).count();
+}
+bool Piece::isEmpty() const {
+	return bits == 0;
 }
 
 PieceSet::PieceSet(Piece p1, Piece p2, Piece p3) {
@@ -418,7 +432,7 @@ Piece Piece::byIndex(int index) {
 }
 
 bool Piece::operator<(Piece other) const {
-	return bb < other.bb;
+	return bits > other.bits;
 }
 
 PieceIterator PieceIteratorGenerator::end() const {
@@ -455,8 +469,8 @@ NextGameStateIteratorGenerator GameState::nextStates(Piece piece) const {
 }
 
 ClearsFirstGameStates GameState::nextStatesClearsFirst(Piece piece) const {
-	const auto expected_count = bb.count() + piece.getBitBoard().count();
-	ClearsFirstGameStates result(piece.getBitBoard());
+	const auto expected_count = bb.count() + piece.count();
+	ClearsFirstGameStates result(piece.bits);
 	const auto generator = nextStates(piece);
 	const auto last = generator.end();
 	for (auto it = generator.begin(); it != last; ++it) {
@@ -672,14 +686,18 @@ uint64_t GameState::simpleEval(EvalWeights weights, uint64_t max) const {
 
 
 NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
-	original(state), next(piece_arg.getBitBoard()), piece(piece_arg.getBitBoard()),
-	anchors(BitBoard::empty()), anchor(0) {
-	if (!(piece == BitBoard::empty()) && !(piece == BitBoard::full())) {
+	original(state), next(piece_arg.getBitBoard()), anchors(BitBoard::empty()),
+	piece(piece_arg.bits),
+	anchor(0) {
+	if (piece_arg.placement_data_index == Piece::NUM_PIECES + 1) {
+		return;
+	}
+	if (piece != 0) {
 		if (piece_arg.placement_data_index < Piece::NUM_PIECES) {
 			anchors = validPlacementAnchors(original.getBitBoard(),
 				PIECE_PLACEMENT_DATA[piece_arg.placement_data_index]);
 		} else {
-			anchors = validPlacementAnchors(original.getBitBoard(), piece);
+			anchors = validPlacementAnchors(original.getBitBoard(), BitBoard(piece, 0));
 		}
 		setNextPlacement();
 	}
@@ -748,7 +766,7 @@ NextGameStateIterator NextGameStateIteratorGenerator::end() const {
 	return NextGameStateIterator(state, Piece(BitBoard::full()));
 }
 
-ClearsFirstGameStates::ClearsFirstGameStates(BitBoard piece) :
+ClearsFirstGameStates::ClearsFirstGameStates(uint64_t piece) :
 	piece(piece), num_clears(0), num_no_clears(0) {}
 
 void ClearsFirstGameStates::add(GameState state, uint8_t anchor, bool cleared) {
@@ -888,8 +906,8 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 		for (const auto after_p0 : game.nextStatesClearsFirst(p0)) {
 			for (const auto after_p1 : after_p0.nextStatesClearsFirst(p1)) {
 				const auto after_p1_max_count = game.getBitBoard().count() +
-					p0.getBitBoard().count() +
-					p1.getBitBoard().count();
+					p0.count() +
+					p1.count();
 				// Nothing cleared, so these two placements land on the same
 				// board played the other way round, in an ordering the loop
 				// also walks. Off on the first ordering. See makeMoveSimple.
@@ -904,9 +922,9 @@ GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet pi
 					// already reached it.
 					if (!is_first_permutation &&
 						after_p2.getBitBoard().count() == game.getBitBoard().count()
-						+ p0.getBitBoard().count() +
-						p1.getBitBoard().count() +
-						p2.getBitBoard().count()
+						+ p0.count() +
+						p1.count() +
+						p2.count()
 						) {
 						continue;
 					}
@@ -982,8 +1000,8 @@ MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSe
 			for (auto it_1 = states_1.begin(); it_1 != last_1; ++it_1) {
 				const auto after_p1 = *it_1;
 				const auto after_p1_max_count = game.getBitBoard().count() +
-					p0.getBitBoard().count() +
-					p1.getBitBoard().count();
+					p0.count() +
+					p1.count();
 				// Nothing cleared, so these two placements land on the same
 				// board played the other way round -- and the other way round
 				// is an ordering the loop also walks, in which p0 and p1 are
@@ -1011,7 +1029,7 @@ MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSe
 					// ordered. The pieces start sorted, so the first ordering
 					// reaches every one of those boards with nothing skipped.
 					if (!is_first_permutation &&
-						after_p2.getBitBoard().count() == after_p1_max_count + p2.getBitBoard().count()
+						after_p2.getBitBoard().count() == after_p1_max_count + p2.count()
 						) {
 						continue;
 					}
@@ -1036,7 +1054,7 @@ MoveResult AI::makeMoveSimple(const EvalWeights weights, GameState game, PieceSe
 int AI::countPieces(const PieceSet &piece_set) {
 	int num_pieces = 3;
 	while (num_pieces > 0 &&
-		piece_set.pieces[num_pieces - 1].getBitBoard() == BitBoard::empty()) {
+		piece_set.pieces[num_pieces - 1].isEmpty()) {
 		num_pieces--;
 	}
 	return num_pieces;
@@ -1047,7 +1065,7 @@ bool AI::canClearWith2PiecesOrFewer(GameState game, PieceSet piece_set) {
 	for (int i = 0; i < 3; ++i) {
 		const auto p0 = piece_set.pieces[i];
 		const auto block_count_if_p0_does_not_clear =
-			game.getBitBoard().count() + p0.getBitBoard().count();
+			game.getBitBoard().count() + p0.count();
 		for (const auto after_p0 : game.nextStates(p0)) {
 			// A piece that clears on its own counts, whether or not any of the
 			// other two still fit afterwards. Leaving this to the inner loop
@@ -1062,8 +1080,8 @@ bool AI::canClearWith2PiecesOrFewer(GameState game, PieceSet piece_set) {
 				}
 				const auto p1 = piece_set.pieces[j];
 				const auto block_count_if_no_clear = game.getBitBoard().count() +
-					p0.getBitBoard().count() +
-					p1.getBitBoard().count();
+					p0.count() +
+					p1.count();
 				for (const auto after_p1 : after_p0.nextStates(p1)) {
 					if (after_p1.getBitBoard().count() < block_count_if_no_clear) {
 						return true;
