@@ -1,5 +1,6 @@
 engine/cpp/build-wasm/
 engine/cpp/build-native/
+engine/cpp/build-release/
 node_modules/
 emsdk/
 .devcontainer/
