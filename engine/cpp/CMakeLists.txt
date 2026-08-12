@@ -1,9 +1,9 @@
 cmake_minimum_required (VERSION 3.20)
 
-# Native fitness runs are built with GCC 16: with both compilers targeting this
-# host, it measured about 4% faster than GCC 12 on the all-core benchmark. Use
-# it when it is installed, choosing it before project() initializes the
-# compiler and leaving explicit toolchains (notably Emscripten) alone.
+# Native fitness runs are built with GCC 16: with both compilers targeting the
+# same host, it measured faster than GCC 12 on the all-core benchmark. Use it
+# when it is installed, choosing it before project() initializes the compiler
+# and leaving explicit toolchains (notably Emscripten) alone.
 #
 # Preferred, not required. Which compiler produced a number is what makes two
 # fitness runs comparable, and that is an argument about measurements, not
@@ -57,9 +57,9 @@ include(CheckCXXCompilerFlag)
 
 # Tune native-only tools for the machine that runs them. These executables are
 # used locally for long fitness runs rather than shipped, so letting the
-# compiler use the build host's ISA is both safe and useful. On the benchmark
-# machine, BMI1/BMI2 account for another ~5% beyond x86-64-v2; AVX2 itself does
-# not measurably help the branchy, one-board-at-a-time evaluation loop.
+# compiler use the build host's ISA is both safe and useful. BMI1/BMI2 buy a
+# little beyond x86-64-v2; AVX2 itself does not measurably help the branchy,
+# one-board-at-a-time evaluation loop.
 #
 # If the compiler has no native tuning flag, at least give the solver a
 # hardware popcount on the compilers that need telling.
@@ -68,8 +68,8 @@ include(CheckCXXCompilerFlag)
 # evaluates thousands of boards per move, so how it is compiled decides how
 # fast the search is. Baseline x86-64 predates POPCNT and so has no instruction
 # to lower it to: GCC emits a call into libgcc's software popcount, and Clang
-# open-codes a wider SWAR sequence. Measured on the benchmark, turning the
-# instruction on is worth 2.3x under GCC and 1.6x under Clang.
+# open-codes a wider SWAR sequence. Turning the instruction on replaces either
+# with a single instruction in the hottest function the search has.
 #
 # Nothing else needs the flag. aarch64 lowers the same code to an inline NEON
 # popcount, and WASM has i64.popcnt in its core instruction set -- which is why
