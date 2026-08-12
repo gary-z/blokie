@@ -2,8 +2,8 @@
 
 The engine lasts about 40,000 sets of three pieces per game. That number is the
 reason a small improvement is hard to see: a run long enough to resolve a 5%
-change takes days, and most of the days are spent watching games that were
-always going to be long.
+change needs hundreds of millions of moves, and most of them are spent watching
+games that were always going to be long.
 
 This is what the harness measures instead, and why.
 
@@ -24,14 +24,16 @@ in mean length at 95% confidence and 80% power needs
 
     games per arm ≈ 2 (1.96 + 0.84)² / δ² ≈ 16 / δ²
 
-| effect | games/arm | moves/arm | core-hours/arm | 4 cores, both arms |
-|-------:|----------:|----------:|---------------:|-------------------:|
-|    10% |     1,570 |    6.3e7  |             50 |            1.0 day |
-|     5% |     6,279 |    2.5e8  |            199 |           4.2 days |
-|     2% |    39,244 |    1.6e9  |          1,246 |            26 days |
-|     1% |   156,978 |    6.3e9  |          4,983 |           104 days |
+| effect | games/arm | moves/arm |
+|-------:|----------:|----------:|
+|    10% |     1,570 |     6.3e7 |
+|     5% |     6,279 |     2.5e8 |
+|     2% |    39,244 |     1.6e9 |
+|     1% |   156,978 |     6.3e9 |
 
-(at the measured 350 moves/sec/core)
+The budget is in moves because that is the part that holds. What a move costs
+in wall time is a fact about the machine that ran it, so multiplying through by
+it turns a fixed requirement into a number that expires.
 
 You can confirm the model on runs you already have. For an exponential,
 `sd/mean = 1`, `p50/mean = 0.69`, `p90/mean = 2.30`, `p95/mean = 3.00`. The
@@ -187,12 +189,12 @@ Compute scales as `1/h`. Nothing about how the exposure is sliced into games
 changes that, which leaves one lever: **make the test environment deadlier**, so
 that deaths arrive sooner.
 
-| regime | mean length | moves/arm @5% | core-hours | speedup |
-|---|---:|---:|---:|---:|
-| 3 pieces (current)   | 40,000 | 2.5e8 | 199 |   1× |
-| a harder piece mix   |  8,000 | 5.0e7 |  40 |   5× |
-| 2 pieces             |    800 | 5.0e6 |   4 |  50× |
-| 2 pieces, hard mix   |    200 | 1.3e6 |   1 | 200× |
+| regime | mean length | moves/arm @5% | speedup |
+|---|---:|---:|---:|
+| 3 pieces (current)   | 40,000 | 2.5e8 |   1× |
+| a harder piece mix   |  8,000 | 5.0e7 |   5× |
+| 2 pieces             |    800 | 5.0e6 |  50× |
+| 2 pieces, hard mix   |    200 | 1.3e6 | 200× |
 
 Only the first row is measured. The rest are what the arithmetic gives at those
 mean lengths, and the mean lengths themselves were targets rather than
@@ -271,8 +273,8 @@ of it below: banking the baseline is worth about 4× per experiment, and capping
 the stragglers and stopping early buy scheduling rather than information. None
 of it touches the `1/h`.
 
-So a 5% change still costs on the order of 100 core-hours with the baseline
-banked, and 1% is out of reach. Changes smaller than that remain, in practice,
+So a 5% change still costs on the order of 1e8 moves with the baseline banked,
+and 1% is out of reach. Changes smaller than that remain, in practice,
 unmeasurable. Anything that fixes this has to make deaths arrive sooner
 *without* making the deaths be about something else.
 
