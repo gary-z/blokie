@@ -25,8 +25,11 @@ fi
 # Build.
 mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
+# nproc is GNU coreutils, so it is missing on macOS and the BSDs, where the
+# same question is sysctl's. Falling back to a single job would still build.
+JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)"
 emcmake cmake .. -DCMAKE_BUILD_TYPE=Release
-emmake make -j$(nproc)
+emmake make -j"$JOBS"
 
 # Copy outputs.
 mkdir -p "$OUTPUT_DIR"

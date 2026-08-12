@@ -1,9 +1,50 @@
 #include "solver.h"
 #include <cassert>
-#include <bitset>
+#include <bit>
 #include <algorithm>
 #include <array>
 #include <cstring>
+
+// Bit counting comes from <bit> rather than __builtin_ctzll and a bitset's
+// count(). Both are C++20 and lower to the instruction the builtins lowered to
+// on the compilers that had them, so the search is compiled the same way it
+// was; the difference is that they also exist on the compilers that never
+// spelled these with two underscores. countr_zero defines the all-zero case
+// the builtin left undefined, which no caller here reaches anyway: each one
+// tests the word first.
+
+// Tell the optimizer something it cannot prove, in whatever spelling the
+// compiler building this understands.
+//
+// [[assume]] is C++23, and the compilers that can build this engine arrived at
+// it years apart: GCC in 13, Clang in 19. An attribute an older one has never
+// heard of is a warning rather than an error, which sounds harmless until
+// -Werror turns it into a failed build -- so writing it plainly means the
+// engine only compiles on the newest half of the toolchains that could
+// otherwise run it. Every one of them has had the same instruction under its
+// own name for far longer.
+//
+// Dropping the hint where none of the spellings exist is safe. It only ever
+// narrowed the range the optimizer assumed for a value that already stays in
+// that range, so a compiler that does not get told produces slower code, never
+// different answers.
+#if defined(__has_cpp_attribute)
+#  if __has_cpp_attribute(assume) >= 202207L
+#    define BLOKIE_ASSUME(condition) [[assume(condition)]]
+#  endif
+#endif
+#ifndef BLOKIE_ASSUME
+#  if defined(__clang__)
+#    define BLOKIE_ASSUME(condition) __builtin_assume(condition)
+#  elif defined(_MSC_VER)
+#    define BLOKIE_ASSUME(condition) __assume(condition)
+#  elif defined(__GNUC__)
+#    define BLOKIE_ASSUME(condition) \
+		do { if (!(condition)) __builtin_unreachable(); } while (false)
+#  else
+#    define BLOKIE_ASSUME(condition) ((void)0)
+#  endif
+#endif
 
 namespace {
 	constexpr uint64_t ROW_0 = 0x1FFULL;
@@ -90,7 +131,7 @@ namespace {
 
 		auto piece_a = piece.getA();
 		while (piece_a != 0) {
-			const unsigned offset = (unsigned)__builtin_ctzll(piece_a);
+			const unsigned offset = (unsigned)std::countr_zero(piece_a);
 			max_row = std::max(max_row, offset / 9);
 			max_col = std::max(max_col, offset % 9);
 			anchors = anchors & shiftOpenToAnchor(open, offset);
@@ -99,7 +140,7 @@ namespace {
 
 		auto piece_b = piece.getB();
 		while (piece_b != 0) {
-			const unsigned offset = 54 + (unsigned)__builtin_ctzll(piece_b);
+			const unsigned offset = 54 + (unsigned)std::countr_zero(piece_b);
 			max_row = std::max(max_row, offset / 9);
 			max_col = std::max(max_col, offset % 9);
 			anchors = anchors & shiftOpenToAnchor(open, offset);
@@ -123,7 +164,7 @@ BitBoard::BitBoard(uint64_t a, uint64_t b) : a(a), b(b) {
 	// cheaper to pass around than a mixed-width pair, but tell the optimizer
 	// that its upper bits are never populated.
 	assert(b <= ALL_ALLOWED_BITS_IN_B);
-	[[assume(b <= ALL_ALLOWED_BITS_IN_B)]];
+	BLOKIE_ASSUME(b <= ALL_ALLOWED_BITS_IN_B);
 }
 
 bool BitBoard::operator==(BitBoard other) const {
@@ -235,7 +276,7 @@ BitBoard BitBoard::leastSignificantBit() const {
 }
 
 int BitBoard::count() const {
-	return (int)std::bitset<64>(a).count() + (int)std::bitset<64>(b).count();
+	return std::popcount(a) + std::popcount(b);
 }
 
 BitBoard::operator bool() const {
@@ -428,7 +469,7 @@ BitBoard Piece::getBitBoard() const {
 		BitBoard::full() : BitBoard(bits, 0);
 }
 int Piece::count() const {
-	return (int)std::bitset<64>(bits).count();
+	return std::popcount(bits);
 }
 bool Piece::isEmpty() const {
 	return bits == 0;
@@ -768,10 +809,10 @@ void NextGameStateIterator::operator++() {
 void NextGameStateIterator::setNextPlacement() {
 	unsigned offset;
 	if (anchors.a != 0) {
-		offset = (unsigned)__builtin_ctzll(anchors.a);
+		offset = (unsigned)std::countr_zero(anchors.a);
 		anchors.a &= anchors.a - 1;
 	} else if (anchors.b != 0) {
-		offset = 54 + (unsigned)__builtin_ctzll(anchors.b);
+		offset = 54 + (unsigned)std::countr_zero(anchors.b);
 		anchors.b &= anchors.b - 1;
 	} else {
 		next = BitBoard::full();

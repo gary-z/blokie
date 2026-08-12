@@ -50,8 +50,27 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -DNDEBUG")
+# Warnings and optimization, written twice because the two command line
+# dialects share no spelling: everything below is GCC's, which Clang and
+# Emscripten's emcc also accept, and MSVC accepts none of it. Handing MSVC
+# -Wall -Wextra -Werror does not configure a stricter build, it configures a
+# build that cannot start, so the compiler that speaks the other dialect is
+# asked for the same things in its own words.
+if(MSVC)
+	# /permissive- turns off the Microsoft extensions that would let
+	# nonstandard code through here and fail everywhere else.
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /permissive-")
+	# /GL is whole-program optimization, MSVC's -flto, and it needs /LTCG at
+	# link time to finish the job.
+	set(CMAKE_CXX_FLAGS_RELEASE "/O2 /GL /DNDEBUG")
+	set(CMAKE_EXE_LINKER_FLAGS_RELEASE
+		"${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
+	set(CMAKE_STATIC_LINKER_FLAGS_RELEASE
+		"${CMAKE_STATIC_LINKER_FLAGS_RELEASE} /LTCG")
+else()
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
+	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -DNDEBUG")
+endif()
 
 include(CheckCXXCompilerFlag)
 
@@ -77,19 +96,26 @@ include(CheckCXXCompilerFlag)
 # target that is already fine, or that has never heard of these flags, matches
 # nothing and is left exactly as it was.
 function(target_enable_native_isa target)
-	set(CMAKE_REQUIRED_FLAGS "-Werror")
-	check_cxx_compiler_flag("-march=native" CXX_ACCEPTS_MARCH_NATIVE)
-	if(CXX_ACCEPTS_MARCH_NATIVE)
-		target_compile_options(${target} PRIVATE "-march=native")
-		return()
+	if(MSVC)
+		# MSVC has no -march=native, and none of the names below mean anything
+		# to it. It needs telling for the same reason though: its std::popcount
+		# only compiles to POPCNT when the target is known to have one, and
+		# otherwise dispatches on a runtime ISA check. /arch:AVX2 implies
+		# POPCNT and is the coarsest grain MSVC offers to say so.
+		set(CMAKE_REQUIRED_FLAGS "/WX")
+		set(candidates "/arch:AVX2")
+	else()
+		set(CMAKE_REQUIRED_FLAGS "-Werror")
+		# -march=native first, then x86-64-v2, the 2009 baseline and the first
+		# level to include POPCNT, and -mpopcnt for compilers predating the
+		# level names.
+		set(candidates "-march=native" "-march=x86-64-v2" "-mpopcnt")
 	endif()
 
-	# x86-64-v2 is the 2009 baseline and the first level to include POPCNT.
-	# -mpopcnt is the fallback for compilers predating the level names.
-	foreach(flag "-march=x86-64-v2" "-mpopcnt")
+	foreach(flag IN LISTS candidates)
 		string(MAKE_C_IDENTIFIER "CXX_ACCEPTS_${flag}" result_var)
-		# Without -Werror, a compiler that merely warns that the flag is unused
-		# would look as though it had accepted it.
+		# Without the warnings-are-errors flag above, a compiler that merely
+		# warns that the flag is unused would look as though it had accepted it.
 		check_cxx_compiler_flag("${flag}" ${result_var})
 		if(${result_var})
 			target_compile_options(${target} PRIVATE "${flag}")
