@@ -158,13 +158,18 @@ void testClearsFirstPlacements() {
 		const auto context = "trial " + std::to_string(trial);
 		for (auto it = states.begin(), end = states.end(); it != end; ++it) {
 			const auto placement = it.getPlacement();
+			const auto expected_board =
+				test::clearCompletedLines(board | placement);
+			const bool expected_clear = expected_board.count() <
+				board.count() + placement.count();
 			test::require(!(placement & board),
 				context + ": clears-first placement overlaps the board");
 			test::require(placement.count() == piece.getBitBoard().count(),
 				context + ": clears-first placement is not the whole piece");
-			test::require((*it).getBitBoard() ==
-				test::clearCompletedLines(board | placement),
+			test::require((*it).getBitBoard() == expected_board,
 				context + ": clears-first placement does not produce its board");
+			test::require(it.didClear() == expected_clear,
+				context + ": clears-first clear flag does not match its board");
 		}
 	}
 }

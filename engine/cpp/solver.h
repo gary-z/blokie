@@ -194,6 +194,8 @@ public:
 	bool operator!=(NextGameStateIterator other) const;
 	void operator++();
 	BitBoard getPlacement() const { return next; }
+	// Valid after dereferencing this iterator.
+	bool didClear() const { return cleared; }
 
 	// Where the current placement sits, as the bit the piece's top left corner
 	// was shifted to. The placement is the piece translated by it, so this is
@@ -205,6 +207,7 @@ private:
 	BitBoard next, anchors;
 	uint64_t piece;
 	uint8_t anchor;
+	mutable bool cleared;
 	void setNextPlacement();
 	friend class NextGameStateIteratorGenerator;
 };
@@ -263,6 +266,7 @@ public:
 
 		// The squares the piece covers on the board it was placed on.
 		BitBoard getPlacement() const;
+		bool didClear() const;
 		bool operator!=(Iterator other) const;
 		void operator++();
 	};
