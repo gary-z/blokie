@@ -3,6 +3,7 @@
 #include <bitset>
 #include <algorithm>
 #include <array>
+#include <cstring>
 
 namespace {
 	constexpr uint64_t ROW_0 = 0x1FFULL;
@@ -489,14 +490,12 @@ NextGameStateIteratorGenerator GameState::nextStates(Piece piece) const {
 }
 
 ClearsFirstGameStates GameState::nextStatesClearsFirst(Piece piece) const {
-	const auto expected_count = bb.count() + piece.count();
 	ClearsFirstGameStates result(piece.bits);
 	const auto generator = nextStates(piece);
 	const auto last = generator.end();
 	for (auto it = generator.begin(); it != last; ++it) {
 		const auto state = *it;
-		result.add(state, it.getAnchor(),
-			state.getBitBoard().count() < expected_count);
+		result.add(state, it.getAnchor(), it.didClear());
 	}
 	result.finish();
 	return result;
@@ -569,7 +568,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		result += transitions * (transition_weight - base_transition_weight) +
 			aligned_transitions *
 				(aligned_transition_weight - base_transition_weight);
-		if (result >= max) {
+		if (result >= max) [[likely]] {
 			return max;
 		}
 
@@ -590,7 +589,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		cornered_empty += (blocked_down_right -
 			(BitBoard::row(8) | BitBoard::column(8))).count();
 		result += cornered_empty * weights.getCorneredEmpty();
-		if (result >= max) {
+		if (result >= max) [[likely]] {
 			return max;
 		}
 
@@ -718,7 +717,7 @@ uint64_t GameState::simpleEvalDefault(uint64_t max) const {
 NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
 	original(state), next(piece_arg.getBitBoard()), anchors(BitBoard::empty()),
 	piece(piece_arg.bits),
-	anchor(0) {
+	anchor(0), cleared(false) {
 	if (piece_arg.placement_data_index == Piece::NUM_PIECES + 1) {
 		return;
 	}
@@ -741,7 +740,6 @@ GameState NextGameStateIterator::operator*() const {
 	const auto top_columns = after_add.a & (after_add.a >> 9) & (after_add.a >> 18);
 	const auto completed_columns = top_columns & (top_columns >> 27) &
 		after_add.b & (after_add.b >> 9) & (after_add.b >> 18) & ROW_0;
-
 	const auto to_clear = BitBoard(
 		completedRows(after_add.a, LEFT_MOST_COLUMN_A) |
 			completed_columns * LEFT_MOST_COLUMN_A |
@@ -751,6 +749,7 @@ GameState NextGameStateIterator::operator*() const {
 			completedCubes(after_add.b, CUBE_STARTS_B)
 	);
 
+	cleared = static_cast<bool>(to_clear);
 	return GameState(after_add - to_clear);
 }
 
@@ -810,10 +809,10 @@ void ClearsFirstGameStates::add(GameState state, uint8_t anchor, bool cleared) {
 }
 
 void ClearsFirstGameStates::finish() {
-	for (uint8_t index = 0; index < num_no_clears; ++index) {
-		clears[num_clears + index] = no_clears[index];
-		clear_anchors[num_clears + index] = no_clear_anchors[index];
-	}
+	std::memcpy(clears.data() + num_clears, no_clears.data(),
+		num_no_clears * sizeof(StoredState));
+	std::memcpy(clear_anchors.data() + num_clears, no_clear_anchors.data(),
+		num_no_clears * sizeof(uint8_t));
 }
 
 ClearsFirstGameStates::Iterator::Iterator(
@@ -827,6 +826,10 @@ GameState ClearsFirstGameStates::Iterator::operator*() const {
 
 BitBoard ClearsFirstGameStates::Iterator::getPlacement() const {
 	return translatePiece(states->piece, states->clear_anchors[index]);
+}
+
+bool ClearsFirstGameStates::Iterator::didClear() const {
+	return index < states->num_clears;
 }
 
 bool ClearsFirstGameStates::Iterator::operator!=(Iterator other) const {
@@ -965,13 +968,12 @@ MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
 		const auto last_0 = states_0.end();
 		for (auto it_0 = states_0.begin(); it_0 != last_0; ++it_0) {
 			const auto after_p0 = *it_0;
+			const bool p0_cleared = it_0.didClear();
 			const auto states_1 = after_p0.nextStatesClearsFirst(p1);
 			const auto last_1 = states_1.end();
 			for (auto it_1 = states_1.begin(); it_1 != last_1; ++it_1) {
 				const auto after_p1 = *it_1;
-				const auto after_p1_max_count = game.getBitBoard().count() +
-					p0.count() +
-					p1.count();
+				const bool p1_cleared = it_1.didClear();
 				// Nothing cleared, so these two placements land on the same
 				// board played the other way round -- and the other way round
 				// is an ordering the loop also walks, in which p0 and p1 are
@@ -987,7 +989,7 @@ MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
 				// ordering that skipped half its pairs would take those boards
 				// down with it, which is what "Most placements first" did.
 				if (!is_first_permutation && p1 < p0 &&
-					after_p1.getBitBoard().count() == after_p1_max_count) {
+					!p0_cleared && !p1_cleared) {
 					continue;
 				}
 				const auto states_2 = after_p1.nextStates(p2);
@@ -998,9 +1000,8 @@ MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
 					// disjoint and this board is their union however they were
 					// ordered. The pieces start sorted, so the first ordering
 					// reaches every one of those boards with nothing skipped.
-					if (!is_first_permutation &&
-						after_p2.getBitBoard().count() == after_p1_max_count + p2.count()
-						) {
+					if (!is_first_permutation && !p0_cleared &&
+						!p1_cleared && !it_2.didClear()) {
 						continue;
 					}
 					const auto score = evaluate(after_p2, best.evaluation);
@@ -1050,14 +1051,15 @@ bool AI::canClearWith2PiecesOrFewer(GameState game, PieceSet piece_set) {
 	// Determine if we need to check permutations.
 	for (int i = 0; i < 3; ++i) {
 		const auto p0 = piece_set.pieces[i];
-		const auto block_count_if_p0_does_not_clear =
-			game.getBitBoard().count() + p0.count();
-		for (const auto after_p0 : game.nextStates(p0)) {
+		const auto states_0 = game.nextStates(p0);
+		const auto last_0 = states_0.end();
+		for (auto it_0 = states_0.begin(); it_0 != last_0; ++it_0) {
+			const auto after_p0 = *it_0;
 			// A piece that clears on its own counts, whether or not any of the
 			// other two still fit afterwards. Leaving this to the inner loop
 			// would miss the case where the clear is the only thing that makes
 			// room, but nothing is left that fits in it.
-			if (after_p0.getBitBoard().count() < block_count_if_p0_does_not_clear) {
+			if (it_0.didClear()) {
 				return true;
 			}
 			for (int j = 0; j < 3; ++j) {
@@ -1065,11 +1067,11 @@ bool AI::canClearWith2PiecesOrFewer(GameState game, PieceSet piece_set) {
 					continue;
 				}
 				const auto p1 = piece_set.pieces[j];
-				const auto block_count_if_no_clear = game.getBitBoard().count() +
-					p0.count() +
-					p1.count();
-				for (const auto after_p1 : after_p0.nextStates(p1)) {
-					if (after_p1.getBitBoard().count() < block_count_if_no_clear) {
+				const auto states_1 = after_p0.nextStates(p1);
+				const auto last_1 = states_1.end();
+				for (auto it_1 = states_1.begin(); it_1 != last_1; ++it_1) {
+					(void)*it_1;
+					if (it_1.didClear()) {
 						return true;
 					}
 				}
