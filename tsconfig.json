@@ -1,0 +1,54 @@
+// Type checking for the JavaScript, without compiling any of it.
+//
+// Nothing here emits: `checkJs` turns on TypeScript's inference over ordinary
+// .js files, and the types themselves are JSDoc comments. So the files that
+// ship are the files in the repository, byte for byte -- which is the property
+// the whole front end is built around. index.html loads modules straight off
+// disk, the Pages workflow deploys by copying them, and sw.js precaches them by
+// name. A build step between the source and the deployed site would be a fourth
+// place for that list to go stale.
+//
+// This config covers the code that runs on the page. The two files that run in
+// a worker are checked by tsconfig.worker.json against a different set of
+// globals; `npm run typecheck` runs both.
+//
+// `strict` is deliberately off. The engine and the app were written without
+// types and pass as they are, which is what makes checking them free to adopt;
+// turning strict on reports 269 more, almost all of them unannotated parameters
+// rather than anything wrong. The value here is in the shapes that cross a
+// boundary -- the engine's public surface, and the game state the worker is
+// handed -- and those are annotated explicitly in engine/js/blokie.js.
+{
+  "compilerOptions": {
+    // What the browsers this targets already have. No downlevelling
+    // happens either way, since nothing is emitted.
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+
+    // Nothing here should pick up ambient globals from an installed
+    // package: the browser code gets exactly the globals named in `lib`
+    // above, so a Node-only API used by mistake is reported rather than
+    // quietly resolved.
+    "types": [],
+
+    "skipLibCheck": true,
+    "strict": false
+  },
+  // Named one by one rather than globbed, because what belongs here is
+  // exactly what the page loads. The Node-side tooling (test/, engine/tools/,
+  // web/icons/) is left out: it would need @types/node, and a second package
+  // buys much less than this one does.
+  "include": [
+    "engine/js/blokie.js",
+    "web/script.js",
+    "web/storage.js",
+    "web/sfx.js",
+    "web/pwa.js"
+  ]
+}

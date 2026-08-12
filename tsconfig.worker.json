@@ -1,0 +1,22 @@
+// The two files that run in a worker rather than on the page.
+//
+// They need their own configuration because a worker has different globals: no
+// `document`, no `window`, and a `self` that is a worker scope rather than the
+// page's. Checking them against the page's globals is what let sw.js reach for
+// `self.clients` -- which is real in a service worker and nowhere else -- with
+// nothing to say whether it was right.
+//
+// engine/js/blokie.js is pulled in here too, since ai-worker.js imports it.
+// That is worth having: the engine is loaded on the page, in this worker, and
+// by the tests under Node, so checking it against the worker's globals as well
+// is what says it stayed environment-agnostic.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker", "WebWorker.Iterable"]
+  },
+  "include": [
+    "sw.js",
+    "web/ai-worker.js"
+  ]
+}

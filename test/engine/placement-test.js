@@ -7,7 +7,7 @@
 // reading still lands on that square whenever the piece fits there, and finds
 // the closest square it does fit in when it doesn't.
 
-import { blokie } from '../../engine/js/blokie.js';
+import { blokie, bits } from '../../engine/js/blokie.js';
 
 let failures = 0;
 function check(condition, description) {
@@ -25,15 +25,13 @@ function sameBitboard(a, b) {
 
 function boardWithSquares(squares) {
     return squares.reduce(
-        (board, [r, c]) => blokie.toggleSquare(board, r, c),
-        blokie.getEmptyPiece());
+        (board, [r, c]) => bits.toggle(board, r, c),
+        bits.empty());
 }
 
 function gameWithBoard(board) {
     return {
         board: board,
-        previous_piece_placement: blokie.getEmptyPiece(),
-        previous_piece: blokie.getEmptyPiece(),
         previous_move_was_clear: false,
         score: 0,
     };
@@ -46,7 +44,7 @@ function placementCorner(placement) {
     let col = 9;
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
-            if (blokie.at(placement, r, c)) {
+            if (bits.at(placement, r, c)) {
                 row = Math.min(row, r);
                 col = Math.min(col, c);
             }
@@ -65,7 +63,7 @@ function everyLegalCorner(game, piece) {
     const corners = [];
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
-            if (blokie.tryPlacePiece(game, piece, r, c) !== null) {
+            if (blokie.placeAt(game, piece, r, c) !== null) {
                 corners.push({ row: r, col: c });
             }
         }
@@ -78,76 +76,76 @@ const SINGLE = { a: 1, b: 0, c: 0 };  // one square, so its corner is itself
 
 // === Held over a square it fits in ===
 
-const empty_game = gameWithBoard(blokie.getEmptyPiece());
+const empty_game = gameWithBoard(bits.empty());
 
 const row_clear_board = boardWithSquares([...Array(8).keys()].map(c => [0, c]));
 const cross_clear_board = boardWithSquares([
     ...[...Array(8).keys()].map(c => [0, c]),
     ...[...Array(8).keys()].map(r => [r + 1, 8]),
 ]);
-const top_right = blokie.tryPlacePiece(empty_game, SINGLE, 0, 8).placement;
-check(blokie.getPlacementComboMagnitude(row_clear_board, top_right) === 1,
+const top_right = blokie.placeAt(empty_game, SINGLE, 0, 8).placement;
+check(blokie.comboMagnitude(row_clear_board, top_right) === 1,
     "a single clear has no combo multiplier");
-check(blokie.getPlacementComboMagnitude(cross_clear_board, top_right) === 2,
+check(blokie.comboMagnitude(cross_clear_board, top_right) === 2,
     "a row and column clear has a 2x combo multiplier");
 
 check(sameBitboard(
-    blokie.nearestValidPlacement(empty_game, SINGLE, 4.2, 3.8, RADIUS).placement,
-    blokie.tryPlacePiece(empty_game, SINGLE, 4, 4).placement),
+    blokie.placeNearest(empty_game, SINGLE, 4.2, 3.8, RADIUS).placement,
+    blokie.placeAt(empty_game, SINGLE, 4, 4).placement),
     "a piece over a square it fits in goes in that square");
 
-check(blokie.nearestValidPlacement(empty_game, SINGLE, 0, 0, RADIUS) !== null
-    && blokie.nearestValidPlacement(empty_game, SINGLE, 8, 8, RADIUS) !== null,
+check(blokie.placeNearest(empty_game, SINGLE, 0, 0, RADIUS) !== null
+    && blokie.placeNearest(empty_game, SINGLE, 8, 8, RADIUS) !== null,
     "the corners of the board are reachable");
 
 // === Held over a square it does not fit in ===
 
 // A single square held dead centre on a block. Every neighbour is a square
 // away, so which one it picks is a coin toss; that it picks one is the point.
-const blocked_middle = gameWithBoard(blokie.tryPlacePiece(empty_game, SINGLE, 4, 4).placement);
-const nudged = blokie.nearestValidPlacement(blocked_middle, SINGLE, 4, 4, RADIUS);
+const blocked_middle = gameWithBoard(blokie.placeAt(empty_game, SINGLE, 4, 4).placement);
+const nudged = blokie.placeNearest(blocked_middle, SINGLE, 4, 4, RADIUS);
 check(nudged !== null, "a piece over an occupied square still finds a placement");
 check(nudged !== null && distance(placementCorner(nudged.placement), 4, 4) === 1,
     "it is nudged to a square that touches the one it was held over");
 check(nudged !== null
-    && blokie.placePiece(blocked_middle, SINGLE, nudged.placement) !== null,
+    && blokie.place(blocked_middle, nudged.placement) !== null,
     "the placement it settles on is legal");
 
 // Off the edge of the board, which the exact reading used to refuse outright.
 check(sameBitboard(
-    blokie.nearestValidPlacement(empty_game, SINGLE, -0.9, 4, RADIUS).placement,
-    blokie.tryPlacePiece(empty_game, SINGLE, 0, 4).placement),
+    blokie.placeNearest(empty_game, SINGLE, -0.9, 4, RADIUS).placement,
+    blokie.placeAt(empty_game, SINGLE, 0, 4).placement),
     "a piece hanging off the top of the board is pulled back onto it");
 check(sameBitboard(
-    blokie.nearestValidPlacement(empty_game, SINGLE, 4, 9.4, RADIUS).placement,
-    blokie.tryPlacePiece(empty_game, SINGLE, 4, 8).placement),
+    blokie.placeNearest(empty_game, SINGLE, 4, 9.4, RADIUS).placement,
+    blokie.placeAt(empty_game, SINGLE, 4, 8).placement),
     "a piece hanging off the right of the board is pulled back onto it");
 
 // A five long bar has one column of the board to sit in per row, so holding it
 // anywhere on that row means the same placement.
 const BAR = { a: 31, b: 0, c: 0 };
 check(sameBitboard(
-    blokie.nearestValidPlacement(empty_game, BAR, 3, 4.3, RADIUS).placement,
-    blokie.tryPlacePiece(empty_game, BAR, 3, 4).placement),
+    blokie.placeNearest(empty_game, BAR, 3, 4.3, RADIUS).placement,
+    blokie.placeAt(empty_game, BAR, 3, 4).placement),
     "a piece too wide to be centred lands in the only column it fits in");
 
 // === Held nowhere near a square it fits in ===
 
-check(blokie.nearestValidPlacement(empty_game, SINGLE, 4, 12, RADIUS) === null,
+check(blokie.placeNearest(empty_game, SINGLE, 4, 12, RADIUS) === null,
     "a piece held well off the board is not placed");
-check(blokie.nearestValidPlacement(empty_game, SINGLE, 4, 4, 0) === null
+check(blokie.placeNearest(empty_game, SINGLE, 4, 4, 0) === null
     || distance(placementCorner(
-        blokie.nearestValidPlacement(empty_game, SINGLE, 4, 4, 0).placement), 4, 4) === 0,
+        blokie.placeNearest(empty_game, SINGLE, 4, 4, 0).placement), 4, 4) === 0,
     "no slack means only the square the piece is exactly on");
-check(blokie.nearestValidPlacement(gameWithBoard(blokie.getEmptyPiece()), blokie.getEmptyPiece(),
+check(blokie.placeNearest(gameWithBoard(bits.empty()), bits.empty(),
     4, 4, RADIUS) === null,
     "an empty deck slot is not placed");
 
 const full_board = gameWithBoard(
     [...Array(9).keys()].reduce(
-        (board, r) => [...Array(9).keys()].reduce((b, c) => blokie.toggleSquare(b, r, c), board),
-        blokie.getEmptyPiece()));
-check(blokie.nearestValidPlacement(full_board, SINGLE, 4, 4, RADIUS) === null,
+        (board, r) => [...Array(9).keys()].reduce((b, c) => bits.toggle(b, r, c), board),
+        bits.empty()));
+check(blokie.placeNearest(full_board, SINGLE, 4, 4, RADIUS) === null,
     "a piece that fits nowhere is not placed");
 
 // === Against every placement the board has room for ===
@@ -178,24 +176,24 @@ let nudges_seen = 0;
 for (let trial = 0; trial < 3000; ++trial) {
     // A board with a scattering of blocks on it, from nearly clear to nearly
     // full, so pieces get held over room and over blocks in similar numbers.
-    let board = blokie.getEmptyPiece();
+    let board = bits.empty();
     const fullness = random();
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
             if (random() < fullness) {
-                board = blokie.toggleSquare(board, r, c);
+                board = bits.toggle(board, r, c);
             }
         }
     }
     const game = gameWithBoard(board);
-    const piece = blokie.getRandomPieceSet()[0];
+    const piece = blokie.deal()[0];
 
     // Held anywhere from a little off the top left of the board to a little off
     // the bottom right, in quarter squares so exact halves come up often.
     const row = Math.round((random() * 13 - 2) * 4) / 4;
     const col = Math.round((random() * 13 - 2) * 4) / 4;
 
-    const result = blokie.nearestValidPlacement(game, piece, row, col, RADIUS);
+    const result = blokie.placeNearest(game, piece, row, col, RADIUS);
 
     const legal = everyLegalCorner(game, piece);
     const reachable = legal.filter(corner => distance(corner, row, col) <= RADIUS);
@@ -209,8 +207,8 @@ for (let trial = 0; trial < 3000; ++trial) {
         continue;
     }
 
-    if (blokie.placePiece(game, piece, result.placement) === null
-        || blokie.isEmpty(result.placement)) {
+    if (blokie.place(game, result.placement) === null
+        || bits.isEmpty(result.placement)) {
         always_legal = false;
     }
 
@@ -229,7 +227,7 @@ for (let trial = 0; trial < 3000; ++trial) {
     // The reading this replaced: the square the piece sits closest to, taken
     // only when the piece fits there. Everywhere that used to answer, this
     // still answers the same, so nothing that worked before moved.
-    const exact = blokie.tryPlacePiece(game, piece, Math.round(row), Math.round(col));
+    const exact = blokie.placeAt(game, piece, Math.round(row), Math.round(col));
     if (exact !== null && !sameBitboard(exact.placement, result.placement)) {
         matches_exact_reading = false;
     }

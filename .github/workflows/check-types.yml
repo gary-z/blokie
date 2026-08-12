@@ -1,0 +1,35 @@
+name: Check the types
+
+# The JavaScript is checked, not compiled. Types are JSDoc comments and nothing
+# emits, so what ships is what is in the repository -- but the shapes that cross
+# a boundary are checked all the same: the engine's public API, the game state
+# the worker is handed, and the events the service worker really receives.
+#
+# Two configurations, because the page and a worker have different globals. See
+# the comments in tsconfig.json and tsconfig.worker.json.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # The only dependency this repository has, and it has no dependencies of
+      # its own, so there is one package to install and nothing to resolve.
+      - name: Install the type checker
+        run: npm install --no-audit --no-fund
+
+      - name: Check the page and the engine
+        run: npx tsc -p tsconfig.json
+
+      - name: Check the workers
+        run: npx tsc -p tsconfig.worker.json

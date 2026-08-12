@@ -48,7 +48,10 @@ const EVENT_GAIN = { pickup: 0.45, place: 0.9, reject: 1.0, clear: 0.9 };
 // reads as the clear causing it, rather than as part of the placement.
 const CLEAR_DELAY_S = 0.06;
 
-const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+// Safari answered to the prefixed name alone until 14.1, which is still inside
+// the range of iPhones this runs on.
+const AudioContextClass = window.AudioContext
+    || /** @type {{webkitAudioContext?: typeof AudioContext}} */ (window).webkitAudioContext;
 
 let audio_ctx = null;
 let sound_on = false;

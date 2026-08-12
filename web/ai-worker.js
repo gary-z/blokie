@@ -13,6 +13,6 @@ self.onmessage = async (e) => {
     await init();
     self.postMessage({
         id: e.data.id,
-        plan: blokie.getAIPlan(e.data.game, e.data.piece_set),
+        plan: blokie.plan(e.data.game, e.data.piece_set),
     });
 };

@@ -1,6 +1,7 @@
 "use strict";
 
-import { blokie, init } from '../../engine/js/blokie.js';
+import { init } from '../../engine/js/blokie.js';
+import { performanceSample } from './harness.js';
 import { performance } from 'perf_hooks';
 
 await init();
@@ -8,7 +9,7 @@ await init();
 const NUM_MOVES = 10000;
 
 const start_time = performance.now();
-blokie.getPerformanceSample(NUM_MOVES);
+performanceSample(NUM_MOVES);
 const execution_time_ms = performance.now() - start_time;
 
 console.log(`${NUM_MOVES} moves in ${(execution_time_ms / 1000).toFixed(2)} seconds`);

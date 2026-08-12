@@ -11,10 +11,15 @@
   "files": [
     "engine/js/blokie.js",
     "engine/wasm/blokie-solver.js",
+    "engine/wasm/blokie-solver.d.ts",
     "engine/wasm/blokie-solver.wasm"
   ],
   "homepage": "https://gary-z.github.io/blokie/",
+  "devDependencies": {
+    "typescript": "5.9.3"
+  },
   "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
     "build:wasm": "bash engine/build-wasm.sh",
     "build:icons": "node web/icons/make-icons.js",
     "test:ai": "node test/engine/ai-plan-test.js",

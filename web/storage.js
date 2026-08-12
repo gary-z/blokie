@@ -1,9 +1,20 @@
 "use strict";
-import { blokie } from "../engine/js/blokie.js";
 
 // The game lives in cookies so it survives a refresh: the board, score, and
 // pieces on deck go in one cookie, who is playing goes in another. Both are
 // written whenever they change and read once, on load.
+
+/**
+ * A game plus everything around it the app keeps: which pieces are on deck,
+ * whether the deck has run out of room, and how long the current run of clears
+ * is. The engine's Game holds only what scoring needs; this is what a session
+ * is made of, and what goes in and out of the cookie below.
+ * @typedef {object} GameState
+ * @property {import('../engine/js/blokie.js').Game} game
+ * @property {import('../engine/js/blokie.js').Deck} piece_set
+ * @property {boolean} game_over
+ * @property {number} clear_streak
+ */
 
 const GAME_COOKIE = 'blokie_game';
 const ASSIST_COOKIE = 'blokie_assist';
@@ -19,6 +30,7 @@ const SAVE_FIELDS = 15;
 // Each field of a bitboard carries 27 of the board's 81 squares.
 const MAX_BITBOARD_FIELD = 0x7FFFFFF;
 
+/** @type {(name: string, value: string) => void} */
 function setCookie(name, value) {
     // No path attribute: the cookie is then scoped to the directory the app is
     // served from instead of the whole origin. Secure is skipped off https,
@@ -32,6 +44,7 @@ function setCookie(name, value) {
     }
 }
 
+/** @type {(name: string) => string | null} */
 function getCookie(name) {
     let jar;
     try {
@@ -51,6 +64,7 @@ function getCookie(name) {
 
 // A save is a flat list of numbers in a fixed order, joined by '.'. Nothing in
 // it needs escaping, so the cookie value stays short and legible.
+/** @type {(game_state: GameState) => string} */
 function encodeGameState(game_state) {
     const game = game_state.game;
     const fields = [
@@ -70,12 +84,14 @@ function encodeGameState(game_state) {
     return fields.join('.');
 }
 
+/** @type {(n: number) => boolean} */
 function isBitboardField(n) {
     return Number.isInteger(n) && n >= 0 && n <= MAX_BITBOARD_FIELD;
 }
 
 // Returns a game state shaped like the one a new game starts with, or null if
 // the save is from another version, truncated, or otherwise not usable.
+/** @type {(saved: string) => GameState | null} */
 function decodeGameState(saved) {
     const fields = saved.split('.').map(Number);
     if (fields.length !== SAVE_FIELDS || fields[0] !== SAVE_VERSION) return null;
@@ -88,19 +104,18 @@ function decodeGameState(saved) {
     const piece_fields = fields.slice(6);
     if (!piece_fields.every(isBitboardField)) return null;
     // Every slot gets its own object, so emptying one can never empty another
-    // that happens to be holding the same shape.
-    const piece_set = [0, 1, 2].map(i => ({
-        a: piece_fields[i * 3],
-        b: piece_fields[i * 3 + 1],
-        c: piece_fields[i * 3 + 2],
-    }));
+    // that happens to be holding the same shape. There are always exactly three,
+    // which is what SAVE_FIELDS above has already been checked for.
+    const piece_set = /** @type {import('../engine/js/blokie.js').Deck} */ (
+        [0, 1, 2].map(i => ({
+            a: piece_fields[i * 3],
+            b: piece_fields[i * 3 + 1],
+            c: piece_fields[i * 3 + 2],
+        })));
 
     return {
-        // The move that got here is not saved, only where it left the game.
         game: {
             board: { a: board_a, b: board_b, c: board_c },
-            previous_piece_placement: blokie.getEmptyPiece(),
-            previous_piece: blokie.getEmptyPiece(),
             // A run in progress is a last move that cleared, which is the only
             // part of it the engine scores with.
             previous_move_was_clear: clear_streak > 0,
@@ -112,11 +127,13 @@ function decodeGameState(saved) {
     };
 }
 
+/** @type {string | null} */
 let last_saved_game = null;
 
 // Called on every rendered frame that changed something. The assist can move
 // the game on many times between frames and every write reserializes the whole
 // cookie, so only an actual change to the saved fields reaches the jar.
+/** @type {(game_state: GameState) => void} */
 function saveGameState(game_state) {
     const encoded = encodeGameState(game_state);
     if (encoded === last_saved_game) return;
@@ -124,6 +141,7 @@ function saveGameState(game_state) {
     setCookie(GAME_COOKIE, encoded);
 }
 
+/** @type {() => GameState | null} */
 function loadGameState() {
     const saved = getCookie(GAME_COOKIE);
     if (saved === null) return null;
@@ -137,10 +155,12 @@ function loadGameState() {
 // Who plays: an assist speed in milliseconds, or 'off' for manual. Stored as
 // written and checked against the picker's options on the way back in, so a
 // stale or edited value can't select something that isn't offered.
+/** @type {(value: string) => void} */
 function saveAssistSetting(value) {
     setCookie(ASSIST_COOKIE, value);
 }
 
+/** @type {() => string | null} */
 function loadAssistSetting() {
     return getCookie(ASSIST_COOKIE);
 }
@@ -148,10 +168,12 @@ function loadAssistSetting() {
 // Whether sound is on, as 'on' or 'off'. Anything else, including no cookie at
 // all, reads as off: a page that starts making noise on its own is a page
 // people close, so it stays quiet until someone asks for it.
+/** @type {(on: boolean) => void} */
 function saveSfxSetting(on) {
     setCookie(SFX_COOKIE, on ? 'on' : 'off');
 }
 
+/** @type {() => boolean} */
 function loadSfxSetting() {
     return getCookie(SFX_COOKIE) === 'on';
 }
