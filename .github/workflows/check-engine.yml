@@ -11,6 +11,31 @@ on:
     branches: [main]
 
 jobs:
+  # Both compilers, because the engine leans on the optimizer and the two do not
+  # accept the same source. A hint one of them has not implemented yet is a
+  # warning, which -Werror turns into a build that does not happen at all -- and
+  # building only with the compiler that has it is how that gets committed.
+  native:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+    name: Native (${{ matrix.compiler }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure native engine tests
+        env:
+          CXX: ${{ matrix.compiler }}
+        run: cmake -S engine/cpp -B /tmp/blokie-native-tests -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build native engine tests
+        run: cmake --build /tmp/blokie-native-tests --parallel 2 --target eval-test search-test
+
+      - name: Native evaluation and search
+        run: ctest --test-dir /tmp/blokie-native-tests --output-on-failure
+
   check:
     runs-on: ubuntu-latest
     steps:
@@ -19,15 +44,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Configure native engine tests
-        run: cmake -S engine/cpp -B /tmp/blokie-native-tests -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build native engine tests
-        run: cmake --build /tmp/blokie-native-tests --parallel 2 --target eval-test search-test
-
-      - name: Native evaluation and search
-        run: ctest --test-dir /tmp/blokie-native-tests --output-on-failure
 
       - name: Bitboards, pieces and clearing
         run: node test/engine/bitboard-test.js
