@@ -122,7 +122,7 @@ BitBoard::BitBoard(uint64_t a, uint64_t b) : a(a), b(b) {
 	// cheaper to pass around than a mixed-width pair, but tell the optimizer
 	// that its upper bits are never populated.
 	assert(b <= ALL_ALLOWED_BITS_IN_B);
-	if (b > ALL_ALLOWED_BITS_IN_B) __builtin_unreachable();
+	[[assume(b <= ALL_ALLOWED_BITS_IN_B)]];
 }
 
 bool BitBoard::operator==(BitBoard other) const {

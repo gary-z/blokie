@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.14)
+cmake_minimum_required (VERSION 3.20)
 
 # Native fitness runs are built with GCC 16: with both compilers targeting this
 # host, it measured about 4% faster than GCC 12 on the all-core benchmark. Use
@@ -47,7 +47,7 @@ if(BLOKIE_REQUIRE_GCC16 AND NOT EMSCRIPTEN AND
 		"${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
