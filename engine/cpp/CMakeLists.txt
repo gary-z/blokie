@@ -72,6 +72,32 @@ else()
 	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -DNDEBUG")
 endif()
 
+# Release builds are -flto, which leaves every object file holding the
+# compiler's own intermediate form instead of machine code. Plain ar cannot
+# read that. It still writes an archive, and the archive still has a symbol
+# index -- an empty one -- so libsolver.a links as though the solver were not
+# in it and the executables come out undefined on every symbol it defines.
+#
+# Whether that happens is a fact about the machine rather than the project:
+# binutils can read the intermediate form through a plugin, so it works
+# wherever the toolchain dropped one in the directory binutils looks in, and
+# fails wherever it did not. Building on a machine with the plugin says
+# nothing about the next machine.
+#
+# Every compiler with LTO ships an archiver that reads its own bitcode with no
+# plugin involved -- llvm-ar, gcc-ar -- and CMake has already located it. Use
+# it in preference to whichever ar was first on PATH. Emscripten is left alone:
+# its toolchain file sets these to emar and emranlib itself, and it knows
+# better than this file does.
+if(NOT EMSCRIPTEN AND NOT MSVC)
+	if(CMAKE_CXX_COMPILER_AR)
+		set(CMAKE_AR "${CMAKE_CXX_COMPILER_AR}")
+	endif()
+	if(CMAKE_CXX_COMPILER_RANLIB)
+		set(CMAKE_RANLIB "${CMAKE_CXX_COMPILER_RANLIB}")
+	endif()
+endif()
+
 include(CheckCXXCompilerFlag)
 
 # Tune native-only tools for the machine that runs them. These executables are
