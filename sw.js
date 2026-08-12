@@ -11,6 +11,14 @@
 // it. The Service-Worker-Allowed header would widen that, and GitHub Pages
 // serves what is in the repository with no way to add headers to it.
 
+// `self` in here is a service worker's scope, which is where clients.claim()
+// and the install, activate and fetch events below come from. Nothing at
+// runtime depends on this line -- it is the same object either way -- but it is
+// what lets the type checker tell an event this worker really receives from one
+// it never will. tsconfig.worker.json is what checks this file.
+/** @type {ServiceWorkerGlobalScope & typeof globalThis} */
+const worker = /** @type {any} */ (self);
+
 // Substituted for a digest of the deployed files by the Pages workflow. It is
 // what makes a deploy reach a player who already has the app: the browser
 // reinstalls a worker whose bytes have changed, and a changed digest means a
@@ -52,7 +60,7 @@ const PRECACHE = [
     './engine/wasm/blokie-solver.wasm',
 ];
 
-self.addEventListener('install', (event) => {
+worker.addEventListener('install', (event) => {
     event.waitUntil((async () => {
         const cache = await caches.open(CACHE_NAME);
         // Past the HTTP cache: Pages serves these with a lifetime of its own,
@@ -62,7 +70,7 @@ self.addEventListener('install', (event) => {
     })());
 });
 
-self.addEventListener('activate', (event) => {
+worker.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         const names = await caches.keys();
         await Promise.all(names
@@ -71,7 +79,7 @@ self.addEventListener('activate', (event) => {
         // Takes charge of the page that registered it, which otherwise plays
         // its first visit uncontrolled -- and so with nothing cached if it is
         // closed before it is ever loaded again.
-        await self.clients.claim();
+        await worker.clients.claim();
     })());
 });
 
@@ -89,13 +97,13 @@ async function serveFromCache(request, key) {
     return fetch(request);
 }
 
-self.addEventListener('fetch', (event) => {
+worker.addEventListener('fetch', (event) => {
     const request = event.request;
     if (request.method !== 'GET') return;
 
     // Analytics and anything else off-site is left to the browser, which knows
     // to let it fail quietly when there is no network.
-    if (new URL(request.url).origin !== self.location.origin) return;
+    if (new URL(request.url).origin !== worker.location.origin) return;
 
     // Every address in scope is the same single page, so a navigation is
     // answered with the shell whatever it asked for.

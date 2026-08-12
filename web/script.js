@@ -1,5 +1,5 @@
 "use strict";
-import { blokie, init } from "../engine/js/blokie.js";
+import { blokie, bits, init } from "../engine/js/blokie.js";
 import { saveGameState, loadGameState, saveAssistSetting, loadAssistSetting } from "./storage.js";
 import { initSfx, playSfx } from "./sfx.js";
 import { registerServiceWorker } from "./pwa.js";
@@ -10,8 +10,8 @@ import { registerServiceWorker } from "./pwa.js";
 // or take a turn yourself.
 function getNewGameState() {
     return {
-        game: blokie.getNewGame(),
-        piece_set: blokie.getRandomPieceSet(),
+        game: blokie.newGame(),
+        piece_set: blokie.deal(),
         game_over: false,  // true once nothing on deck fits anywhere
         // How many moves in a row have cleared, counting the one just played.
         // The engine only knows whether the move before this one cleared, which
@@ -54,7 +54,7 @@ const FINGER_CLEARANCE = 30;  // px of clearance above the touch point
 
 document.addEventListener("DOMContentLoaded", function (event) {
     // Restore who was playing before anything reads the picker.
-    const ai_assist = document.getElementById('ai-assist');
+    const ai_assist = /** @type {HTMLSelectElement} */ (document.getElementById('ai-assist'));
     const saved_assist = loadAssistSetting();
     if (saved_assist !== null && [...ai_assist.options].some(o => o.value === saved_assist)) {
         ai_assist.value = saved_assist;
@@ -106,20 +106,20 @@ document.addEventListener("DOMContentLoaded", function (event) {
     const pieces_on_deck_container = document.getElementById('pieces-on-deck-container');
     pieces_on_deck_container.addEventListener('touchstart', (event) => {
         if (!gameIsActive()) return;
-        const cell = event.target;
+        const cell = /** @type {HTMLElement} */ (event.target);
         if (cell.nodeName !== 'TD') return;
         const table = cell.closest('table');
         if (table.className !== 'pieces-on-deck') return;
 
         const pieceIndex = parseInt(table.id.slice(-1));
         const piece = state.game_state.piece_set[pieceIndex];
-        if (blokie.isEmpty(piece)) return;
+        if (bits.isEmpty(piece)) return;
 
         const touch = event.touches[0];
         drag_info = {
             pieceIndex,
             piece,
-            bounds: blokie.getPieceBounds(piece),
+            bounds: bits.bounds(piece),
             startX: touch.clientX,
             startY: touch.clientY,
             active: false,
@@ -128,19 +128,19 @@ document.addEventListener("DOMContentLoaded", function (event) {
     });
     pieces_on_deck_container.addEventListener('mousedown', (event) => {
         if (!gameIsActive()) return;
-        const cell = event.target;
+        const cell = /** @type {HTMLElement} */ (event.target);
         if (cell.nodeName !== 'TD') return;
         const table = cell.closest('table');
         if (table.className !== 'pieces-on-deck') return;
 
         const pieceIndex = parseInt(table.id.slice(-1));
         const piece = state.game_state.piece_set[pieceIndex];
-        if (blokie.isEmpty(piece)) return;
+        if (bits.isEmpty(piece)) return;
 
         drag_info = {
             pieceIndex,
             piece,
-            bounds: blokie.getPieceBounds(piece),
+            bounds: bits.bounds(piece),
             startX: event.clientX,
             startY: event.clientY,
             active: false,
@@ -239,7 +239,7 @@ function createFloatingPiece(piece, bounds) {
     const table = document.createElement('table');
     table.style.borderCollapse = 'collapse';
 
-    const p = blokie.leftTopJustify(piece);
+    const p = bits.justify(piece);
     for (let r = 0; r < bounds.rows; r++) {
         const tr = document.createElement('tr');
         for (let c = 0; c < bounds.cols; c++) {
@@ -248,7 +248,7 @@ function createFloatingPiece(piece, bounds) {
             td.style.height = board.cellH + 'px';
             td.style.padding = '0';
             td.style.border = '0';
-            if (blokie.at(p, r, c)) {
+            if (bits.at(p, r, c)) {
                 td.style.background = 'rgb(54, 112, 232)';
                 td.style.border = '1px solid rgba(0,0,0,0.5)';
             }
@@ -305,7 +305,7 @@ const SNAP_RADIUS_SQUARES = 1.5;
 function calcShadowPlacement(clientX, clientY, piece, bounds) {
     const piece_rect = getFloatingPieceRect(clientX, clientY, bounds);
     const board = piece_rect.board;
-    return blokie.nearestValidPlacement(
+    return blokie.placeNearest(
         state.game_state.game,
         piece,
         (piece_rect.top - board.rect.top) / board.cellH,
@@ -318,15 +318,15 @@ function calcShadowPlacement(clientX, clientY, piece, bounds) {
 // committed. Asking the engine for the prospective game keeps the preview in
 // lockstep with the actual row, column and box clearing rules.
 function calcClearPreview(piece, placement) {
-    const result = blokie.placePiece(state.game_state.game, piece, placement);
-    if (result === null || !result.newGame.previous_move_was_clear) return null;
+    const result = blokie.place(state.game_state.game, placement);
+    if (result === null || !result.new_game.previous_move_was_clear) return null;
 
-    const before_clear = blokie.or(state.game_state.game.board, placement);
-    let preview = blokie.getEmptyPiece();
+    const before_clear = bits.union(state.game_state.game.board, placement);
+    let preview = bits.empty();
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
-            if (blokie.at(before_clear, r, c) && !blokie.at(result.newGame.board, r, c)) {
-                preview = blokie.toggleSquare(preview, r, c);
+            if (bits.at(before_clear, r, c) && !bits.at(result.new_game.board, r, c)) {
+                preview = bits.toggle(preview, r, c);
             }
         }
     }
@@ -382,11 +382,7 @@ function handleDragEnd(clientX, clientY) {
         // The shadow is what the piece was promised, so it is what gets played,
         // rather than anything worked out again from where the finger ended up.
         if (state.drag_shadow) {
-            const result = blokie.placePiece(
-                state.game_state.game,
-                drag_info.piece,
-                state.drag_shadow,
-            );
+            const result = blokie.place(state.game_state.game, state.drag_shadow);
             if (result) {
                 commitMove(drag_info.pieceIndex, result);
                 cleanupDrag();
@@ -473,28 +469,28 @@ function initRestartButton(button) {
 // A piece lands on the board. The only place the board, the deck, the score and
 // the sounds move on, whoever put the piece there: a drop ends here, and so
 // does the end of the assist's fly animation. `result` is what
-// blokie.placePiece gave back for the move.
+// blokie.place gave back for the move.
 //
 // `silent` is for the assist at Max, where the moves land faster than the
 // sounds could be heard as anything but noise.
 function commitMove(piece_index, result, { silent = false } = {}) {
     if (!silent) {
         playSfx('place');
-        if (result.newGame.previous_move_was_clear) {
+        if (result.new_game.previous_move_was_clear) {
             playSfx('clear');
         }
     }
 
     const game_state = state.game_state;
     // A move that clears carries the run on; one that does not ends it.
-    const clear_streak = result.newGame.previous_move_was_clear
+    const clear_streak = result.new_game.previous_move_was_clear
         ? game_state.clear_streak + 1
         : 0;
     // What the move paid, read before the new game replaces the old one below.
     // Held to the same bar the sounds are: at Max the moves land faster than a
     // card could be read, and the cards would only stack up over the board.
-    if (!silent && result.newGame.previous_move_was_clear) {
-        const combo = blokie.getPlacementComboMagnitude(game_state.game.board, result.placement);
+    if (!silent && result.new_game.previous_move_was_clear) {
+        const combo = blokie.comboMagnitude(game_state.game.board, result.placement);
         const bonuses = [];
         if (combo > 1) {
             bonuses.push(combo.toLocaleString() + 'x Combo!');
@@ -505,24 +501,24 @@ function commitMove(piece_index, result, { silent = false } = {}) {
         if (clear_streak > 1) {
             bonuses.push(clear_streak.toLocaleString() + 'x Streak!');
         }
-        showMoveScoreCard(result.newGame.score - game_state.game.score, result.placement, bonuses);
+        showMoveScoreCard(result.new_game.score - game_state.game.score, result.placement, bonuses);
     }
     // The engine returns the board after completed rows, columns and boxes have
     // already been removed. Remember this placement until the next render so
     // squares which were placed into a clear can join the shrink animation
     // instead of appearing never to have landed.
-    pending_clear_placement = result.newGame.previous_move_was_clear
+    pending_clear_placement = result.new_game.previous_move_was_clear
         ? result.placement
         : null;
-    game_state.piece_set[piece_index] = blokie.getEmptyPiece();
-    if (game_state.piece_set.every(p => blokie.isEmpty(p))) {
-        game_state.piece_set = blokie.getRandomPieceSet();
+    game_state.piece_set[piece_index] = bits.empty();
+    if (game_state.piece_set.every(p => bits.isEmpty(p))) {
+        game_state.piece_set = blokie.deal();
         assist_deck_is_new = true;
         // Held to the same bar the sounds and the card above are: at Max the
         // decks come out faster than a fade could read as anything but flicker.
         pending_new_deck = !silent;
     }
-    game_state.game = result.newGame;
+    game_state.game = result.new_game;
     game_state.clear_streak = clear_streak;
     refreshGameOver(game_state);
 }
@@ -538,18 +534,23 @@ let pending_clear_placement = null;
 // new one, and it should be there the moment the page is.
 let pending_new_deck = false;
 
+/** @returns {HTMLSelectElement} */
+function assistPicker() {
+    return /** @type {HTMLSelectElement} */ (document.getElementById('ai-assist'));
+}
+
 function assistIsOn() {
-    return document.getElementById('ai-assist').value !== 'off';
+    return assistPicker().value !== 'off';
 }
 
 // The delay between assist moves, or null while you are playing by hand.
 function getAssistDelayMs() {
-    return assistIsOn() ? parseInt(document.getElementById('ai-assist').value) : null;
+    return assistIsOn() ? parseInt(assistPicker().value) : null;
 }
 
 // Tint the picker while the assist is the one playing.
 function showWhoIsPlaying() {
-    document.getElementById('ai-assist').classList.toggle('assist-on', assistIsOn());
+    assistPicker().classList.toggle('assist-on', assistIsOn());
 }
 
 // Whether the assist is playing slowly enough to animate a move, and so to
@@ -683,7 +684,7 @@ function continueAssist() {
 // the plan is stale -- the deck moved under it -- and should be thrown away.
 function resolveAssistMove(move) {
     const piece = state.game_state.piece_set[move.piece_index];
-    const result = blokie.placePiece(state.game_state.game, piece, move.placement);
+    const result = blokie.place(state.game_state.game, move.placement);
     if (result === null) {
         return null;
     }
@@ -723,7 +724,7 @@ let _fly_anim = null; // { el }
 const FLY_ANIM_MS = 300;
 
 function startFlyAnimation(pieceIndex, piece, placement) {
-    const bounds = blokie.getPieceBounds(piece);
+    const bounds = bits.bounds(piece);
     const el = createFloatingPiece(piece, bounds);
 
     // Source: center of the on-deck slot
@@ -737,7 +738,7 @@ function startFlyAnimation(pieceIndex, piece, placement) {
     let minR = 9, minC = 9;
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-            if (blokie.at(placement, r, c)) {
+            if (bits.at(placement, r, c)) {
                 if (r < minR) minR = r;
                 if (c < minC) minC = c;
             }
@@ -795,7 +796,7 @@ function getPlacementCenter(placement) {
     let min_r = 9, min_c = 9, max_r = -1, max_c = -1;
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
-            if (!blokie.at(placement, r, c)) continue;
+            if (!bits.at(placement, r, c)) continue;
             if (r < min_r) min_r = r;
             if (c < min_c) min_c = c;
             if (r > max_r) max_r = r;
@@ -971,13 +972,13 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_pl
             // The landing cells remain the ordinary grey drag shadow even
             // when they participate in a clear. Only squares already on the
             // board get the lighter clear treatment.
-            if (state.drag_shadow && blokie.at(state.drag_shadow, r, c)) {
+            if (state.drag_shadow && bits.at(state.drag_shadow, r, c)) {
                 cls = 'drag-shadow';
-            } else if (state.clear_preview && blokie.at(state.clear_preview, r, c)) {
+            } else if (state.clear_preview && bits.at(state.clear_preview, r, c)) {
                 cls = 'clear-preview';
-            } else if (blokie.at(board, r, c)) {
+            } else if (bits.at(board, r, c)) {
                 cls = 'has-piece';
-            } else if (clearing_placement && blokie.at(clearing_placement, r, c)) {
+            } else if (clearing_placement && bits.at(clearing_placement, r, c)) {
                 // This square was both added and cleared in the same engine
                 // update, so it never existed in `board`. Draw it directly in
                 // the same outgoing state as the older squares being cleared.
@@ -991,10 +992,16 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_pl
 
     for (let i = 0; i < 3; ++i) {
         const hidePiece = state.piece_in_hand_index === i;
+        // The engine deals pieces justified into the top left corner. Where one
+        // sits inside the 5x5 slot it is drawn in is a question about drawing
+        // it, so it is answered here rather than carried around in the deck.
+        // Centering justifies first, so a deck restored from an older cookie --
+        // which saved its pieces already centered -- comes up in the same place.
+        const piece = bits.center(piece_set[i]);
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
                 const td = pieces_on_deck_div.children[i].rows[r].cells[c];
-                const cls = (!hidePiece && blokie.at(piece_set[i], r, c)) ? 'has-piece' : '';
+                const cls = (!hidePiece && bits.at(piece, r, c)) ? 'has-piece' : '';
                 if (td.className !== cls) td.className = cls;
             }
         }

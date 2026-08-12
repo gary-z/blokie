@@ -11,7 +11,7 @@
 // of the same public API the app plays moves with. It is far too slow to be the
 // engine, but it cannot skip anything.
 
-import { blokie, init } from '../../engine/js/blokie.js';
+import { blokie, bits, init } from '../../engine/js/blokie.js';
 
 await init();
 
@@ -26,13 +26,11 @@ function check(condition, description) {
     return true;
 }
 
-const EMPTY = blokie.getEmptyPiece();
+const EMPTY = bits.empty();
 
 function gameWithBoard(board, previous_move_was_clear = false) {
     return {
         board: board,
-        previous_piece_placement: EMPTY,
-        previous_piece: EMPTY,
         previous_move_was_clear: previous_move_was_clear,
         score: 0,
     };
@@ -47,14 +45,14 @@ function evaluate(board) {
 
 // Every legal placement of one piece, as the move it would produce.
 function placementsOf(game, piece) {
-    if (blokie.isEmpty(piece)) {
+    if (bits.isEmpty(piece)) {
         return [];
     }
-    const bounds = blokie.getPieceBounds(piece);
+    const bounds = bits.bounds(piece);
     const moves = [];
     for (let r = 0; r + bounds.rows <= 9; ++r) {
         for (let c = 0; c + bounds.cols <= 9; ++c) {
-            const move = blokie.tryPlacePiece(game, piece, r, c);
+            const move = blokie.placeAt(game, piece, r, c);
             if (move !== null) {
                 moves.push(move);
             }
@@ -80,11 +78,11 @@ function reachableBoards(game, deck) {
         for (const slot of remaining) {
             const rest = remaining.filter((other) => other !== slot);
             for (const move of placementsOf(state, deck[slot])) {
-                walk(move.newGame, rest);
+                walk(move.new_game, rest);
             }
         }
     };
-    walk(game, deck.map((_, i) => i).filter((i) => !blokie.isEmpty(deck[i])));
+    walk(game, deck.map((_, i) => i).filter((i) => !bits.isEmpty(deck[i])));
     return best;
 }
 
@@ -94,21 +92,32 @@ function reachableBoards(game, deck) {
 function replay(game, deck, result) {
     const used = new Set();
     let state = game;
-    for (const planned of result.new_game_states) {
-        if (blokie.isEmpty(planned.previous_piece_placement)) {
-            continue;
-        }
-        if (used.has(planned.piece_index)) {
+    for (const planned of result.moves) {
+        if (bits.isEmpty(planned.placement) || used.has(planned.piece_index)) {
             return null;
         }
         used.add(planned.piece_index);
-        const move = blokie.placePiece(
-            state, deck[planned.piece_index], planned.previous_piece_placement);
-        if (move === null || key(move.newGame.board) !== key(planned.board)
-            || move.newGame.score !== planned.score) {
+        // The placement has to be the piece in the slot it names, moved onto
+        // the board, and not some other shape the search preferred. A placement
+        // carries no record of which piece it came from, so this is the only
+        // thing tying the two halves of a planned move together.
+        if (!bits.equals(bits.justify(planned.placement),
+            bits.justify(deck[planned.piece_index]))) {
             return null;
         }
-        state = move.newGame;
+        const move = blokie.place(state, planned.placement);
+        if (move === null) {
+            return null;
+        }
+        state = move.new_game;
+    }
+    // Replaying the moves has to land on the game it reported. That is the
+    // whole of what the app relies on: the worker plans, the main thread
+    // replays the plan down the same path a dropped piece takes, and the two
+    // have to agree about where that leaves the game.
+    if (key(state.board) !== key(result.game.board)
+        || state.score !== result.game.score) {
+        return null;
     }
     return { board: state.board, score: state.score, pieces_played: used.size };
 }
@@ -117,14 +126,14 @@ function replay(game, deck, result) {
 function checkPosition(name, board, deck, previous_move_was_clear = false) {
     const game = gameWithBoard(board, previous_move_was_clear);
     const reachable = reachableBoards(game, deck);
-    const result = blokie.getAIMove(game, deck);
+    const result = blokie.makeMove(game, deck);
     const played = replay(game, deck, result);
-    const held = deck.filter((p) => !blokie.isEmpty(p)).length;
+    const held = deck.filter((p) => !bits.isEmpty(p)).length;
 
     if (reachable.size === 0) {
-        // There is no way to place every piece. The solver says so by placing
-        // nothing; get_ai_plan is what turns that into a smaller move.
-        check(result.new_game_states.every((s) => blokie.isEmpty(s.previous_piece_placement)),
+        // There is no way to place every piece. The solver says so by coming
+        // back empty handed; blokie.plan is what turns that into a smaller move.
+        check(!result.found && result.moves.length === 0,
             `${name}: places nothing when the whole deck does not fit`);
         return;
     }
@@ -231,8 +240,8 @@ const PIECES = [];
 {
     const seen = new Set();
     for (let i = 0; i < 5000 && PIECES.length < 47; ++i) {
-        for (const piece of blokie.getRandomPieceSet()) {
-            const justified = blokie.leftTopJustify(piece);
+        for (const piece of blokie.deal()) {
+            const justified = bits.justify(piece);
             if (!seen.has(key(justified))) {
                 seen.add(key(justified));
                 PIECES.push(justified);
@@ -265,7 +274,7 @@ function completedLines(board) {
             box.push([Math.floor(i / 3) * 3 + Math.floor(j / 3), (i % 3) * 3 + (j % 3)]);
         }
         for (const line of [row, column, box]) {
-            if (line.every(([r, c]) => blokie.at(board, r, c))) {
+            if (line.every(([r, c]) => bits.at(board, r, c))) {
                 lines.push(line);
             }
         }
@@ -277,25 +286,25 @@ function completedLines(board) {
 // empty board has thousands of placements and nothing to clear, which is the
 // case the search has the least to think about.
 function randomBoard(random, fullness) {
-    let board = blokie.getNewGame().board;
+    let board = blokie.newGame().board;
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
             if (random() < fullness) {
-                board = blokie.toggleSquare(board, r, c);
+                board = bits.toggle(board, r, c);
             }
         }
     }
     // Fill a line and punch holes back in it, so a piece or two can complete it.
     const row = Math.floor(random() * 9);
     for (let c = 0; c < 9; ++c) {
-        if (!blokie.at(board, row, c)) {
-            board = blokie.toggleSquare(board, row, c);
+        if (!bits.at(board, row, c)) {
+            board = bits.toggle(board, row, c);
         }
     }
     for (let i = 0; i < 2 + Math.floor(random() * 3); ++i) {
         const c = Math.floor(random() * 9);
-        if (blokie.at(board, row, c)) {
-            board = blokie.toggleSquare(board, row, c);
+        if (bits.at(board, row, c)) {
+            board = bits.toggle(board, row, c);
         }
     }
     for (;;) {
@@ -304,7 +313,7 @@ function randomBoard(random, fullness) {
             return board;
         }
         const [r, c] = lines[0][Math.floor(random() * 9)];
-        board = blokie.toggleSquare(board, r, c);
+        board = bits.toggle(board, r, c);
     }
 }
 
@@ -329,13 +338,13 @@ for (let trial = 0; trial < 1500; ++trial) {
 
     const game = gameWithBoard(board, trial % 2 === 0);
     const reachable = reachableBoards(game, deck);
-    const result = blokie.getAIMove(game, deck);
+    const result = blokie.makeMove(game, deck);
     const played = replay(game, deck, result);
-    const held = deck.filter((p) => !blokie.isEmpty(p)).length;
+    const held = deck.filter((p) => !bits.isEmpty(p)).length;
     swept++;
 
     if (reachable.size === 0) {
-        if (!result.new_game_states.every((s) => blokie.isEmpty(s.previous_piece_placement))) {
+        if (result.found || result.moves.length !== 0) {
             check(false, `sweep trial ${trial}: placed something it could not place`);
         }
         continue;
@@ -381,15 +390,15 @@ check(failures === before_sweep,
         { a: 1837060, b: 0, c: 0 },
     ];
     let game = gameWithBoard(board);
-    const plan = blokie.getAIPlan(game, deck);
+    const plan = blokie.plan(game, deck);
     let legal = plan.length > 0;
     for (const move of plan) {
-        const result = blokie.placePiece(game, deck[move.piece_index], move.placement);
+        const result = blokie.place(game, move.placement);
         if (result === null) {
             legal = false;
             break;
         }
-        game = result.newGame;
+        game = result.new_game;
     }
     check(plan.length === 3, "the plan for that position places all three pieces");
     check(legal, "every placement in the plan is legal");

@@ -12,16 +12,16 @@
 // them before the board could be drawn. They are the same checks; they just
 // run where tests run now.
 
-import { _internals } from '../../engine/js/blokie.js';
+import { blokie, _internals } from '../../engine/js/blokie.js';
 
 const {
     bitboard, getEmpty, getFull, EMPTY, FULL, USED_BITS, ROW_0, TOP_LEFT_CUBE,
     _popcount, count, equal, any, is_empty, not, and, or, diff, is_disjoint,
     bit, at, row, column, cube,
     shift_left, shift_right, shift_up, shift_down,
-    PIECES, get_random_piece, perform_clears, can_place_piece, has_valid_move,
+    PIECES, perform_clears, can_place_piece, has_valid_move,
     get_combo_magnitude, center_piece, left_top_justify_piece, get_piece_bounds,
-    nearest_valid_placement, get_new_game,
+    place_nearest, new_game,
 } = _internals;
 
 let failures = 0;
@@ -157,10 +157,33 @@ checkAll("shifts move a line to the next one and back", (want) => {
 
 // === pieces ===
 
-checkAll("the deck always deals something", (want) => {
+checkAll("the deck always deals three real pieces", (want) => {
     for (let i = 0; i < 100; ++i) {
-        want(any(get_random_piece()), `draw ${i}`);
+        const deck = blokie.deal();
+        want(deck.length === 3, `draw ${i} has three slots`);
+        for (const p of deck) {
+            want(any(p), `draw ${i} dealt something`);
+            // What the search is handed, and what two slots holding the same
+            // shape are compared as, so a deal that skipped this would be a
+            // deck the engine quietly re-justifies on every call.
+            want(equal(p, left_top_justify_piece(p)), `draw ${i} is justified`);
+        }
     }
+});
+
+// A harness needs a repeatable deal; the game itself never passes one.
+checkAll("a supplied generator makes the deal repeatable", (want) => {
+    const fixed = (values) => {
+        let i = 0;
+        return () => values[i++ % values.length];
+    };
+    const a = blokie.deal(fixed([0, 0.5, 0.99]));
+    const b = blokie.deal(fixed([0, 0.5, 0.99]));
+    for (let slot = 0; slot < 3; ++slot) {
+        want(equal(a[slot], b[slot]), `slot ${slot} repeats`);
+    }
+    want(equal(a[0], PIECES[0]), 'the first draw is the first piece');
+    want(equal(a[2], PIECES[PIECES.length - 1]), 'the last draw is the last piece');
 });
 
 checkAll("every piece is one to five squares in the top left", (want) => {
@@ -216,7 +239,7 @@ checkAll("a completed line clears and nothing else does", (want) => {
 // A piece is at most five squares, so no single placement of one can finish a
 // line: whatever it lands on is still there afterwards.
 checkAll("one piece on an empty board never clears", (want) => {
-    const game = get_new_game();
+    const game = new_game();
     for (const p of PIECES) {
         const bounds = get_piece_bounds(p);
         for (let r = 0; r + bounds.rows <= 9; ++r) {
@@ -290,16 +313,16 @@ checkAll("a combo counts the lines a board completes", (want) => {
 // square it fits in, it goes nowhere. test/engine/placement-test.js goes
 // through this properly; these are the cases that used to sit in blokie.js.
 checkAll("a dragged piece lands where it is held, or nearest to it", (want) => {
-    want(equal(nearest_valid_placement(get_new_game(), PIECES[0], 4.1, 3.9, 1.5)
+    want(equal(place_nearest(new_game(), PIECES[0], 4.1, 3.9, 1.5)
         .placement, bit(4, 4)), "rounds to the square under it");
-    want(is_disjoint(nearest_valid_placement(
-        { ...get_new_game(), board: bit(4, 4) }, PIECES[0], 4, 4, 1.5).placement,
+    want(is_disjoint(place_nearest(
+        { ...new_game(), board: bit(4, 4) }, PIECES[0], 4, 4, 1.5).placement,
         bit(4, 4)), "moves off an occupied square");
-    want(equal(nearest_valid_placement(get_new_game(), PIECES[0], -0.8, 0, 1.5)
+    want(equal(place_nearest(new_game(), PIECES[0], -0.8, 0, 1.5)
         .placement, bit(0, 0)), "pulls back onto the board");
-    want(nearest_valid_placement(get_new_game(), PIECES[0], 4, 12, 1.5) === null,
+    want(place_nearest(new_game(), PIECES[0], 4, 12, 1.5) === null,
         "gives up when held too far away");
-    want(nearest_valid_placement(get_new_game(), getEmpty(), 4, 4, 1.5) === null,
+    want(place_nearest(new_game(), getEmpty(), 4, 4, 1.5) === null,
         "an empty piece goes nowhere");
 });
 

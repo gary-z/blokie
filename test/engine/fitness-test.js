@@ -1,7 +1,8 @@
 "use strict";
 
-import { blokie, init } from '../../engine/js/blokie.js';
+import { init } from '../../engine/js/blokie.js';
+import { fitnessSample } from './harness.js';
 
 await init();
-const sample = blokie.getFitnessSample();
+const sample = fitnessSample();
 console.log("Moves: %d, Score: %d", sample.num_moves, sample.score);

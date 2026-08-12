@@ -4,7 +4,7 @@
 // but the encoding either survives a refresh or quietly loses someone's game,
 // so it is worth checking here.
 
-import { blokie } from '../../engine/js/blokie.js';
+import { blokie, bits } from '../../engine/js/blokie.js';
 import { encodeGameState, decodeGameState } from '../../web/storage.js';
 
 let failures = 0;
@@ -23,8 +23,8 @@ function sameBitboard(a, b) {
 
 function newGameState() {
     return {
-        game: blokie.getNewGame(),
-        piece_set: blokie.getRandomPieceSet(),
+        game: blokie.newGame(),
+        piece_set: blokie.deal(),
         game_over: false,
         clear_streak: 0,
     };
@@ -37,13 +37,13 @@ function playSomePieces(game_state) {
         const piece = game_state.piece_set[i];
         for (let r = 0; r < 9; ++r) {
             for (let c = 0; c < 9; ++c) {
-                const result = blokie.tryPlacePiece(game_state.game, piece, r, c);
+                const result = blokie.placeAt(game_state.game, piece, r, c);
                 if (result) {
-                    game_state.game = result.newGame;
-                    game_state.clear_streak = result.newGame.previous_move_was_clear
+                    game_state.game = result.new_game;
+                    game_state.clear_streak = result.new_game.previous_move_was_clear
                         ? game_state.clear_streak + 1
                         : 0;
-                    game_state.piece_set[i] = blokie.getEmptyPiece();
+                    game_state.piece_set[i] = bits.empty();
                     r = c = 9;
                 }
             }
@@ -68,7 +68,7 @@ for (let i = 0; i < 100; ++i) {
         all_round_tripped = false;
         break;
     }
-    saw_empty_slot = saw_empty_slot || original.piece_set.some(p => blokie.isEmpty(p));
+    saw_empty_slot = saw_empty_slot || original.piece_set.some(p => bits.isEmpty(p));
     saw_score = saw_score || original.game.score > 0;
 
     const matches =
@@ -88,7 +88,7 @@ check(saw_empty_slot, "played-out deck slots are covered by the round trip");
 check(saw_score, "a scoring game is covered by the round trip");
 
 const fresh = decodeGameState(encodeGameState(newGameState()));
-check(fresh !== null && blokie.isEmpty(fresh.game.board) && fresh.game.score === 0,
+check(fresh !== null && bits.isEmpty(fresh.game.board) && fresh.game.score === 0,
     "a brand new game round trips");
 
 // The deck is searched by object identity, so slots holding the same shape
