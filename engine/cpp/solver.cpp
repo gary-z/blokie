@@ -117,7 +117,13 @@ namespace {
 
 // === BIT BOARD
 
-BitBoard::BitBoard(uint64_t a, uint64_t b) : a(a), b(b) {}
+BitBoard::BitBoard(uint64_t a, uint64_t b) : a(a), b(b) {
+	// The second word holds only rows 6-8. Keeping it 64-bit makes BitBoard
+	// cheaper to pass around than a mixed-width pair, but tell the optimizer
+	// that its upper bits are never populated.
+	assert(b <= ALL_ALLOWED_BITS_IN_B);
+	if (b > ALL_ALLOWED_BITS_IN_B) __builtin_unreachable();
+}
 
 bool BitBoard::operator==(BitBoard other) const {
 	return a == other.a && b == other.b;
