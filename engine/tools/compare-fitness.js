@@ -20,6 +20,26 @@
 
 import { readFileSync } from 'fs';
 
+/**
+ * One side of the comparison, however it was supplied. The three nullable
+ * fields are what a literal `deaths:exposure` pair cannot know: it is a banked
+ * result with no rows behind it, so there were no games to count, none to cut
+ * off, and no header to read a burn-in from.
+ * @typedef {object} Run
+ * @property {string} name The argument it was read from, used to name it in
+ *   the output.
+ * @property {number} deaths
+ * @property {number} exposure Moves survived, which is what the hazard is per.
+ * @property {number | null} games
+ * @property {number | null} cutOff Games that hit --max-moves instead of
+ *   ending. They still count towards exposure; see the note at the top.
+ * @property {number} chainMoves Non-zero for a fixed-exposure run, which
+ *   carries its own deaths and exposure per row rather than a game length.
+ * @property {number | null} fileBurnIn The burn-in the run was measured with,
+ *   when the file records one.
+ */
+
+/** @type {(z: number) => number} */
 function lgamma(z) {
     // Lanczos approximation, g = 7, n = 9.
     const c = [
@@ -37,14 +57,17 @@ function lgamma(z) {
     return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
 }
 
+/** @type {(n: number, k: number) => number} */
 function logChoose(n, k) {
     return lgamma(n + 1) - lgamma(k + 1) - lgamma(n - k + 1);
 }
 
 // Two-sided exact binomial test, summing every outcome no more likely than the
 // one observed.
+/** @type {(k: number, n: number, p: number) => number} */
 function binomTest(k, n, p) {
     if (n === 0) return 1;
+    /** @type {(i: number) => number} */
     const logPmf = (i) =>
         logChoose(n, i) + i * Math.log(p) + (n - i) * Math.log1p(-p);
     const observed = logPmf(k);
@@ -58,6 +81,7 @@ function binomTest(k, n, p) {
     return Math.min(1, total);
 }
 
+/** @type {(arg: string, burnIn: number) => Run} */
 function readRun(arg, burnIn) {
     const literal = /^(\d+):(\d+)$/.exec(arg);
     if (literal) {
@@ -183,11 +207,15 @@ const totalDeaths = a.deaths + b.deaths;
 const share = a.exposure / (a.exposure + b.exposure);
 const p = binomTest(a.deaths, totalDeaths, share);
 
+/** @type {(x: number) => string} */
 const pct = (x) => `${((x - 1) * 100).toFixed(1)}%`;
 
 console.log(`burn-in: ${reportedBurnIn} moves`);
-for (const [label, run, hazard] of [['baseline ', a, hazardA],
-                                    ['candidate', b, hazardB]]) {
+// Spelled as a tuple, because inference over a mixed array literal gives every
+// element the union of the three and `run.deaths` stops being readable.
+/** @type {[string, Run, number][]} */
+const reportRows = [['baseline ', a, hazardA], ['candidate', b, hazardB]];
+for (const [label, run, hazard] of reportRows) {
     const games = run.games === null ? 'banked'
         : run.chainMoves !== 0 ? `${run.games} fixed-exposure chains`
         : `${run.games} games, ${run.cutOff} cut off`;

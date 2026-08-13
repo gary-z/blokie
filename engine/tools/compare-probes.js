@@ -5,6 +5,23 @@
 
 import { readFileSync } from 'fs';
 
+/**
+ * One chain's hazard estimate, taken from the recorded column when the run
+ * wrote one and reconstructed from the failure count when it did not.
+ * @typedef {{seed: number, boards: number, estimate: number}} ChainEstimate
+ */
+
+/**
+ * One side of the comparison. `estimates` is `values` projected down to the
+ * numbers the bootstrap resamples, kept alongside rather than recomputed
+ * because every consumer below wants that array and not the rows.
+ * @typedef {object} ProbeComparison
+ * @property {string} path
+ * @property {ChainEstimate[]} values
+ * @property {number[]} estimates
+ */
+
+/** @type {(path: string) => ProbeComparison} */
 function readRun(path) {
     let probes = 0;
     let adaptive = false;
@@ -52,15 +69,18 @@ function readRun(path) {
     };
 }
 
+/** @type {(xs: number[]) => number} */
 function mean(xs) {
     return xs.reduce((a, b) => a + b, 0) / xs.length;
 }
 
+/** @type {(xs: number[]) => number} */
 function variance(xs) {
     const m = mean(xs);
     return xs.reduce((sum, x) => sum + (x - m) ** 2, 0) / (xs.length - 1);
 }
 
+/** @type {(seed: number) => () => number} */
 function mulberry32(seed) {
     return function random() {
         seed |= 0;
@@ -71,6 +91,7 @@ function mulberry32(seed) {
     };
 }
 
+/** @type {(xs: number[], random: () => number) => number} */
 function resampledMean(xs, random) {
     let sum = 0;
     for (let i = 0; i < xs.length; i++) {
@@ -79,6 +100,9 @@ function resampledMean(xs, random) {
     return sum / xs.length;
 }
 
+// Takes an ArrayLike rather than an array: the bootstrap sorts its resamples
+// in a Float64Array, and everything this reads is length and indexing.
+/** @type {(sorted: ArrayLike<number>, p: number) => number} */
 function quantile(sorted, p) {
     const index = p * (sorted.length - 1);
     const lo = Math.floor(index);

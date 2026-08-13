@@ -1,0 +1,41 @@
+// The code that runs under Node rather than in a browser: the tests, the
+// tools that read what a long run wrote, and the icon generator.
+//
+// None of this ships. It is checked for the same reason the app is -- these
+// are the programs that say whether a change to the engine was an improvement,
+// and one that is quietly reading an undefined property answers that question
+// wrong rather than loudly.
+//
+// Its own config because it is the third set of globals in the repository,
+// after the page's and a worker's. `types: ["node"]` is what brings in
+// `process`, `console` and `node:fs`; the page and worker configs name no
+// types at all, so a Node API used there is still reported.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // DOM is here for one file. test/web/storage-test.js imports
+    // web/storage.js to round-trip the saved-game encoding, and that module
+    // also reads `document.cookie` -- so the browser's globals have to be in
+    // scope for it to check at all. The cost is that a test under this config
+    // could reach for `document` and not be told; the benefit is not needing a
+    // fourth config for a single import. storage.js's real check is
+    // tsconfig.json, where it is checked against the page's globals and
+    // nothing else.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+
+    // On here and nowhere else. This code was annotated as it was brought under
+    // the checker rather than years after, so it starts clean -- and leaving
+    // this off would mean the next test written could quietly go back to
+    // untyped parameters with nothing to say so. The page and the worker do not
+    // have it: the app was written without types and adopting it there is its
+    // own piece of work, which is the same reason `strict` is off in
+    // tsconfig.json.
+    "noImplicitAny": true
+  },
+  "include": [
+    "test/**/*.js",
+    "engine/tools/*.js",
+    "web/icons/make-icons.js"
+  ]
+}

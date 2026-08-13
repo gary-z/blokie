@@ -9,7 +9,19 @@
 
 import { blokie, bits } from '../../engine/js/blokie.js';
 
+/** @typedef {import('../../engine/js/blokie.js').Game} Game */
+/** @typedef {import('../../engine/js/blokie.js').Piece} Piece */
+/** @typedef {import('../../engine/js/blokie.js').Placement} Placement */
+/** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
+
+/**
+ * A square of the board, as the drag reading talks about it: where the top
+ * left of a piece would land.
+ * @typedef {{row: number, col: number}} Corner
+ */
+
 let failures = 0;
+/** @type {(condition: boolean, description: string) => void} */
 function check(condition, description) {
     if (!condition) {
         failures++;
@@ -19,16 +31,23 @@ function check(condition, description) {
     console.log("ok - %s", description);
 }
 
+/** @type {(a: BitBoard, b: BitBoard) => boolean} */
 function sameBitboard(a, b) {
     return a.a === b.a && a.b === b.b && a.c === b.c;
 }
 
+// Each entry is a [row, column] pair. Spelled `number[][]` rather than as a
+// tuple because both callers build the list with `.map`, and in a .js file that
+// gives an array back whatever the contextual type says -- so a tuple here
+// would only buy a cast at every call site.
+/** @type {(squares: number[][]) => BitBoard} */
 function boardWithSquares(squares) {
     return squares.reduce(
         (board, [r, c]) => bits.toggle(board, r, c),
         bits.empty());
 }
 
+/** @type {(board: BitBoard) => Game} */
 function gameWithBoard(board) {
     return {
         board: board,
@@ -39,6 +58,7 @@ function gameWithBoard(board) {
 
 // The corner a placement puts the piece in, which is what the drag is aiming
 // at: the top left of the box the placed squares fill.
+/** @type {(placement: Placement) => Corner} */
 function placementCorner(placement) {
     let row = 9;
     let col = 9;
@@ -53,13 +73,16 @@ function placementCorner(placement) {
     return { row: row, col: col };
 }
 
+/** @type {(corner: Corner, row: number, col: number) => number} */
 function distance(corner, row, col) {
     return Math.hypot(corner.row - row, corner.col - col);
 }
 
 // Every placement of the piece the board has room for, found without going
 // through the code under test: the drag reading has to agree with this.
+/** @type {(game: Game, piece: Piece) => Corner[]} */
 function everyLegalCorner(game, piece) {
+    /** @type {Corner[]} */
     const corners = [];
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
@@ -152,6 +175,7 @@ check(blokie.placeNearest(full_board, SINGLE, 4, 4, RADIUS) === null,
 
 // Boards, pieces and grips at random, checked against the placements found by
 // hand above. Seeded, so a failure here is a failure that can be looked at.
+/** @type {(a: number, b: number, c: number, d: number) => () => number} */
 function sfc32(a, b, c, d) {
     return function () {
         a |= 0; b |= 0; c |= 0; d |= 0;

@@ -5,8 +5,9 @@ name: Check the types
 # a boundary are checked all the same: the engine's public API, the game state
 # the worker is handed, and the events the service worker really receives.
 #
-# Two configurations, because the page and a worker have different globals. See
-# the comments in tsconfig.json and tsconfig.worker.json.
+# Three configurations, because the page, a worker and Node have different
+# globals. See the comments in tsconfig.json, tsconfig.worker.json and
+# tsconfig.node.json.
 
 on:
   pull_request:
@@ -23,8 +24,8 @@ jobs:
         with:
           node-version: 22
 
-      # The only dependency this repository has, and it has no dependencies of
-      # its own, so there is one package to install and nothing to resolve.
+      # The type checker and Node's type definitions. Neither has dependencies
+      # of its own, so there is nothing to resolve beyond the two.
       - name: Install the type checker
         run: npm install --no-audit --no-fund
 
@@ -33,3 +34,6 @@ jobs:
 
       - name: Check the workers
         run: npx tsc -p tsconfig.worker.json
+
+      - name: Check the tests and tools
+        run: npx tsc -p tsconfig.node.json

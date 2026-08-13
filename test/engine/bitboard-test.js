@@ -25,6 +25,7 @@ const {
 } = _internals;
 
 let failures = 0;
+/** @type {(condition: boolean, description: string) => void} */
 function check(condition, description) {
     if (!condition) {
         failures++;
@@ -34,9 +35,18 @@ function check(condition, description) {
     console.log("ok - %s", description);
 }
 
+/**
+ * One assertion inside a group: what has to hold, and what to call it if it
+ * does not. Named because every `want` in this file is one of these, and
+ * annotating checkAll is what gives all of them their types.
+ * @typedef {(condition: boolean, detail: string) => void} Want
+ */
+
 // A whole group of assertions reported as one line, so a passing run stays
 // readable while a failure still says which case broke.
+/** @type {(description: string, body: (want: Want) => void) => void} */
 function checkAll(description, body) {
+    /** @type {string[]} */
     const broken = [];
     body((condition, detail) => {
         if (!condition) {
@@ -173,6 +183,7 @@ checkAll("the deck always deals three real pieces", (want) => {
 
 // A harness needs a repeatable deal; the game itself never passes one.
 checkAll("a supplied generator makes the deal repeatable", (want) => {
+    /** @type {(values: number[]) => () => number} */
     const fixed = (values) => {
         let i = 0;
         return () => values[i++ % values.length];

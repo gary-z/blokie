@@ -8,16 +8,17 @@
 // name. A build step between the source and the deployed site would be a fourth
 // place for that list to go stale.
 //
-// This config covers the code that runs on the page. The two files that run in
-// a worker are checked by tsconfig.worker.json against a different set of
-// globals; `npm run typecheck` runs both.
+// This config covers the code that runs on the page. The files that run in a
+// worker are checked by tsconfig.worker.json against a different set of
+// globals, and the tests and tools by tsconfig.node.json against Node's;
+// `npm run typecheck` runs all three.
 //
 // `strict` is deliberately off. The engine and the app were written without
 // types and pass as they are, which is what makes checking them free to adopt;
-// turning strict on reports 269 more, almost all of them unannotated parameters
-// rather than anything wrong. The value here is in the shapes that cross a
-// boundary -- the engine's public surface, and the game state the worker is
-// handed -- and those are annotated explicitly in engine/js/blokie.js.
+// what turning it on reports is almost all unannotated parameters rather than
+// anything wrong. The value here is in the shapes that cross a boundary -- the
+// engine's public surface, and the game state the worker is handed -- and those
+// are annotated explicitly in engine/js/blokie.js.
 {
   "compilerOptions": {
     // What the browsers this targets already have. No downlevelling
@@ -42,8 +43,8 @@
   },
   // Named one by one rather than globbed, because what belongs here is
   // exactly what the page loads. The Node-side tooling (test/, engine/tools/,
-  // web/icons/) is left out: it would need @types/node, and a second package
-  // buys much less than this one does.
+  // web/icons/) is checked by tsconfig.node.json instead, against Node's
+  // globals rather than the browser's.
   "include": [
     "engine/js/blokie.js",
     "web/script.js",

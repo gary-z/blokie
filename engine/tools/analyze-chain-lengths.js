@@ -7,12 +7,39 @@
 
 import { readFileSync } from 'fs';
 
+/**
+ * One run's worth of fixed-exposure chains, and what they cost to measure.
+ * Runs with matching chain length, burn-in and probe count are pooled below,
+ * which is why the grouped form carries the same fields plus the paths it came
+ * from -- see GroupedRun.
+ * @typedef {object} ChainRun
+ * @property {string} path
+ * @property {number} probes The M of `--probe M`.
+ * @property {number} chainMoves
+ * @property {number} burnIn
+ * @property {number} chains How many independent replicates the run holds.
+ * @property {number[]} estimates One per chain.
+ * @property {number} workerSeconds Aggregate, so it includes burn-in and
+ *   probing rather than just the moves that were scored.
+ * @property {number} totalMoves
+ * @property {number} estimateVariance Var(mean), not the across-chain variance.
+ * @property {number} varianceCost estimateVariance * workerSeconds, which is
+ *   the number the table is ordered on.
+ */
+
+/**
+ * Several ChainRuns with the same settings, pooled.
+ * @typedef {ChainRun & {paths: string[], runs: number}} GroupedRun
+ */
+
+/** @type {(values: number[]) => number} */
 function variance(values) {
     const mean = values.reduce((sum, x) => sum + x, 0) / values.length;
     return values.reduce((sum, x) => sum + (x - mean) ** 2, 0) /
         (values.length - 1);
 }
 
+/** @type {(path: string) => ChainRun} */
 function readRun(path) {
     let probes = 0;
     let chainMoves = 0;

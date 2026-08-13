@@ -16,10 +16,11 @@
   ],
   "homepage": "https://gary-z.github.io/blokie/",
   "devDependencies": {
+    "@types/node": "^22.20.1",
     "typescript": "5.9.3"
   },
   "scripts": {
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json && tsc -p tsconfig.node.json",
     "build:wasm": "bash engine/build-wasm.sh",
     "build:icons": "node web/icons/make-icons.js",
     "test:ai": "node test/engine/ai-plan-test.js",
