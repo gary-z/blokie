@@ -1,17 +1,17 @@
 "use strict";
 
 // The game lives in cookies so it survives a refresh: the board, score, and
-// pieces on deck go in one cookie, who is playing goes in another. Both are
+// pieces in hand go in one cookie, who is playing goes in another. Both are
 // written whenever they change and read once, on load.
 
 /**
- * A game plus everything around it the app keeps: which pieces are on deck,
- * whether the deck has run out of room, and how long the current run of clears
+ * A game plus everything around it the app keeps: which pieces are in hand,
+ * whether the hand has run out of room, and how long the current run of clears
  * is. The engine's Game holds only what scoring needs; this is what a session
  * is made of, and what goes in and out of the cookie below.
  * @typedef {object} GameState
  * @property {import('../engine/js/blokie.js').Game} game
- * @property {import('../engine/js/blokie.js').Deck} piece_set
+ * @property {import('../engine/js/blokie.js').Hand} piece_set
  * @property {boolean} game_over
  * @property {number} clear_streak
  */
@@ -106,7 +106,7 @@ function decodeGameState(saved) {
     // Every slot gets its own object, so emptying one can never empty another
     // that happens to be holding the same shape. There are always exactly three,
     // which is what SAVE_FIELDS above has already been checked for.
-    const piece_set = /** @type {import('../engine/js/blokie.js').Deck} */ (
+    const piece_set = /** @type {import('../engine/js/blokie.js').Hand} */ (
         [0, 1, 2].map(i => ({
             a: piece_fields[i * 3],
             b: piece_fields[i * 3 + 1],
@@ -122,7 +122,7 @@ function decodeGameState(saved) {
             score: score,
         },
         piece_set: piece_set,
-        game_over: false,  // recomputed from the board and the deck
+        game_over: false,  // recomputed from the board and the hand
         clear_streak: clear_streak,
     };
 }

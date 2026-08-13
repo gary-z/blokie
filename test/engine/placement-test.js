@@ -194,7 +194,7 @@ check(exact === null
     "no slack means only the square the piece is exactly on");
 check(blokie.placeNearest(gameWithBoard(bits.empty()), bits.empty(),
     4, 4, RADIUS) === null,
-    "an empty deck slot is not placed");
+    "an empty hand slot is not placed");
 
 const full_board = gameWithBoard(
     [...Array(9).keys()].reduce(

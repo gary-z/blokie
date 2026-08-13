@@ -34,7 +34,7 @@ export interface SolverMoveResult {
   /** False when no line of play places every piece it was given. */
   found: boolean;
   evaluation: number;
-  /** Always three entries, one per slot of the deck. */
+  /** Always three entries, one per slot of the hand. */
   placements: SolverBitBoard[];
 }
 

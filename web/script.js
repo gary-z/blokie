@@ -5,7 +5,7 @@ import { initSfx, playSfx } from "./sfx.js";
 import { registerServiceWorker } from "./pwa.js";
 
 /** @typedef {import('../engine/js/blokie.js').Game} Game */
-/** @typedef {import('../engine/js/blokie.js').Deck} Deck */
+/** @typedef {import('../engine/js/blokie.js').Hand} Hand */
 /** @typedef {import('../engine/js/blokie.js').Piece} Piece */
 /** @typedef {import('../engine/js/blokie.js').Move} Move */
 /** @typedef {import('../engine/js/blokie.js').Placement} Placement */
@@ -48,7 +48,7 @@ function getNewGameState() {
     return {
         game: blokie.newGame(),
         piece_set: blokie.deal(),
-        game_over: false,  // true once nothing on deck fits anywhere
+        game_over: false,  // true once nothing in hand fits anywhere
         // How many moves in a row have cleared, counting the one just played.
         // The engine only knows whether the move before this one cleared, which
         // is all the score needs; a card that says how long the run has been
@@ -67,8 +67,8 @@ function getNewGameState() {
  * @property {BitBoard | null} drag_shadow Shadow cells on the board.
  * @property {BitBoard | null} clear_preview Squares a valid manual placement
  *   would clear.
- * @property {number} piece_in_hand_index Deck slot whose piece is off the
- *   deck: being dragged, or flying to the board (-1 = none).
+ * @property {number} piece_in_hand_index Hand slot whose piece is out of
+ *   hand: being dragged, or flying to the board (-1 = none).
  */
 
 // In `state` rather than beside it so JSON.stringify change detection triggers
@@ -166,13 +166,13 @@ document.addEventListener("DOMContentLoaded", function (event) {
     element('new-game').addEventListener('click', onNewGame);
     initRestartButton(element('restart'));
 
-    const pieces_on_deck_container = element('pieces-on-deck-container');
-    pieces_on_deck_container.addEventListener('touchstart', (event) => {
+    const pieces_in_hand_container = element('pieces-in-hand-container');
+    pieces_in_hand_container.addEventListener('touchstart', (event) => {
         if (!gameIsActive()) return;
         const cell = /** @type {HTMLElement} */ (event.target);
         if (cell.nodeName !== 'TD') return;
         const table = cell.closest('table');
-        if (table === null || table.className !== 'pieces-on-deck') return;
+        if (table === null || table.className !== 'pieces-in-hand') return;
 
         const pieceIndex = parseInt(table.id.slice(-1));
         const piece = state.game_state.piece_set[pieceIndex];
@@ -189,12 +189,12 @@ document.addEventListener("DOMContentLoaded", function (event) {
         };
         event.preventDefault();
     });
-    pieces_on_deck_container.addEventListener('mousedown', (event) => {
+    pieces_in_hand_container.addEventListener('mousedown', (event) => {
         if (!gameIsActive()) return;
         const cell = /** @type {HTMLElement} */ (event.target);
         if (cell.nodeName !== 'TD') return;
         const table = cell.closest('table');
-        if (table === null || table.className !== 'pieces-on-deck') return;
+        if (table === null || table.className !== 'pieces-in-hand') return;
 
         const pieceIndex = parseInt(table.id.slice(-1));
         const piece = state.game_state.piece_set[pieceIndex];
@@ -266,7 +266,7 @@ function initSettings() {
     // Anything outside the gear puts the menu away, and it goes on the way down
     // rather than on the click: the menu hangs over the board, so a pointer
     // landing under it is a move being started, not a menu still wanted. Touch
-    // is the case that needs the distinction -- the deck cancels the click its
+    // is the case that needs the distinction -- the hand cancels the click its
     // touchstart would have produced, so waiting for one leaves the menu open
     // over the board for the whole drag. Click is kept for keyboard presses,
     // which reach a control without a pointer ever going down.
@@ -291,7 +291,7 @@ function initSettings() {
 
 // === Drag and drop ===
 
-// The piece drawn at board scale rather than deck scale, since the board is
+// The piece drawn at board scale rather than hand scale, since the board is
 // where it is headed and where it has to be lined up by eye.
 /** @type {(piece: Piece, bounds: PieceBounds) => HTMLElement} */
 function createFloatingPiece(piece, bounds) {
@@ -486,13 +486,13 @@ function handleDragEnd(clientX, clientY) {
             }
         }
         // Every lift that doesn't become a move ends the same way, whether the
-        // piece was refused by the board or taken back to the deck. The pickup
+        // piece was refused by the board or taken back to the hand. The pickup
         // has already sounded by this point, so anything else leaves it hanging.
         playSfx('reject');
         cleanupDrag();
         // The player still took control long enough to stop the assist. Give
         // them the same full pacing interval when they return the piece to
-        // the deck (or reject a drop) as when they complete a move.
+        // the hand (or reject a drop) as when they complete a move.
         onGameStateChanged({ after_manual_move: true });
     } else {
         // Drag never activated - a tap on a piece does nothing.
@@ -519,7 +519,7 @@ async function onNewGame() {
     // board behind it is the thing to look at now.
     closeSettingsMenu();
     state.game_state = getNewGameState();
-    pending_new_deck = true;
+    pending_new_hand = true;
     onGameStateChanged();
 }
 
@@ -564,7 +564,7 @@ function initRestartButton(button) {
     });
 }
 
-// A piece lands on the board. The only place the board, the deck, the score and
+// A piece lands on the board. The only place the board, the hand, the score and
 // the sounds move on, whoever put the piece there: a drop ends here, and so
 // does the end of the assist's fly animation. `result` is what
 // blokie.place gave back for the move.
@@ -615,10 +615,10 @@ function commitMove(piece_index, result, { silent = false } = {}) {
     game_state.piece_set[piece_index] = bits.empty();
     if (game_state.piece_set.every(p => bits.isEmpty(p))) {
         game_state.piece_set = blokie.deal();
-        assist_deck_is_new = true;
+        assist_hand_is_new = true;
         // Held to the same bar the sounds and the card above are: at Max the
-        // decks come out faster than a fade could read as anything but flicker.
-        pending_new_deck = !silent;
+        // hands come out faster than a fade could read as anything but flicker.
+        pending_new_hand = !silent;
     }
     game_state.game = result.new_game;
     game_state.clear_streak = clear_streak;
@@ -633,9 +633,9 @@ let pending_clear_placement = null;
 
 // The same kind of bridge for a set of pieces that has just been dealt, spent
 // by the render that first draws it. Outside saved state for the same reason:
-// the deck a game is picked back up with is the one it was left with, not a
+// the hand a game is picked back up with is the one it was left with, not a
 // new one, and it should be there the moment the page is.
-let pending_new_deck = false;
+let pending_new_hand = false;
 
 /** @returns {HTMLSelectElement} */
 function assistPicker() {
@@ -663,7 +663,7 @@ function assistShowsMoves() {
     return delay_ms !== null && delay_ms >= FLY_ANIM_MS;
 }
 
-// The game ends when nothing on deck fits anywhere, whoever is placing.
+// The game ends when nothing in hand fits anywhere, whoever is placing.
 /** @type {(game_state: GameState) => GameState} */
 function refreshGameOver(game_state) {
     game_state.game_over = !blokie.hasValidMove(game_state.game.board, game_state.piece_set);
@@ -676,7 +676,7 @@ function refreshGameOver(game_state) {
 /** @type {Worker | null} */
 let ai_worker = null;
 
-// What the assist has left to play of the deck the worker last looked at, as
+// What the assist has left to play of the hand the worker last looked at, as
 // `{ piece_index, placement }` in the order it wants to play them.
 /** @type {import('../engine/js/blokie.js').PlannedMove[]} */
 let assist_plan = [];
@@ -684,7 +684,7 @@ let assist_plan = [];
 let assist_move_timer = null;   // the next move
 /** @type {ReturnType<typeof setTimeout> | null} */
 let assist_fly_timer = null;    // the piece currently in the air landing
-let assist_deck_is_new = false; // a fresh deck gets a beat to be looked at
+let assist_hand_is_new = false; // a fresh hand gets a beat to be looked at
 let assist_is_starting = false; // the first move starts as soon as it is planned
 
 function stopAI() {
@@ -700,7 +700,7 @@ function stopAI() {
     if (assist_fly_timer !== null) clearTimeout(assist_fly_timer);
     assist_fly_timer = null;
     assist_plan = [];
-    assist_deck_is_new = false;
+    assist_hand_is_new = false;
     assist_is_starting = false;
     cleanupFlyAnim();
     if (drag_info === null) {
@@ -712,7 +712,7 @@ function stopAI() {
 // the assist setting. The assist picks up from the new state, if it is on.
 //
 // `after_manual_move` marks a hand-off from an active manual drag, whether the
-// piece was played or returned to the deck. Taking over the instant the piece
+// piece was played or returned to the hand. Taking over the instant the piece
 // lands reads as the move being snatched out of your hand, so there the assist
 // waits out a full pacing interval like it does between its own moves.
 function onGameStateChanged({ after_manual_move = false } = {}) {
@@ -792,14 +792,14 @@ function continueAssist() {
     // picker is the only thing that says how long to wait, so there is nothing
     // to schedule without it.
     if (delay_ms === null) return;
-    // A deck that just came out is worth a look before it starts being played.
-    const wait_ms = assist_deck_is_new ? delay_ms * 2 : delay_ms;
-    assist_deck_is_new = false;
+    // A hand that just came out is worth a look before it starts being played.
+    const wait_ms = assist_hand_is_new ? delay_ms * 2 : delay_ms;
+    assist_hand_is_new = false;
     assist_move_timer = setTimeout(playNextAssistMove, wait_ms);
 }
 
 // Works out what a planned move does to the game as it stands now. Null means
-// the plan is stale -- the deck moved under it -- and should be thrown away.
+// the plan is stale -- the hand moved under it -- and should be thrown away.
 /**
  * @type {(move: import('../engine/js/blokie.js').PlannedMove)
  *     => {piece_index: number, piece: Piece, result: Move} | null}
@@ -814,8 +814,8 @@ function resolveAssistMove(move) {
 }
 
 // Shown at a watchable speed, an assist move takes the same three beats a drag
-// does: the piece comes off the deck, travels, and lands. Only the landing
-// commits it, so the board, the score and the deck all move at the moment the
+// does: the piece comes off the hand, travels, and lands. Only the landing
+// commits it, so the board, the score and the hand all move at the moment the
 // piece arrives, exactly as they do under a finger.
 function playNextAssistMove() {
     assist_move_timer = null;
@@ -842,7 +842,7 @@ function playNextAssistMove() {
 
 let last_rendered_state_json = '';
 
-// The assist's piece on its way from the deck to the board. Started and taken
+// The assist's piece on its way from the hand to the board. Started and taken
 // down by the assist driver above; nothing here decides when a move happens.
 /** @type {{el: HTMLElement} | null} */
 let _fly_anim = null;
@@ -856,9 +856,9 @@ function startFlyAnimation(pieceIndex, piece, placement) {
     const bounds = bits.bounds(piece);
     const el = createFloatingPiece(piece, bounds);
 
-    // Source: center of the on-deck slot
-    const deckTable = element('piece-on-deck-' + pieceIndex);
-    const deckRect = deckTable.getBoundingClientRect();
+    // Source: center of the in-hand slot
+    const handTable = element('piece-in-hand-' + pieceIndex);
+    const handRect = handTable.getBoundingClientRect();
 
     // Target: top-left of where the piece lands on the board
     const board = getBoardGeometry();
@@ -877,11 +877,11 @@ function startFlyAnimation(pieceIndex, piece, placement) {
     const targetX = board.rect.left + minC * board.cellW;
     const targetY = board.rect.top + minR * board.cellH;
 
-    // Start at the on-deck slot, centered
+    // Start at the in-hand slot, centered
     const pieceW = bounds.cols * board.cellW;
     const pieceH = bounds.rows * board.cellH;
-    const startX = deckRect.left + (deckRect.width - pieceW) / 2;
-    const startY = deckRect.top + (deckRect.height - pieceH) / 2;
+    const startX = handRect.left + (handRect.width - pieceW) / 2;
+    const startY = handRect.top + (handRect.height - pieceH) / 2;
 
     el.style.left = startX + 'px';
     el.style.top = startY + 'px';
@@ -1000,29 +1000,29 @@ window.requestAnimationFrame(render);
 
 function renderImpl() {
     const board_table = /** @type {HTMLTableElement} */ (element('game-board'));
-    const pieces_on_deck_div = element('pieces-on-deck-container');
+    const pieces_in_hand_div = element('pieces-in-hand-container');
     const game_state = state.game_state;
 
     showGameOver(!gameIsActive(), game_state.game.score);
     drawGame(
         board_table,
-        pieces_on_deck_div,
+        pieces_in_hand_div,
         game_state.game.board,
         game_state.piece_set,
         pending_clear_placement,
     );
     pending_clear_placement = null;
     // After the pieces are in the cells, so the first frame of the fade is
-    // already the new set rather than the empty deck it replaced.
-    if (pending_new_deck) {
-        pending_new_deck = false;
-        fadeInDeck(pieces_on_deck_div);
+    // already the new set rather than the empty hand it replaced.
+    if (pending_new_hand) {
+        pending_new_hand = false;
+        fadeInHand(pieces_in_hand_div);
     }
     updateScore(game_state.game.score);
 }
 
 // A set is dealt as one event, so it comes up as one: the three slots fade in
-// together. This is the only thing that fades a piece on deck -- the squares
+// together. This is the only thing that fades a piece in hand -- the squares
 // there are deliberately left out of the board's per-square fade -- so a set
 // which lands on top of the one before it comes up evenly, rather than at two
 // brightnesses depending on which squares the last set happened to be using.
@@ -1031,18 +1031,18 @@ function renderImpl() {
 // three tables every time, and starting an animation on an element restarts
 // it, where re-adding a class it may still be wearing would do nothing.
 //
-// The tables and not the deck around them, so the fade multiplies with the
+// The tables and not the hand around them, so the fade multiplies with the
 // wash the container carries once the game is over instead of overriding it.
 //
 // Long enough to be watched rather than just noticed, and still well inside
-// the beat the assist gives a new deck at its slowest animated speed.
-const DECK_FADE_MS = 300;
+// the beat the assist gives a new hand at its slowest animated speed.
+const HAND_FADE_MS = 300;
 
-/** @type {(pieces_on_deck_div: HTMLElement) => void} */
-function fadeInDeck(pieces_on_deck_div) {
-    for (const table of pieces_on_deck_div.children) {
+/** @type {(pieces_in_hand_div: HTMLElement) => void} */
+function fadeInHand(pieces_in_hand_div) {
+    for (const table of pieces_in_hand_div.children) {
         table.animate([{ opacity: 0 }, { opacity: 1 }], {
-            duration: DECK_FADE_MS,
+            duration: HAND_FADE_MS,
             easing: 'ease-out',
         });
     }
@@ -1100,11 +1100,11 @@ function _setCell(td, cls) {
 }
 
 /**
- * @type {(board_table: HTMLTableElement, pieces_on_deck_div: HTMLElement,
- *         board: BitBoard, piece_set: Deck,
+ * @type {(board_table: HTMLTableElement, pieces_in_hand_div: HTMLElement,
+ *         board: BitBoard, piece_set: Hand,
  *         clearing_placement: Placement | null) => void}
  */
-function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_placement) {
+function drawGame(board_table, pieces_in_hand_div, board, piece_set, clearing_placement) {
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
             const td = board_table.rows[r].cells[c];
@@ -1134,15 +1134,15 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_pl
         const hidePiece = state.piece_in_hand_index === i;
         // The engine deals pieces justified into the top left corner. Where one
         // sits inside the 5x5 slot it is drawn in is a question about drawing
-        // it, so it is answered here rather than carried around in the deck.
-        // Centering justifies first, so a deck restored from an older cookie --
+        // it, so it is answered here rather than carried around in the hand.
+        // Centering justifies first, so a hand restored from an older cookie --
         // which saved its pieces already centered -- comes up in the same place.
         const piece = bits.center(piece_set[i]);
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
-                const deck_table = /** @type {HTMLTableElement} */ (
-                    pieces_on_deck_div.children[i]);
-                const td = deck_table.rows[r].cells[c];
+                const hand_table = /** @type {HTMLTableElement} */ (
+                    pieces_in_hand_div.children[i]);
+                const td = hand_table.rows[r].cells[c];
                 const cls = (!hidePiece && bits.at(piece, r, c)) ? 'has-piece' : '';
                 if (td.className !== cls) td.className = cls;
             }

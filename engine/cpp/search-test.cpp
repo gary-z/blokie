@@ -355,20 +355,20 @@ void testKnownOrderingSensitiveSearches() {
 			PieceSet(Piece(test::boardFromJs(787459, 0, 0)),
 				Piece(test::boardFromJs(525319, 0, 0)),
 				Piece(test::boardFromJs(1837060, 0, 0))),
-			"clear required to fit the deck"},
+			"clear required to fit the hand"},
 		{test::boardFromJs(85258932, 102633091, 31642653),
 			PieceSet(Piece(test::boardFromJs(514, 0, 0)),
 				Piece(test::boardFromJs(262657, 0, 0)),
 				Piece(test::boardFromJs(15, 0, 0))),
-			"reordered deck reaches best board"},
+			"reordered hand reaches best board"},
 		{test::boardFromJs(12477989, 12471835, 16671542),
 			PieceSet(Piece(test::boardFromJs(525315, 0, 0)),
 				Piece(test::boardFromJs(262663, 0, 0)),
 				Piece(test::boardFromJs(525315, 0, 0))),
-			"duplicate shapes in ordering-sensitive deck"},
+			"duplicate shapes in ordering-sensitive hand"},
 		// The search takes its first ordering as having reached every board no
 		// clear can move, so that ordering is the one that must not skip
-		// anything. Walking the deck in sorted order used to guarantee it. The
+		// anything. Walking the hand in sorted order used to guarantee it. The
 		// same position is in test/engine/enumeration-test.js, but that one only
 		// runs against a rebuilt .wasm; this is the C++ the weights are trained
 		// against, and it is where the ordering rule lives.
@@ -388,12 +388,12 @@ void testBlankAndGameOverSearches() {
 	const auto one = Piece::byIndex(0);
 	const auto two = Piece::byIndex(1);
 	requireSimpleSearchOptimal(BitBoard::empty(), PieceSet(blank, blank, blank),
-		"empty deck");
+		"empty hand");
 	requireSimpleSearchOptimal(BitBoard::row(2) - test::square(2, 2),
-		PieceSet(one, blank, blank), "one-piece deck");
+		PieceSet(one, blank, blank), "one-piece hand");
 	requireSimpleSearchOptimal(BitBoard::row(2) -
 		(test::square(2, 2) | test::square(2, 3)),
-		PieceSet(one, two, blank), "two-piece deck");
+		PieceSet(one, two, blank), "two-piece hand");
 
 	auto diagonal_holes = BitBoard::full();
 	for (unsigned index = 0; index < 9; ++index) {
@@ -401,7 +401,7 @@ void testBlankAndGameOverSearches() {
 	}
 	requireSimpleSearchOptimal(diagonal_holes,
 		PieceSet(Piece::byIndex(32), Piece::byIndex(32), Piece::byIndex(32)),
-		"deck that cannot fit");
+		"hand that cannot fit");
 }
 
 void testRandomSearchAgainstBruteForce() {
@@ -423,7 +423,7 @@ void testRandomSearchAgainstBruteForce() {
 			"random search sample " + std::to_string(sample));
 	}
 	test::require(positions_with_complete_play >= 10,
-		"random sweep should include enough fully playable decks");
+		"random sweep should include enough fully playable hands");
 }
 
 // What the search would settle on with every one of its pruning rules switched
@@ -477,7 +477,7 @@ UnprunedSearch searchWithoutPruning(BitBoard board, const PieceSet &pieces) {
 // Open boards, which is what the engine spends a game on and what the sweep
 // above cannot reach: at 5 to 7 squares in 8 a clear is nearly always there for
 // the taking, so the best board almost always has one and the boards no clear
-// can move never decide anything. On a quarter-full board a deck often plays
+// can move never decide anything. On a quarter-full board a hand often plays
 // out without completing a line at all, and then the whole move rests on the
 // pruning agreeing with itself.
 void testSearchPruningOnOpenBoards() {
@@ -509,16 +509,16 @@ void testSearchPruningOnOpenBoards() {
 		}
 		test::require(move.evaluation == reference.best,
 			context + ": search settled for " + std::to_string(move.evaluation) +
-			", searching the same deck without pruning finds " +
+			", searching the same hand without pruning finds " +
 			std::to_string(reference.best));
 	}
 
 	test::require(playable >= 200,
-		"open board sweep should be mostly playable decks");
+		"open board sweep should be mostly playable hands");
 	// Without positions of this kind the sweep passes whatever the pruning does,
 	// because every board it could drop was worse than one it kept anyway.
 	test::require(decided_by_a_board_no_clear_can_move >= 5,
-		"open board sweep should include decks that could have cleared early but "
+		"open board sweep should include hands that could have cleared early but "
 		"whose best board no clear can move");
 }
 
@@ -530,7 +530,7 @@ void testLookaheadGameOver() {
 	const PieceSet pieces(Piece::byIndex(32), Piece::byIndex(32), Piece::byIndex(32));
 	const auto result = AI::makeMoveLookahead(EvalWeights::getDefault(),
 		GameState(diagonal_holes), pieces);
-	test::require(result.isOver(), "lookahead reports a deck that cannot fit");
+	test::require(result.isOver(), "lookahead reports a hand that cannot fit");
 }
 
 uint64_t referenceLookaheadCost(BitBoard board, const EvalWeights &weights) {

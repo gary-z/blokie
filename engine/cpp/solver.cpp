@@ -989,7 +989,7 @@ MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
 	std::sort(piece_set.pieces, piece_set.pieces + 3);
 	// Blank slots sort to the end and are placed by doing nothing, so where
 	// they fall in the order cannot change a board. Permuting only the pieces
-	// that are really there keeps a two piece deck to two orderings.
+	// that are really there keeps a two piece hand to two orderings.
 	const int num_pieces = AI::countPieces(piece_set);
 
 	const auto can_clear_with_2_pieces = AI::canClearWith2PiecesOrFewer(game, piece_set);

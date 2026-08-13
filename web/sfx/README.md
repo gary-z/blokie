@@ -42,7 +42,7 @@ piece coming to rest without being played. Balance between the four events lives
 `EVENT_GAIN` in `web/sfx.js` rather than in the files.
 
 It fires on every lift that doesn't become a move — refused by the board and taken
-back to the deck alike. Those were split once, on the reasoning that a change of
+back to the hand alike. Those were split once, on the reasoning that a change of
 mind is not a failure and shouldn't be buzzed at, but the thud is soft enough not
 to read as a scolding, and the pickup has already sounded by then: leaving the
 change of mind silent left that sound unanswered.
@@ -85,6 +85,6 @@ nothing sounds like nothing; the reject on any drag that ends without a move, wh
 pairs it one-to-one with the pickup that started that drag.
 
 Watching the assist, from the same move the fly animation is drawn from: the pickup
-as the piece leaves the deck, the place as it arrives, and the clear when the board
+as the piece leaves the hand, the place as it arrives, and the clear when the board
 actually updates and the cells shrink out — which at 1x is a beat later, because
 that is when it happens on screen.

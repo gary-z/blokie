@@ -7,7 +7,7 @@
 import { blokie, bits } from '../../engine/js/blokie.js';
 import { encodeGameState, decodeGameState } from '../../web/storage.js';
 
-/** @typedef {import('../../engine/js/blokie.js').Deck} Deck */
+/** @typedef {import('../../engine/js/blokie.js').Hand} Hand */
 /** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
 /** @typedef {import('../../web/storage.js').GameState} GameState */
 
@@ -54,8 +54,8 @@ function newGameState() {
     };
 }
 
-// Plays the deck onto the board wherever each piece first fits, so the saved
-// state under test has a real board, score, and part-emptied deck.
+// Plays the hand onto the board wherever each piece first fits, so the saved
+// state under test has a real board, score, and part-emptied hand.
 /** @type {(game_state: GameState) => GameState} */
 function playSomePieces(game_state) {
     for (let i = 0; i < game_state.piece_set.length; ++i) {
@@ -77,12 +77,12 @@ function playSomePieces(game_state) {
     return game_state;
 }
 
-// A hundred random decks cover empty slots, repeated shapes, and cleared rows.
+// A hundred random hands cover empty slots, repeated shapes, and cleared rows.
 let all_round_tripped = true;
 let saw_empty_slot = false;
 let saw_score = false;
 for (let i = 0; i < 100; ++i) {
-    // Leave the last piece on deck so both a played and an unplayed slot are covered.
+    // Leave the last piece in hand so both a played and an unplayed slot are covered.
     const original = newGameState();
     const kept_piece = original.piece_set[2];
     playSomePieces(original);
@@ -108,28 +108,28 @@ for (let i = 0; i < 100; ++i) {
         break;
     }
 }
-check(all_round_tripped, "board, score, streak, and deck survive a round trip");
-check(saw_empty_slot, "played-out deck slots are covered by the round trip");
+check(all_round_tripped, "board, score, streak, and hand survive a round trip");
+check(saw_empty_slot, "played-out hand slots are covered by the round trip");
 check(saw_score, "a scoring game is covered by the round trip");
 
 const fresh = decodeGameState(encodeGameState(newGameState()));
 check(fresh !== null && bits.isEmpty(fresh.game.board) && fresh.game.score === 0,
     "a brand new game round trips");
 
-// The deck is searched by object identity, so slots holding the same shape
+// The hand is searched by object identity, so slots holding the same shape
 // still have to be separate objects after a restore.
 const twins = newGameState();
-// Spelled out because a `Deck` is three slots exactly, and in a .js file an
+// Spelled out because a `Hand` is three slots exactly, and in a .js file an
 // array literal stays an array however many entries it has -- TypeScript only
-// reads one as a tuple from its context in .ts. Every deck built by hand in the
+// reads one as a tuple from its context in .ts. Every hand built by hand in the
 // repository needs this, which is why web/storage.js carries one too.
-twins.piece_set = /** @type {Deck} */ (
+twins.piece_set = /** @type {Hand} */ (
     [twins.piece_set[0], twins.piece_set[0], twins.piece_set[0]]);
 const restored_twins = must(decodeGameState(encodeGameState(twins)),
     'the twin-slot save');
 check(restored_twins.piece_set[0] !== restored_twins.piece_set[1]
     && restored_twins.piece_set[1] !== restored_twins.piece_set[2],
-    "identical deck slots restore as separate objects");
+    "identical hand slots restore as separate objects");
 
 const big = newGameState();
 big.game = { ...big.game, score: 1500000 };
@@ -183,7 +183,7 @@ const longest = encodeGameState({
         score: Number.MAX_SAFE_INTEGER,
         previous_move_was_clear: true,
     },
-    piece_set: /** @type {Deck} */ (
+    piece_set: /** @type {Hand} */ (
         [0, 1, 2].map(() => ({ a: 0x7FFFFFF, b: 0x7FFFFFF, c: 0x7FFFFFF }))),
     // Not encoded -- a restore recomputes it -- but a GameState carries it, and
     // the point here is to hand encodeGameState a real one.
