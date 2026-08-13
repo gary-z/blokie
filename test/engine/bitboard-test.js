@@ -184,15 +184,15 @@ checkAll("shifts move a line to the next one and back", (want) => {
 
 // === pieces ===
 
-checkAll("the deck always deals three real pieces", (want) => {
+checkAll("the hand always deals three real pieces", (want) => {
     for (let i = 0; i < 100; ++i) {
-        const deck = blokie.deal();
-        want(deck.length === 3, `draw ${i} has three slots`);
-        for (const p of deck) {
+        const hand = blokie.deal();
+        want(hand.length === 3, `draw ${i} has three slots`);
+        for (const p of hand) {
             want(any(p), `draw ${i} dealt something`);
             // What the search is handed, and what two slots holding the same
             // shape are compared as, so a deal that skipped this would be a
-            // deck the engine quietly re-justifies on every call.
+            // hand the engine quietly re-justifies on every call.
             want(equal(p, left_top_justify_piece(p)), `draw ${i} is justified`);
         }
     }
@@ -241,7 +241,7 @@ checkAll("a piece keeps its shape and its box wherever it is drawn", (want) => {
         want(equal(p, left_top_justify_piece(centered)), "centering undoes");
 
         // The box is the smallest one the piece fits in, whether the piece
-        // comes in justified or centered on deck.
+        // comes in justified or centered in hand.
         const bounds = get_piece_bounds(p);
         want(bounds.rows === get_piece_bounds(centered).rows, "same height");
         want(bounds.cols === get_piece_bounds(centered).cols, "same width");
@@ -288,7 +288,7 @@ checkAll("one piece on an empty board never clears", (want) => {
 
 checkAll("a piece fits an empty board and not a full one", (want) => {
     want(!can_place_piece(EMPTY, EMPTY), "nothing fits nowhere");
-    want(!has_valid_move(EMPTY, [EMPTY, EMPTY, EMPTY]), "an empty deck is over");
+    want(!has_valid_move(EMPTY, [EMPTY, EMPTY, EMPTY]), "an empty hand is over");
     for (const p of PIECES) {
         want(can_place_piece(EMPTY, p), "fits an empty board");
         want(can_place_piece(EMPTY, center_piece(p)), "fits when centered");

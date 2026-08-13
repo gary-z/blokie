@@ -1,8 +1,8 @@
 "use strict";
 import { blokie, init } from "../engine/js/blokie.js";
 
-// The assist's only job over here is working out where the pieces on deck
-// should go. Playing them -- the board, the deck, the score, the animation and
+// The assist's only job over here is working out where the pieces in hand
+// should go. Playing them -- the board, the hand, the score, the animation and
 // the sounds -- happens on the main thread, down the same path a dropped piece
 // takes, so that there is one of each rather than two.
 //

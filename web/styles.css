@@ -5,9 +5,9 @@
     to { transform: scale(0); }
 }
 /* Squares on the board fill in one at a time, as pieces land in them. The
-   deck is left out of this: a piece there is not filled in a square at a
+   hand is left out of this: a piece there is not filled in a square at a
    time but dealt whole, with the two beside it, and comes up as part of
-   that set instead (fadeInDeck in script.js). */
+   that set instead (fadeInHand in script.js). */
 #game-board td.has-piece,
 #game-board td.drag-shadow {
     animation: cell-fade-in 0.2s ease-out;
@@ -84,7 +84,7 @@
 
 /* The column is sized off whichever axis is tighter, so on a page
    taller than it needs there is height left over. Left to itself that
-   spare all collects under the deck, with the score pinned to the top
+   spare all collects under the hand, with the score pinned to the top
    of the screen -- worst on a phone, where the width binds long before
    the height does. Centring the column hands half of it back above the
    score.
@@ -121,9 +121,9 @@ body {
     --gear-gap: calc(var(--column) / 45);
     --board-outline: 4px;
 
-    /* What the page has to spare under the deck. Everything else on it
+    /* What the page has to spare under the hand. Everything else on it
        is the score (up to 5vh of type over a 2vh margin), the picker (6.5vh
-       at its tallest), the board and the deck band (a column and a
+       at its tallest), the board and the hand band (a column and a
        third of one), and the body's own padding with a little over, so
        the page keeps a few pixels rather than spending its last one.
        The picker is shorter than 6.5vh on a narrow page, so where this
@@ -144,9 +144,9 @@ body {
        out at the 3px it always was; over it the pieces make up the
        difference, and where there is nothing spare at all the margin
        is exactly the half block on its own. */
-    --deck-cell: min(calc((var(--column) / 3 - 6px) / 5),
+    --in-hand-cell: min(calc((var(--column) / 3 - 6px) / 5),
                      calc((var(--column) / 3 + var(--spare-height)) / 6));
-    --deck-margin: calc((var(--column) / 3 - 5 * var(--deck-cell)) / 2);
+    --in-hand-margin: calc((var(--column) / 3 - 5 * var(--in-hand-cell)) / 2);
 }
 
 #page-description {
@@ -215,12 +215,12 @@ body {
 }
 
 @media(hover: hover) and (pointer: fine) {
-    table.pieces-on-deck tr td.has-piece {
+    table.pieces-in-hand tr td.has-piece {
         cursor: grab;
     }
 }
 
-#pieces-on-deck-container {
+#pieces-in-hand-container {
     display: flex;
     margin-left: auto;
     margin-right: auto;
@@ -229,45 +229,45 @@ body {
     width: 100%;
     /* Outside the ratio, which governs the content box, so the slots
        keep their size and the page carries the padding. */
-    padding: calc(var(--deck-cell) / 2 - var(--deck-margin)) 0;
+    padding: calc(var(--in-hand-cell) / 2 - var(--in-hand-margin)) 0;
 }
 
-table.pieces-on-deck {
+table.pieces-in-hand {
     border-collapse: collapse;
     border-spacing: 0;
     /* Whatever is left of the slot once its five cells are in it. The
        margin stays uniform, since equal margins take the same amount
-       off both axes and keep the deck cells square. */
-    margin: var(--deck-margin);
+       off both axes and keep the hand cells square. */
+    margin: var(--in-hand-margin);
 }
 
-table.pieces-on-deck td,
-table.pieces-on-deck th {
+table.pieces-in-hand td,
+table.pieces-in-hand th {
     padding: 0;
 }
 
-table.pieces-on-deck {
+table.pieces-in-hand {
     width: 33%
 }
 
-table.pieces-on-deck tr td {
+table.pieces-in-hand tr td {
     width: 20%;
     height: 20%;
 }
 
-table.pieces-on-deck tr td.has-piece {
+table.pieces-in-hand tr td.has-piece {
     background: rgb(54, 112, 232);
     border: 1px solid black;
 }
 
-/* Nothing on deck fits anywhere. The board stays readable under a wash
+/* Nothing in hand fits anywhere. The board stays readable under a wash
    so the position that ended it can still be studied, and the card is
    the only thing left to press. */
 #game-over {
     position: absolute;
     /* Square, pinned to the top of the container: that is exactly the
        board. The container itself is taller than its 1/1 ratio, since
-       the pieces on deck hang below the board inside it, and a wash
+       the pieces in hand hang below the board inside it, and a wash
        drawn over those would fight the grey they are already given. */
     top: 0;
     left: 0;
@@ -323,9 +323,9 @@ table.pieces-on-deck tr td.has-piece {
     padding: min(2.4vw, 1.6vh) min(6vw, 4vh);
 }
 
-/* The pieces are still on deck, and that is the point: draining them
+/* The pieces are still in hand, and that is the point: draining them
    shows they are out of moves rather than waiting to be dragged. */
-body.game-over #pieces-on-deck-container {
+body.game-over #pieces-in-hand-container {
     filter: grayscale(1);
     opacity: 0.45;
 }

@@ -1,11 +1,11 @@
 "use strict";
 
-// The solver's move search. It plays the deck in sorted order and then, when a
+// The solver's move search. It plays the hand in sorted order and then, when a
 // clear is on the table, walks the other orderings too -- skipping any line of
 // play whose board it argues some earlier ordering already reached. Those skips
 // are the fiddliest part of the engine and the easiest to quietly break, so
 // what is checked here is the property they claim: that the search still sees
-// every board the deck can reach, and picks the best of them.
+// every board the hand can reach, and picks the best of them.
 //
 // The check is a brute force over every ordering and every placement, built out
 // of the same public API the app plays moves with. It is far too slow to be the
@@ -13,7 +13,7 @@
 
 import { blokie, bits, init } from '../../engine/js/blokie.js';
 
-/** @typedef {import('../../engine/js/blokie.js').Deck} Deck */
+/** @typedef {import('../../engine/js/blokie.js').Hand} Hand */
 /** @typedef {import('../../engine/js/blokie.js').Game} Game */
 /** @typedef {import('../../engine/js/blokie.js').Move} Move */
 /** @typedef {import('../../engine/js/blokie.js').Piece} Piece */
@@ -85,11 +85,11 @@ function placementsOf(game, piece) {
     return moves;
 }
 
-// Every board reachable by playing the whole deck, in any order, and the best
+// Every board reachable by playing the whole hand, in any order, and the best
 // score each of them can be reached with. Blank slots are not moves, so they
 // are simply left out.
-/** @type {(game: Game, deck: Deck) => Map<string, ReachedBoard>} */
-function reachableBoards(game, deck) {
+/** @type {(game: Game, hand: Hand) => Map<string, ReachedBoard>} */
+function reachableBoards(game, hand) {
     /** @type {Map<string, ReachedBoard>} */
     const best = new Map();
     /** @type {(state: Game, remaining: number[]) => void} */
@@ -104,20 +104,20 @@ function reachableBoards(game, deck) {
         }
         for (const slot of remaining) {
             const rest = remaining.filter((other) => other !== slot);
-            for (const move of placementsOf(state, deck[slot])) {
+            for (const move of placementsOf(state, hand[slot])) {
                 walk(move.new_game, rest);
             }
         }
     };
-    walk(game, deck.map((_, i) => i).filter((i) => !bits.isEmpty(deck[i])));
+    walk(game, hand.map((_, i) => i).filter((i) => !bits.isEmpty(hand[i])));
     return best;
 }
 
 // Replays what the solver came back with, as the app would: every placement has
 // to be legal, every slot it names has to hold the piece it placed, and the
 // boards it reports have to be the ones that come out.
-/** @type {(game: Game, deck: Deck, result: AIMove) => Replayed} */
-function replay(game, deck, result) {
+/** @type {(game: Game, hand: Hand, result: AIMove) => Replayed} */
+function replay(game, hand, result) {
     /** @type {Set<number>} */
     const used = new Set();
     let state = game;
@@ -131,7 +131,7 @@ function replay(game, deck, result) {
         // carries no record of which piece it came from, so this is the only
         // thing tying the two halves of a planned move together.
         if (!bits.equals(bits.justify(planned.placement),
-            bits.justify(deck[planned.piece_index]))) {
+            bits.justify(hand[planned.piece_index]))) {
             return null;
         }
         const move = blokie.place(state, planned.placement);
@@ -153,25 +153,25 @@ function replay(game, deck, result) {
 
 // One position, checked to the hilt.
 /**
- * @type {(name: string, board: BitBoard, deck: Deck,
+ * @type {(name: string, board: BitBoard, hand: Hand,
  *         previous_move_was_clear?: boolean) => void}
  */
-function checkPosition(name, board, deck, previous_move_was_clear = false) {
+function checkPosition(name, board, hand, previous_move_was_clear = false) {
     const game = gameWithBoard(board, previous_move_was_clear);
-    const reachable = reachableBoards(game, deck);
-    const result = blokie.makeMove(game, deck);
-    const played = replay(game, deck, result);
-    const held = deck.filter((p) => !bits.isEmpty(p)).length;
+    const reachable = reachableBoards(game, hand);
+    const result = blokie.makeMove(game, hand);
+    const played = replay(game, hand, result);
+    const held = hand.filter((p) => !bits.isEmpty(p)).length;
 
     if (reachable.size === 0) {
         // There is no way to place every piece. The solver says so by coming
         // back empty handed; blokie.plan is what turns that into a smaller move.
         check(!result.found && result.moves.length === 0,
-            `${name}: places nothing when the whole deck does not fit`);
+            `${name}: places nothing when the whole hand does not fit`);
         return;
     }
 
-    const legal = `${name}: the move it returns is a legal play of the whole deck`;
+    const legal = `${name}: the move it returns is a legal play of the whole hand`;
     if (played === null) {
         check(false, legal);
         return;
@@ -185,7 +185,7 @@ function checkPosition(name, board, deck, previous_move_was_clear = false) {
         best_evaluation = Math.min(best_evaluation, evaluate(candidate));
     }
     check(result.evaluation === best_evaluation,
-        `${name}: settles on the best of the ${reachable.size} boards the deck can reach`
+        `${name}: settles on the best of the ${reachable.size} boards the hand can reach`
         + ` (${result.evaluation} vs ${best_evaluation})`);
 
     const landed = reachable.get(key(played.board));
@@ -196,16 +196,16 @@ function checkPosition(name, board, deck, previous_move_was_clear = false) {
         + ` (${played.score} vs ${landed && landed.score})`);
 }
 
-// === Positions where the ordering of the deck is load bearing ===
+// === Positions where the ordering of the hand is load bearing ===
 
-// Found by searching for positions whose best board no ordering of the deck
-// reaches except a re-ordered one. Play these decks in the order the solver
+// Found by searching for positions whose best board no ordering of the hand
+// reaches except a re-ordered one. Play these hands in the order the solver
 // sorts them into and the answers below are out of reach.
 
 // Three pieces, and the only way to fit them all is to clear a line partway
-// through. In sorted order the deck does not fit at all, so a search that
+// through. In sorted order the hand does not fit at all, so a search that
 // stopped at the first ordering would report that there is no move here.
-checkPosition("a clear partway through is the only way the deck fits",
+checkPosition("a clear partway through is the only way the hand fits",
     // ..####...  .........  .#.##....  ###.###.#  ##.###..#  .........
     // #.#.##..#  ##.#.#...  ##.####.#
     { a: 6815804, b: 161655, c: 99374901 },
@@ -218,9 +218,9 @@ checkPosition("a clear partway through is the only way the deck fits",
         { a: 1837060, b: 0, c: 0 },
     ]);
 
-// The deck fits in sorted order, but a tidier board is only reachable if the
+// The hand fits in sorted order, but a tidier board is only reachable if the
 // pieces go down in a different one.
-checkPosition("a re-ordered deck reaches a tidier board",
+checkPosition("a re-ordered hand reaches a tidier board",
     // ..#.##.#.  #..####..  #.#...#.#  ##.....#.  ###.....#  ###....##
     // #.###....  .#.#.##.#  ...####..
     { a: 85258932, b: 102633091, c: 31642653 },
@@ -235,7 +235,7 @@ checkPosition("a re-ordered deck reaches a tidier board",
 
 // Every ordering here lands on the same board, but they do not all score the
 // same, and two of the three pieces are the same shape.
-checkPosition("the best scoring order of a deck holding two of a kind",
+checkPosition("the best scoring order of a hand holding two of a kind",
     // #.#..#...  ##..##..#  ####.#...  ##.##....  ###..#..#  ####.#...
     // .##.##..#  #...##..#  ######...
     { a: 12477989, b: 12471835, c: 16671542 },
@@ -252,7 +252,7 @@ checkPosition("the best scoring order of a deck holding two of a kind",
 // The search walks the orderings with the piece that has the most placements
 // first, and takes the first of them as having already seen every board no
 // clear can move -- so the first ordering is the one that must not skip
-// anything. It used to get that for free by walking the deck in sorted order.
+// anything. It used to get that for free by walking the hand in sorted order.
 // Sorting by how many placements a piece has does not keep the first two
 // pieces sorted, and once the first ordering started skipping the half of its
 // pairs that were back to front, it took the best board here down with it.
@@ -272,7 +272,7 @@ checkPosition("the first ordering is the flexible one, not the sorted one",
 // === A sweep of random positions ===
 
 // The 47 pieces, recovered through the public API and put in a fixed order so
-// the sweep below deals the same decks every run.
+// the sweep below deals the same hands every run.
 /** @type {Piece[]} */
 const PIECES = [];
 {
@@ -288,7 +288,7 @@ const PIECES = [];
     }
     PIECES.sort((a, b) => a.a - b.a || a.b - b.b || a.c - b.c);
 }
-check(PIECES.length === 47, "the deck deals all 47 pieces");
+check(PIECES.length === 47, "the hand deals all 47 pieces");
 
 /** @type {(seed: number) => () => number} */
 function mulberry32(seed) {
@@ -365,25 +365,25 @@ let with_a_move = 0;
 const before_sweep = failures;
 for (let trial = 0; trial < 1500; ++trial) {
     const board = randomBoard(random, 0.4 + 0.3 * random());
-    const deck = /** @type {Deck} */ (
+    const hand = /** @type {Hand} */ (
         [0, 1, 2].map(() => PIECES[Math.floor(random() * PIECES.length)]));
-    // Decks that repeat a shape, and decks with slots already played out of,
+    // Hands that repeat a shape, and hands with slots already played out of,
     // both take different routes through the search.
     if (trial % 4 === 0) {
-        deck[1] = deck[0];
+        hand[1] = hand[0];
     }
     if (trial % 7 === 0) {
-        deck[2] = EMPTY;
+        hand[2] = EMPTY;
     }
     if (trial % 13 === 0) {
-        deck[1] = EMPTY;
+        hand[1] = EMPTY;
     }
 
     const game = gameWithBoard(board, trial % 2 === 0);
-    const reachable = reachableBoards(game, deck);
-    const result = blokie.makeMove(game, deck);
-    const played = replay(game, deck, result);
-    const held = deck.filter((p) => !bits.isEmpty(p)).length;
+    const reachable = reachableBoards(game, hand);
+    const result = blokie.makeMove(game, hand);
+    const played = replay(game, hand, result);
+    const held = hand.filter((p) => !bits.isEmpty(p)).length;
     swept++;
 
     if (reachable.size === 0) {
@@ -406,7 +406,7 @@ for (let trial = 0; trial < 1500; ++trial) {
     if (result.evaluation !== best_evaluation) {
         check(false, `sweep trial ${trial}: missed a better board`
             + ` (${result.evaluation} vs ${best_evaluation}); board ${key(board)},`
-            + ` deck ${deck.map(key).join(" / ")}`);
+            + ` hand ${hand.map(key).join(" / ")}`);
         continue;
     }
 
@@ -417,7 +417,7 @@ for (let trial = 0; trial < 1500; ++trial) {
     }
     if (played.score !== landed.score) {
         check(false, `sweep trial ${trial}: left ${landed.score - played.score} points behind`
-            + `; board ${key(board)}, deck ${deck.map(key).join(" / ")}`);
+            + `; board ${key(board)}, hand ${hand.map(key).join(" / ")}`);
     }
 }
 check(failures === before_sweep,
@@ -427,14 +427,14 @@ check(failures === before_sweep,
 // positions the search above was checked on.
 {
     const board = { a: 6815804, b: 161655, c: 99374901 };
-    /** @type {Deck} */
-    const deck = [
+    /** @type {Hand} */
+    const hand = [
         { a: 787459, b: 0, c: 0 },
         { a: 525319, b: 0, c: 0 },
         { a: 1837060, b: 0, c: 0 },
     ];
     let game = gameWithBoard(board);
-    const plan = blokie.plan(game, deck);
+    const plan = blokie.plan(game, hand);
     let legal = plan.length > 0;
     for (const move of plan) {
         const result = blokie.place(game, move.placement);

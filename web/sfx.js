@@ -1,7 +1,7 @@
 "use strict";
 import { saveSfxSetting, loadSfxSetting } from "./storage.js";
 
-// A piece lifted off the deck, dropped onto the board, going back down unplayed,
+// A piece lifted off the hand, dropped onto the board, going back down unplayed,
 // and a row coming apart. Played whether you or the assist is moving the pieces,
 // except at the assist's top speed, where the moves come too fast to hear as
 // anything but noise.

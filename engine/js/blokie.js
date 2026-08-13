@@ -11,7 +11,7 @@
 //
 // Two namespaces come out of this file. `bits` is the board as three words of
 // squares, with no notion of a game attached; `blokie` is the game played on it.
-// Anything that talks about a score, a deck or a move is in the second one.
+// Anything that talks about a score, a hand or a move is in the second one.
 //
 // Types are JSDoc, checked by `npm run typecheck` and erased by nothing, since
 // nothing compiles this file. See tsconfig.json for why it is arranged that way.
@@ -40,9 +40,9 @@
  */
 
 /**
- * The three pieces on deck. A slot that has been played holds an empty piece
- * until all three have been, and the deck is refilled.
- * @typedef {[Piece, Piece, Piece]} Deck
+ * The three pieces in hand. A slot that has been played holds an empty piece
+ * until all three have been, and the hand is refilled.
+ * @typedef {[Piece, Piece, Piece]} Hand
  */
 
 /**
@@ -63,7 +63,7 @@
  */
 
 /**
- * Where the search wants a piece to go: which slot of the deck to play, and the
+ * Where the search wants a piece to go: which slot of the hand to play, and the
  * squares it should cover.
  * @typedef {{piece_index: number, placement: Placement}} PlannedMove
  */
@@ -323,7 +323,7 @@ function left_top_justify_piece(p) {
     return p;
 }
 
-// Where a piece sits in the 5x5 box it is drawn in on deck. Justifies first, so
+// Where a piece sits in the 5x5 box it is drawn in while in hand. Justifies first, so
 // centering an already-centered piece leaves it where it is.
 /** @type {(p: Piece) => Piece} */
 function center_piece(p) {
@@ -339,7 +339,7 @@ function center_piece(p) {
 }
 
 // How many rows and columns of the board a piece covers, wherever it is drawn
-// in the 5x5 box a piece on deck is held in.
+// in the 5x5 box a piece in hand is held in.
 /** @type {(piece: Piece) => PieceBounds} */
 function get_piece_bounds(piece) {
     const p = left_top_justify_piece(piece);
@@ -414,7 +414,7 @@ const PIECES = [
 //
 // Where the pieces sit inside the 5x5 box they are drawn in is a question for
 // whoever is drawing them -- see bits.center -- and not one the engine answers.
-/** @type {(random?: Random) => Deck} */
+/** @type {(random?: Random) => Hand} */
 function deal(random = Math.random) {
     const pick = () => PIECES[Math.floor(random() * PIECES.length)];
     return [pick(), pick(), pick()];
@@ -476,13 +476,13 @@ function can_place_piece(board, piece) {
     }
 }
 
-// A human player's game is over once none of the pieces on deck fit.
-/** @type {(board: BitBoard, deck: readonly Piece[]) => boolean} */
-function has_valid_move(board, deck) {
-    return deck.some(p => can_place_piece(board, p));
+// A human player's game is over once none of the pieces in hand fit.
+/** @type {(board: BitBoard, hand: readonly Piece[]) => boolean} */
+function has_valid_move(board, hand) {
+    return hand.some(p => can_place_piece(board, p));
 }
 
-// Where the fitness and performance harnesses stop: they deal a fresh deck every
+// Where the fitness and performance harnesses stop: they deal a fresh hand every
 // move, so the only thing that can end them is running out of board. A played
 // game ends earlier and for a different reason -- see hasValidMove.
 /** @type {(game: Game) => boolean} */
@@ -649,15 +649,15 @@ const _SLOT_ORDERS = [
     [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
 ];
 
-// Which slot of the deck each of the search's placements was made with. A
+// Which slot of the hand each of the search's placements was made with. A
 // placement is its piece moved onto the board, so justifying it gives the piece
 // back. Two slots holding the same shape are interchangeable, so the first one
 // still free is as good as either.
 //
 // Answers with the placement each slot takes, and the slots in the order the
 // search played them.
-/** @type {(deck: Deck, placements: readonly Placement[]) => {placement_of_slot: Placement[], search_order: number[]}} */
-function _match_placements(deck, placements) {
+/** @type {(hand: Hand, placements: readonly Placement[]) => {placement_of_slot: Placement[], search_order: number[]}} */
+function _match_placements(hand, placements) {
     const placement_of_slot = [getEmpty(), getEmpty(), getEmpty()];
     /** @type {number[]} */
     const search_order = [];
@@ -665,7 +665,7 @@ function _match_placements(deck, placements) {
     for (const placement of placements) {
         const shape = left_top_justify_piece(placement);
         for (let slot = 0; slot < 3; ++slot) {
-            if (!taken[slot] && equal(deck[slot], shape)) {
+            if (!taken[slot] && equal(hand[slot], shape)) {
                 taken[slot] = true;
                 placement_of_slot[slot] = placement;
                 search_order.push(slot);
@@ -709,13 +709,13 @@ function _play_order(game, placement_of_slot, order) {
 // which piece goes in which of those placements, what each move scores and the
 // order they are played in are worked out here, down the same path a move made
 // by hand takes -- so the rules of the game are written once, in one language.
-/** @type {(game: Game, deck: Deck) => AIMove} */
-function make_move(game, deck) {
-    /** @type {Deck} */
+/** @type {(game: Game, hand: Hand) => AIMove} */
+function make_move(game, hand) {
+    /** @type {Hand} */
     const justified = [
-        left_top_justify_piece(deck[0]),
-        left_top_justify_piece(deck[1]),
-        left_top_justify_piece(deck[2]),
+        left_top_justify_piece(hand[0]),
+        left_top_justify_piece(hand[1]),
+        left_top_justify_piece(hand[2]),
     ];
     const board = game.board;
 
@@ -735,8 +735,8 @@ function make_move(game, deck) {
 
     const { placement_of_slot, search_order } =
         _match_placements(justified, result.placements);
-    // Every placement belongs to a piece that was on deck. One that does not
-    // means the search answered about a deck it was not asked about, and there
+    // Every placement belongs to a piece that was in hand. One that does not
+    // means the search answered about a hand it was not asked about, and there
     // is no move here to play.
     const searched = search_order.length === 3
         ? _play_order(game, placement_of_slot, search_order)
@@ -777,7 +777,7 @@ function make_move(game, deck) {
 }
 
 // The subsets of `indices`, biggest first. Only ever called with the slots of a
-// three piece deck, so this is at most seven short lists.
+// three piece hand, so this is at most seven short lists.
 /** @type {(indices: readonly number[]) => number[][]} */
 function _subsets_largest_first(indices) {
     /** @type {number[][]} */
@@ -788,7 +788,7 @@ function _subsets_largest_first(indices) {
     return result.sort((a, b) => b.length - a.length);
 }
 
-// Where the AI wants to put the pieces on deck, in the order they should be
+// Where the AI wants to put the pieces in hand, in the order they should be
 // played. Empty when nothing fits at all, which is the same thing hasValidMove
 // says about the position.
 //
@@ -797,9 +797,9 @@ function _subsets_largest_first(indices) {
 // of the pieces usually still fit -- so ask again for a smaller handful. A
 // blanked slot is a no-op the search steps straight over, which is how a two- or
 // one-piece move gets planned at all.
-/** @type {(game: Game, deck: Deck) => PlannedMove[]} */
-function plan(game, deck) {
-    const held = [0, 1, 2].filter(i => !is_empty(deck[i]));
+/** @type {(game: Game, hand: Hand) => PlannedMove[]} */
+function plan(game, hand) {
+    const held = [0, 1, 2].filter(i => !is_empty(hand[i]));
     /** @type {AIMove | null} */
     let best = null;
 
@@ -808,17 +808,17 @@ function plan(game, deck) {
         if (best !== null && subset.length <= best.moves.length) {
             break;
         }
-        /** @type {Deck} */
+        /** @type {Hand} */
         const asked = [
-            subset.includes(0) ? deck[0] : EMPTY,
-            subset.includes(1) ? deck[1] : EMPTY,
-            subset.includes(2) ? deck[2] : EMPTY,
+            subset.includes(0) ? hand[0] : EMPTY,
+            subset.includes(1) ? hand[1] : EMPTY,
+            subset.includes(2) ? hand[2] : EMPTY,
         ];
         const result = make_move(game, asked);
         if (result.moves.length === 0) {
             continue;
         }
-        // More pieces played beats a tidier board, since the deck only refills
+        // More pieces played beats a tidier board, since the hand only refills
         // once every slot is empty. Between equals, take the tidier board.
         if (best === null || result.moves.length > best.moves.length
             || (result.moves.length === best.moves.length

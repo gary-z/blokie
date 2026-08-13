@@ -21,8 +21,8 @@ import { blokie } from '../../engine/js/blokie.js';
  *   harness counts it.
  */
 
-// Plays a game out with a fresh deck every move, so the only thing that can end
-// it is a deck the search cannot place in full.
+// Plays a game out with a fresh hand every move, so the only thing that can end
+// it is a hand the search cannot place in full.
 /** @returns {FitnessSample} */
 function fitnessSample() {
     let game = blokie.newGame();
