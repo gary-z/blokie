@@ -31,9 +31,9 @@ jobs:
         run: cmake -S engine/cpp -B /tmp/blokie-native-tests -DCMAKE_BUILD_TYPE=Release
 
       - name: Build native engine tests
-        run: cmake --build /tmp/blokie-native-tests --parallel 2 --target eval-test search-test
+        run: cmake --build /tmp/blokie-native-tests --parallel 2 --target eval-test search-test probe-test fitness
 
-      - name: Native evaluation and search
+      - name: Native engine tests
         run: ctest --test-dir /tmp/blokie-native-tests --output-on-failure
 
   check:
@@ -44,6 +44,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Probe analysis tools
+        run: |
+          node --check engine/tools/analyze-chain-lengths.js
+          node --check engine/tools/analyze-probes.js
+          node --check engine/tools/compare-fitness.js
+          node --check engine/tools/compare-probes.js
 
       - name: Bitboards, pieces and clearing
         run: node test/engine/bitboard-test.js

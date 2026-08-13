@@ -1079,6 +1079,21 @@ MoveResult AI::makeMoveSimpleDefault(GameState game, PieceSet piece_set) {
 		});
 }
 
+bool AI::tripleFits(GameState game, PieceSet piece_set) {
+	std::sort(piece_set.pieces, piece_set.pieces + 3);
+	do {
+		for (const auto after_p0 : game.nextStates(piece_set.pieces[0])) {
+			for (const auto after_p1 : after_p0.nextStates(piece_set.pieces[1])) {
+				for (const auto after_p2 : after_p1.nextStates(piece_set.pieces[2])) {
+					(void)after_p2;
+					return true;
+				}
+			}
+		}
+	} while (std::next_permutation(piece_set.pieces, piece_set.pieces + 3));
+	return false;
+}
+
 int AI::countPieces(const PieceSet &piece_set) {
 	int num_pieces = 3;
 	while (num_pieces > 0 &&

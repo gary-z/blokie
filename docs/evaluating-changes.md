@@ -264,19 +264,59 @@ Prefer accelerations that leave every skill in the game and shorten it some
 other way. Removing a piece class or a set slot has now been tried in its
 strongest form, and the values did not come back.
 
-## Still open
+## Probe the death probability of each board
 
-**There is no cheap experiment on the real game.** Deadlier environments are the
-only lever that attacks the exponent, and the two that were tried bought their
-speed by changing what was being measured. What is left is constant factors, all
-of it below: banking the baseline is worth about 4× per experiment, and capping
-the stragglers and stopping early buy scheduling rather than information. None
-of it touches the `1/h`.
+There is a cheap experiment on the real game. For a board `B`, let `p(B)` be the
+probability that a uniformly dealt triple cannot be placed in any order. The
+ordinary death estimator observes one Bernoulli draw with that probability. The
+fitness harness can instead draw `M` independent triples from a separate RNG
+stream and average whether they fit:
 
-So a 5% change still costs on the order of 1e8 moves with the baseline banked,
-and 1% is out of reach. Changes smaller than that remain, in practice,
-unmeasurable. Anything that fixes this has to make deaths arrive sooner
-*without* making the deaths be about something else.
+    ./fitness 640 --chain-moves 10000 --burn-in 25 --probe 30 \
+        --seed-base 1 > candidate.txt
+
+This does not change the game, its piece distribution, or its trajectory. It
+only replaces much of the deal noise with extra calls to a search that stops at
+the first legal placement and never evaluates a board. `M=30` spends well under
+one percent of total worker time probing on the machine that validated it.
+
+The estimator is unbiased because, conditional on `B`, its expected value is
+`p(B)`, and averaging again over boards gives the same hazard. Use independent
+chains as the units for uncertainty: boards within one game are correlated.
+`fitness` reports a chain-clustered interval, and writes one row per chain for
+the bootstrap tools.
+
+Measured end to end, `M=30` needed about 2.4–3.0× less compute for the same
+precision than counting deaths. The independent-board calculation predicts a
+larger gain; temporal correlation in `p(B)` is the missing cost. The detailed
+validation, seeds, negative results, and machine information are in
+[`rao-blackwell-fitness.md`](rao-blackwell-fitness.md).
+
+Probe risk is concentrated on crowded boards. A three-band board-only
+allocation uses 15 probes below 23 occupied squares, 62 from 23 through 35,
+and 854 at 36 or above. It averages about 30 probes/board, remains unbiased,
+and reduced variance by another 9.2% across two replicated seed banks. Use
+`--probe-occupancy-bands 15 62 854 23 36` for the tuned configuration.
+The simpler `--probe-occupancy 10 390 29` retains a 6.6% gain; use uniform
+`--probe 30` when portability to a substantially different policy matters
+more than the last few percent.
+
+Two details matter:
+
+- Probe draws use their own RNG. A ctest checks that enabling probes leaves the
+  dealt-piece trajectory unchanged for a fixed seed.
+- `M=1` has the same marginal Bernoulli distribution as a death, but need not
+  have the same long-chain variance. An actual death resets the game; an
+  independent failing probe does not. It is an expectation check, not an exact
+  time-series-variance identity.
+
+For `M > 1`, the harness also estimates board variance. If `q=K/M`, the unbiased
+second moment is
+
+    E[p²] = E[q²] - (E[p] - E[q²]) / (M - 1)
+
+The denominator is `M-1`, not `M`. At `M=1`, probe noise and board variance
+cannot be identified separately.
 
 ## Bank the baseline
 
@@ -291,14 +331,29 @@ for exactly this.
 
 ## Recipe
 
-    # measure a candidate, capped so no game blocks a thread
-    ./fitness 4000 --max-moves 80000 --seed-base 1 > candidate.txt
+    # Measure 640 independent fixed-exposure chains. A death restarts its chain;
+    # the first 25 moves after every restart are left out and probed with a
+    # separate RNG stream. Use a new seed range for every independent run.
+    ./fitness 640 --threads 32 --chain-moves 10000 --burn-in 25 \
+        --probe-occupancy-bands 15 62 854 23 36 \
+        --seed-base 1 > candidate.txt
+
+    # Compare two continuous probe estimates. Use --paired when both arms used
+    # exactly the same chain seeds.
+    node engine/tools/compare-probes.js --paired \
+        baseline.txt candidate.txt
+
+    # Inspect the realized variance reduction and probe cost.
+    node engine/tools/analyze-probes.js candidate.txt
 
     # check the hazard really is flat before trusting any of this
     ./fitness 400 --max-moves 20000 --hazard-bins 2000
 
-    # verdict against a banked baseline -- deaths:exposure accumulated over
-    # every run of the current weights, here a baseline resolved to about 2.5%
+    # The old exact death-count comparison remains valid and useful as an
+    # independent cross-check or for a banked historical baseline.
     node engine/tools/compare-fitness.js 6200:248000000 candidate.txt
 
-Deaths are the currency. Everything else is bookkeeping.
+Four to ten thousand measured moves per chain performed similarly. Chains of
+400 and 1,000 moves paid too much repeated burn-in and were less efficient;
+40,000 worked but exposed more autocorrelation and scheduling tail. Prefer
+`--chain-moves 10000` as a conservative default or 4,000 for finer scheduling.

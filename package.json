@@ -30,6 +30,9 @@
     "test:storage": "node test/web/storage-test.js",
     "test:pwa": "node test/web/pwa-test.js",
     "test:performance": "node test/engine/performance-test.js",
-    "compare:fitness": "node engine/tools/compare-fitness.js"
+    "compare:fitness": "node engine/tools/compare-fitness.js",
+    "compare:probes": "node engine/tools/compare-probes.js",
+    "analyze:probes": "node engine/tools/analyze-probes.js",
+    "analyze:chains": "node engine/tools/analyze-chain-lengths.js"
   }
 }

@@ -67,30 +67,55 @@ function readRun(arg, burnIn) {
             exposure: Number(literal[2]),
             games: null,
             cutOff: null,
+            chainMoves: 0,
+            fileBurnIn: null,
         };
     }
     let deaths = 0;
     let exposure = 0;
     let games = 0;
     let cutOff = 0;
+    let chainMoves = 0;
+    let fileBurnIn = null;
+    const rows = [];
     const text = readFileSync(arg, 'utf8');
     for (const line of text.split('\n')) {
         const trimmed = line.trim();
+        if (trimmed.startsWith('# options ')) {
+            const match = /chain_moves=(\d+)/.exec(trimmed);
+            if (match) chainMoves = Number(match[1]);
+            const burnMatch = /burn_in=(\d+)/.exec(trimmed);
+            if (burnMatch) fileBurnIn = Number(burnMatch[1]);
+            continue;
+        }
         if (trimmed === '' || trimmed.startsWith('#')) continue;
         const parts = trimmed.split(/\s+/);
+        rows.push(parts);
+    }
+    for (const parts of rows) {
         const moves = Number(parts[0]);
         const ended = parts.length > 1 ? Number(parts[1]) === 1 : true;
         if (!Number.isFinite(moves)) {
-            throw new Error(`${arg}: cannot read a move count from "${trimmed}"`);
+            throw new Error(`${arg}: cannot read a move count from "${parts.join(' ')}"`);
         }
         games++;
-        if (!ended) cutOff++;
-        if (moves > burnIn) {
-            exposure += moves - burnIn;
-            if (ended) deaths++;
+        if (chainMoves !== 0) {
+            if (parts.length < 10) {
+                throw new Error(`${arg}: fixed-exposure row lacks exposure/deaths fields`);
+            }
+            exposure += Number(parts[8]);
+            deaths += Number(parts[9]);
+        } else {
+            if (!ended) cutOff++;
+            if (moves > burnIn) {
+                exposure += moves - burnIn;
+                if (ended) deaths++;
+            }
         }
     }
-    return { name: arg, deaths, exposure, games, cutOff };
+    return {
+        name: arg, deaths, exposure, games, cutOff, chainMoves, fileBurnIn,
+    };
 }
 
 const args = process.argv.slice(2);
@@ -119,6 +144,15 @@ if (positional.length !== 2) {
 
 const a = readRun(positional[0], burnIn);
 const b = readRun(positional[1], burnIn);
+const fixedBurnIns = [a, b]
+    .filter((run) => run.chainMoves !== 0)
+    .map((run) => run.fileBurnIn);
+if (fixedBurnIns.some((value) => value === null) ||
+    fixedBurnIns.some((value) => value !== fixedBurnIns[0])) {
+    console.error('fixed-exposure runs must report the same burn-in');
+    process.exit(1);
+}
+const reportedBurnIn = fixedBurnIns.length === 0 ? burnIn : fixedBurnIns[0];
 
 for (const run of [a, b]) {
     if (run.exposure === 0) {
@@ -151,11 +185,11 @@ const p = binomTest(a.deaths, totalDeaths, share);
 
 const pct = (x) => `${((x - 1) * 100).toFixed(1)}%`;
 
-console.log(`burn-in: ${burnIn} moves`);
+console.log(`burn-in: ${reportedBurnIn} moves`);
 for (const [label, run, hazard] of [['baseline ', a, hazardA],
                                     ['candidate', b, hazardB]]) {
-    const games = run.games === null
-        ? 'banked'
+    const games = run.games === null ? 'banked'
+        : run.chainMoves !== 0 ? `${run.games} fixed-exposure chains`
         : `${run.games} games, ${run.cutOff} cut off`;
     console.log(
         `${label}  ${run.deaths} deaths / ${run.exposure} moves` +
