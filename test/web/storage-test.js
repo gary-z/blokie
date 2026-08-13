@@ -22,6 +22,23 @@ function check(condition, description) {
     console.log("ok - %s", description);
 }
 
+/**
+ * A value the check below it is built on, which has to be there for that check
+ * to mean anything. Throws rather than handing back null, so a fixture that
+ * stopped working says so here instead of failing further down as a null
+ * dereference.
+ * @template T
+ * @param {T | null} value
+ * @param {string} what
+ * @returns {T}
+ */
+function must(value, what) {
+    if (value === null) {
+        throw new Error(`${what} should not have been null`);
+    }
+    return value;
+}
+
 /** @type {(a: BitBoard, b: BitBoard) => boolean} */
 function sameBitboard(a, b) {
     return a.a === b.a && a.b === b.b && a.c === b.c;
@@ -108,20 +125,23 @@ const twins = newGameState();
 // repository needs this, which is why web/storage.js carries one too.
 twins.piece_set = /** @type {Deck} */ (
     [twins.piece_set[0], twins.piece_set[0], twins.piece_set[0]]);
-const restored_twins = decodeGameState(encodeGameState(twins));
+const restored_twins = must(decodeGameState(encodeGameState(twins)),
+    'the twin-slot save');
 check(restored_twins.piece_set[0] !== restored_twins.piece_set[1]
     && restored_twins.piece_set[1] !== restored_twins.piece_set[2],
     "identical deck slots restore as separate objects");
 
 const big = newGameState();
 big.game = { ...big.game, score: 1500000 };
-check(decodeGameState(encodeGameState(big)).game.score === 1500000,
+check(must(decodeGameState(encodeGameState(big)),
+    'the million-point save').game.score === 1500000,
     "a million-point score round trips");
 
 const streak = newGameState();
 streak.game = { ...streak.game, previous_move_was_clear: true };
 streak.clear_streak = 7;
-const restored_streak = decodeGameState(encodeGameState(streak));
+const restored_streak = must(decodeGameState(encodeGameState(streak)),
+    'the clear-streak save');
 check(restored_streak.clear_streak === 7
     && restored_streak.game.previous_move_was_clear === true,
     "a run of clears round trips as a length, not just a flag");

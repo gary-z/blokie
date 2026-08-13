@@ -11,6 +11,7 @@
 // where a player switching apps all afternoon still only costs one request.
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
+/** @type {(registration: ServiceWorkerRegistration) => void} */
 function watchForUpdates(registration) {
     let last_check = Date.now();
     document.addEventListener('visibilitychange', () => {

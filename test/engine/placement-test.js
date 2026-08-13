@@ -31,6 +31,27 @@ function check(condition, description) {
     console.log("ok - %s", description);
 }
 
+/**
+ * A move the check below it is built on, which has to have been possible for
+ * that check to mean anything -- the piece placed to make a fixture, or the
+ * placement an assertion is comparing against. Throws rather than handing back
+ * null, so a fixture that stopped being placeable says so here instead of
+ * failing further down as a null dereference.
+ *
+ * What is under test is `placeNearest` finding a placement or not, and that is
+ * asserted directly rather than through this.
+ * @template T
+ * @param {T | null} value
+ * @param {string} what
+ * @returns {T}
+ */
+function must(value, what) {
+    if (value === null) {
+        throw new Error(`${what} should have been placeable`);
+    }
+    return value;
+}
+
 /** @type {(a: BitBoard, b: BitBoard) => boolean} */
 function sameBitboard(a, b) {
     return a.a === b.a && a.b === b.b && a.c === b.c;
@@ -106,15 +127,18 @@ const cross_clear_board = boardWithSquares([
     ...[...Array(8).keys()].map(c => [0, c]),
     ...[...Array(8).keys()].map(r => [r + 1, 8]),
 ]);
-const top_right = blokie.placeAt(empty_game, SINGLE, 0, 8).placement;
+const top_right = must(blokie.placeAt(empty_game, SINGLE, 0, 8),
+    'a single square in the top right corner').placement;
 check(blokie.comboMagnitude(row_clear_board, top_right) === 1,
     "a single clear has no combo multiplier");
 check(blokie.comboMagnitude(cross_clear_board, top_right) === 2,
     "a row and column clear has a 2x combo multiplier");
 
 check(sameBitboard(
-    blokie.placeNearest(empty_game, SINGLE, 4.2, 3.8, RADIUS).placement,
-    blokie.placeAt(empty_game, SINGLE, 4, 4).placement),
+    must(blokie.placeNearest(empty_game, SINGLE, 4.2, 3.8, RADIUS),
+        'a single square held just off the middle of an empty board').placement,
+    must(blokie.placeAt(empty_game, SINGLE, 4, 4),
+        'a single square in the middle of an empty board').placement),
     "a piece over a square it fits in goes in that square");
 
 check(blokie.placeNearest(empty_game, SINGLE, 0, 0, RADIUS) !== null
@@ -125,7 +149,9 @@ check(blokie.placeNearest(empty_game, SINGLE, 0, 0, RADIUS) !== null
 
 // A single square held dead centre on a block. Every neighbour is a square
 // away, so which one it picks is a coin toss; that it picks one is the point.
-const blocked_middle = gameWithBoard(blokie.placeAt(empty_game, SINGLE, 4, 4).placement);
+const blocked_middle = gameWithBoard(must(
+    blokie.placeAt(empty_game, SINGLE, 4, 4),
+    'a single square in the middle of an empty board').placement);
 const nudged = blokie.placeNearest(blocked_middle, SINGLE, 4, 4, RADIUS);
 check(nudged !== null, "a piece over an occupied square still finds a placement");
 check(nudged !== null && distance(placementCorner(nudged.placement), 4, 4) === 1,
@@ -136,29 +162,35 @@ check(nudged !== null
 
 // Off the edge of the board, which the exact reading used to refuse outright.
 check(sameBitboard(
-    blokie.placeNearest(empty_game, SINGLE, -0.9, 4, RADIUS).placement,
-    blokie.placeAt(empty_game, SINGLE, 0, 4).placement),
+    must(blokie.placeNearest(empty_game, SINGLE, -0.9, 4, RADIUS),
+        'a single square held off the top edge').placement,
+    must(blokie.placeAt(empty_game, SINGLE, 0, 4),
+        'a single square on the top row').placement),
     "a piece hanging off the top of the board is pulled back onto it");
 check(sameBitboard(
-    blokie.placeNearest(empty_game, SINGLE, 4, 9.4, RADIUS).placement,
-    blokie.placeAt(empty_game, SINGLE, 4, 8).placement),
+    must(blokie.placeNearest(empty_game, SINGLE, 4, 9.4, RADIUS),
+        'a single square held off the right edge').placement,
+    must(blokie.placeAt(empty_game, SINGLE, 4, 8),
+        'a single square on the right column').placement),
     "a piece hanging off the right of the board is pulled back onto it");
 
 // A five long bar has one column of the board to sit in per row, so holding it
 // anywhere on that row means the same placement.
 const BAR = { a: 31, b: 0, c: 0 };
 check(sameBitboard(
-    blokie.placeNearest(empty_game, BAR, 3, 4.3, RADIUS).placement,
-    blokie.placeAt(empty_game, BAR, 3, 4).placement),
+    must(blokie.placeNearest(empty_game, BAR, 3, 4.3, RADIUS),
+        'a five long bar held on an empty row').placement,
+    must(blokie.placeAt(empty_game, BAR, 3, 4),
+        'a five long bar on an empty row').placement),
     "a piece too wide to be centred lands in the only column it fits in");
 
 // === Held nowhere near a square it fits in ===
 
 check(blokie.placeNearest(empty_game, SINGLE, 4, 12, RADIUS) === null,
     "a piece held well off the board is not placed");
-check(blokie.placeNearest(empty_game, SINGLE, 4, 4, 0) === null
-    || distance(placementCorner(
-        blokie.placeNearest(empty_game, SINGLE, 4, 4, 0).placement), 4, 4) === 0,
+const exact = blokie.placeNearest(empty_game, SINGLE, 4, 4, 0);
+check(exact === null
+    || distance(placementCorner(exact.placement), 4, 4) === 0,
     "no slack means only the square the piece is exactly on");
 check(blokie.placeNearest(gameWithBoard(bits.empty()), bits.empty(),
     4, 4, RADIUS) === null,

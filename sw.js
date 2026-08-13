@@ -88,6 +88,10 @@ worker.addEventListener('activate', (event) => {
 // player kept on the previous version until they close the tab, and closing it
 // is how anyone leaves a game anyway.
 
+// `key` is what the cache is looked up under, which is not always the request
+// itself: a navigation to any address inside the scope is answered with the
+// shell, and so looked up under that path instead.
+/** @type {(request: Request, key: RequestInfo) => Promise<Response>} */
 async function serveFromCache(request, key) {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(key);

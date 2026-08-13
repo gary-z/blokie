@@ -202,11 +202,14 @@ for (const path of paths) {
         let probedTime = 0;
         let baselineTime = 0;
         for (const chain of run.chains) {
-            if (!baseline.has(chain.seed)) {
+            // Read once rather than has()-then-get(), so what is checked and
+            // what is added up are the same lookup.
+            const unprobed = baseline.get(chain.seed);
+            if (unprobed === undefined) {
                 throw new Error(`baseline files: missing seed ${chain.seed}`);
             }
             probedTime += chain.totalSeconds;
-            baselineTime += baseline.get(chain.seed);
+            baselineTime += unprobed;
         }
         costRatio = probedTime / baselineTime;
     }

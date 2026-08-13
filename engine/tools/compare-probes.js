@@ -162,8 +162,19 @@ if (paired) {
         throw new Error('--paired requires unique chain seeds in each arm');
     }
     const bBySeed = new Map(b.values.map((x) => [x.seed, x.estimate]));
-    const pairs = a.values.map((x) => [x.estimate, bBySeed.get(x.seed)]);
-    if (pairs.some((x) => x[1] === undefined) || pairs.length !== b.values.length) {
+    // Built by hand rather than with `.map`, so the missing-seed case is a
+    // check on one chain instead of a scan for undefined afterwards -- which
+    // is also what leaves `pairs` a list of two real numbers.
+    /** @type {[number, number][]} */
+    const pairs = [];
+    for (const chain of a.values) {
+        const counterpart = bBySeed.get(chain.seed);
+        if (counterpart === undefined) {
+            throw new Error('--paired requires exactly the same chain seeds in both runs');
+        }
+        pairs.push([chain.estimate, counterpart]);
+    }
+    if (pairs.length !== b.values.length) {
         throw new Error('--paired requires exactly the same chain seeds in both runs');
     }
     a.estimates = pairs.map((x) => x[0]);

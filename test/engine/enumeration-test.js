@@ -171,8 +171,12 @@ function checkPosition(name, board, deck, previous_move_was_clear = false) {
         return;
     }
 
-    if (!check(played !== null && played.pieces_played === held,
-        `${name}: the move it returns is a legal play of the whole deck`)) {
+    const legal = `${name}: the move it returns is a legal play of the whole deck`;
+    if (played === null) {
+        check(false, legal);
+        return;
+    }
+    if (!check(played.pieces_played === held, legal)) {
         return;
     }
 

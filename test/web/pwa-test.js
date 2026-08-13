@@ -149,7 +149,8 @@ let manifest = null;
 try {
     manifest = JSON.parse(read(MANIFEST.replace(/^\.\//, '')));
 } catch (e) {
-    check(false, `the manifest is valid JSON (${e.message})`);
+    check(false, 'the manifest is valid JSON '
+        + `(${e instanceof Error ? e.message : String(e)})`);
 }
 
 if (manifest !== null) {

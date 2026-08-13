@@ -36,6 +36,23 @@ function check(condition, description) {
 }
 
 /**
+ * A value the check below it is built on, which has to be there for that check
+ * to mean anything. Throws rather than handing back null, so a fixture that
+ * stopped working says so here instead of failing further down as a null
+ * dereference.
+ * @template T
+ * @param {T | null} value
+ * @param {string} what
+ * @returns {T}
+ */
+function must(value, what) {
+    if (value === null) {
+        throw new Error(`${what} should not have been null`);
+    }
+    return value;
+}
+
+/**
  * One assertion inside a group: what has to hold, and what to call it if it
  * does not. Named because every `want` in this file is one of these, and
  * annotating checkAll is what gives all of them their types.
@@ -324,13 +341,16 @@ checkAll("a combo counts the lines a board completes", (want) => {
 // square it fits in, it goes nowhere. test/engine/placement-test.js goes
 // through this properly; these are the cases that used to sit in blokie.js.
 checkAll("a dragged piece lands where it is held, or nearest to it", (want) => {
-    want(equal(place_nearest(new_game(), PIECES[0], 4.1, 3.9, 1.5)
-        .placement, bit(4, 4)), "rounds to the square under it");
-    want(is_disjoint(place_nearest(
-        { ...new_game(), board: bit(4, 4) }, PIECES[0], 4, 4, 1.5).placement,
+    want(equal(must(place_nearest(new_game(), PIECES[0], 4.1, 3.9, 1.5),
+        'a piece held just off the middle').placement, bit(4, 4)),
+        "rounds to the square under it");
+    want(is_disjoint(must(place_nearest(
+        { ...new_game(), board: bit(4, 4) }, PIECES[0], 4, 4, 1.5),
+        'a piece held on an occupied square').placement,
         bit(4, 4)), "moves off an occupied square");
-    want(equal(place_nearest(new_game(), PIECES[0], -0.8, 0, 1.5)
-        .placement, bit(0, 0)), "pulls back onto the board");
+    want(equal(must(place_nearest(new_game(), PIECES[0], -0.8, 0, 1.5),
+        'a piece held off the top edge').placement, bit(0, 0)),
+        "pulls back onto the board");
     want(place_nearest(new_game(), PIECES[0], 4, 12, 1.5) === null,
         "gives up when held too far away");
     want(place_nearest(new_game(), getEmpty(), 4, 4, 1.5) === null,

@@ -13,12 +13,13 @@
 // globals, and the tests and tools by tsconfig.node.json against Node's;
 // `npm run typecheck` runs all three.
 //
-// `strict` is deliberately off. The engine and the app were written without
-// types and pass as they are, which is what makes checking them free to adopt;
-// what turning it on reports is almost all unannotated parameters rather than
-// anything wrong. The value here is in the shapes that cross a boundary -- the
-// engine's public surface, and the game state the worker is handed -- and those
-// are annotated explicitly in engine/js/blokie.js.
+// `strict` is on. It was off while the app was being brought under the checker,
+// on the grounds that the engine and the page were written without types and
+// passed as they were -- but what it was suppressing was mostly two things:
+// parameters nothing had ever named a type for, and DOM lookups used without
+// asking whether they found anything. Both are worth having. getElementById
+// returning null is now handled in one place rather than assumed at nineteen
+// call sites, and every function that crosses a boundary says what it takes.
 {
   "compilerOptions": {
     // What the browsers this targets already have. No downlevelling
@@ -39,7 +40,7 @@
     "types": [],
 
     "skipLibCheck": true,
-    "strict": false
+    "strict": true
   },
   // Named one by one rather than globbed, because what belongs here is
   // exactly what the page loads. The Node-side tooling (test/, engine/tools/,

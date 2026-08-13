@@ -22,16 +22,7 @@
     // tsconfig.json, where it is checked against the page's globals and
     // nothing else.
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "types": ["node"],
-
-    // On here and nowhere else. This code was annotated as it was brought under
-    // the checker rather than years after, so it starts clean -- and leaving
-    // this off would mean the next test written could quietly go back to
-    // untyped parameters with nothing to say so. The page and the worker do not
-    // have it: the app was written without types and adopting it there is its
-    // own piece of work, which is the same reason `strict` is off in
-    // tsconfig.json.
-    "noImplicitAny": true
+    "types": ["node"]
   },
   "include": [
     "test/**/*.js",
