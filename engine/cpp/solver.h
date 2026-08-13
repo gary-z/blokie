@@ -145,6 +145,10 @@ public:
 	static constexpr EvalWeights getDefault();
 };
 
+// Played out by makeMoveSimpleDefault, these weights last a measured
+// 46,962 sets of three pieces per game, 95% CI 46,148 to 47,805. From 3,520
+// complete games, 162.7M moves, no cutoff. Change a weight below and the
+// number no longer describes anything.
 constexpr EvalWeights EvalWeights::getDefault() {
 	EvalWeights result;
 	result.weights[0] = 1358;  // occupied side cube
