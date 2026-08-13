@@ -4,6 +4,24 @@
 #include <cstdint>
 #include <string>
 
+// Whether to generate candidate placements a batch at a time. The batch is
+// written in GNU vector extensions, so it needs a compiler that has them and a
+// target with a vector unit worth using: every native GCC and Clang target
+// qualifies, and a WASM build only does when simd128 is on. Where it is off,
+// the search walks placements one at a time exactly as it always has -- this
+// header and solver.cpp then compile to what they did before the batch existed,
+// which is what keeps the shipped WASM binary unchanged.
+//
+// Definable from the command line to compare the two paths on one machine.
+#ifndef BLOKIE_VECTOR_GENERATION
+#  if (defined(__GNUC__) || defined(__clang__)) && \
+      (!defined(__EMSCRIPTEN__) || defined(__wasm_simd128__))
+#    define BLOKIE_VECTOR_GENERATION 1
+#  else
+#    define BLOKIE_VECTOR_GENERATION 0
+#  endif
+#endif
+
 class GameState;
 class NextGameStateIterator;
 class ClearsFirstGameStates;
@@ -178,6 +196,12 @@ public:
 	explicit GameState(BitBoard bb);
 	BitBoard getBitBoard() const;
 	NextGameStateIteratorGenerator nextStates(Piece piece) const;
+#if BLOKIE_VECTOR_GENERATION
+	// The squares this piece's top left corner can be shifted to. Exposed so a
+	// caller can walk the placements in batches instead of one at a time; the
+	// iterator above computes exactly this for itself.
+	BitBoard placementAnchors(Piece piece) const;
+#endif
 	ClearsFirstGameStates nextStatesClearsFirst(Piece piece) const;
 	uint64_t simpleEval(EvalWeights weights, uint64_t max = UINT64_MAX) const;
 	// Gives the native optimizer the built-in weights as scalar constants. The

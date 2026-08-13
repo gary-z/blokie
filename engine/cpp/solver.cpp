@@ -79,6 +79,121 @@ namespace {
 		return (completed & cube_starts) * TOP_LEFT_CUBE;
 	}
 
+	// ---- Generating placements several at a time -------------------------
+	//
+	// Turning an anchor into a candidate board is shifts and masks from end to
+	// end: translate the piece to the anchor, or it into the board, and work
+	// out which lines that completed. There is no popcount anywhere in it,
+	// which is what makes it the half of the search worth widening. The
+	// evaluation is mostly popcount and stays scalar, so it keeps the early
+	// exit that lets it abandon most candidates part way through -- and that
+	// cutoff is worth more than width would be.
+	//
+	// Written with GNU vector extensions rather than intrinsics. Both compilers
+	// this builds with support them, the same source compiles to whatever width
+	// the target actually has, and there is no second copy of anything to keep
+	// in sync.
+#if BLOKIE_VECTOR_GENERATION
+
+	// Four 64-bit lanes is one 256-bit register on x86-64 with AVX2, and splits
+	// cleanly into narrower ones on targets without it.
+	constexpr unsigned GEN_LANES = 4;
+	typedef uint64_t GenWord __attribute__((vector_size(GEN_LANES * 8)));
+
+	GenWord splat(uint64_t value) {
+		return GenWord{} + value;
+	}
+
+	// The scalar clear detection smears a marker bit across a row, a column or
+	// a cube with a multiply. Every one of those is by a constant that is a sum
+	// of powers of two, so each becomes shifts and adds -- which matters
+	// because a 64-bit vector multiply is not something every target has, and
+	// on the ones that lack it the compiler falls back to scalarizing the lane.
+
+	// * ROW_0, which is 2^9 - 1.
+	GenWord smearRow(GenWord x) {
+		return (x << 9) - x;
+	}
+
+	// * TOP_LEFT_CUBE, which is 7 * (1 + 2^9 + 2^18).
+	GenWord smearCube(GenWord x) {
+		const GenWord row_of_three = (x << 3) - x;
+		return row_of_three + (row_of_three << 9) + (row_of_three << 18);
+	}
+
+	// * LEFT_MOST_COLUMN_B, which is 1 + 2^9 + 2^18.
+	GenWord smearColumnB(GenWord x) {
+		return x + (x << 9) + (x << 18);
+	}
+
+	// * LEFT_MOST_COLUMN_A, which is that band again times 1 + 2^27.
+	GenWord smearColumnA(GenWord x) {
+		const GenWord band = smearColumnB(x);
+		return band + (band << 27);
+	}
+
+	GenWord completedRowsX(GenWord bits, uint64_t row_starts) {
+		GenWord runs = bits & (bits >> 1);
+		runs &= runs >> 2;
+		runs &= runs >> 4;
+		runs &= bits >> 8;
+		return smearRow(runs & splat(row_starts));
+	}
+
+	GenWord completedCubesX(GenWord bits, uint64_t cube_starts) {
+		const GenWord horizontal = bits & (bits >> 1) & (bits >> 2);
+		const GenWord completed =
+			horizontal & (horizontal >> 9) & (horizontal >> 18);
+		return smearCube(completed & splat(cube_starts));
+	}
+
+	struct GeneratedBatch {
+		GenWord a, b;
+		// All ones in the lanes whose placement completed something.
+		GenWord cleared;
+	};
+
+	// Place the piece at GEN_LANES anchors at once, and clear what that
+	// completes. Lanes past the end of the anchor list are handed anchor 0;
+	// their results are computed and ignored, which beats branching for them.
+	GeneratedBatch generateBatch(uint64_t board_a, uint64_t board_b,
+		uint64_t piece, GenWord offset) {
+		// translatePiece, with its branch on the 54/27 split turned into a
+		// blend. Both arms of the blend keep every shift count under 64: a
+		// shift that wide is undefined in C++ even where the hardware defines
+		// it, and the lane being discarded afterwards does not make it defined.
+		const GenWord in_a = (GenWord)(offset < splat(54));
+		const GenWord shift_a = offset & in_a;
+		const GenWord shift_b = (in_a & (splat(54) - offset)) |
+			(~in_a & (offset - splat(54)));
+		const GenWord piece_bits = splat(piece);
+		const GenWord placed_a =
+			(piece_bits << shift_a) & splat(ALL_ALLOWED_BITS_IN_A) & in_a;
+		const GenWord placed_b = (in_a & (piece_bits >> shift_b)) |
+			(~in_a & (piece_bits << shift_b));
+
+		const GenWord after_a = splat(board_a) | placed_a;
+		const GenWord after_b = splat(board_b) | placed_b;
+
+		const GenWord top_columns =
+			after_a & (after_a >> 9) & (after_a >> 18);
+		const GenWord completed_columns = top_columns & (top_columns >> 27) &
+			after_b & (after_b >> 9) & (after_b >> 18) & splat(ROW_0);
+		const GenWord clear_a = completedRowsX(after_a, LEFT_MOST_COLUMN_A) |
+			smearColumnA(completed_columns) |
+			completedCubesX(after_a, CUBE_STARTS_A);
+		const GenWord clear_b = completedRowsX(after_b, LEFT_MOST_COLUMN_B) |
+			smearColumnB(completed_columns) |
+			completedCubesX(after_b, CUBE_STARTS_B);
+
+		GeneratedBatch batch;
+		batch.a = after_a & ~clear_a;
+		batch.b = after_b & ~clear_b;
+		batch.cleared = (GenWord)((clear_a | clear_b) != splat(0));
+		return batch;
+	}
+#endif
+
 	// Shift the conceptual 81-bit value right across BitBoard's 54/27 split.
 	// A piece cell at offset N can use every anchor whose bit N places it on an
 	// open square, so this translates open squares back into anchor squares.
@@ -755,6 +870,20 @@ uint64_t GameState::simpleEvalDefault(uint64_t max) const {
 }
 
 
+#if BLOKIE_VECTOR_GENERATION
+BitBoard GameState::placementAnchors(Piece piece) const {
+	if (piece.bits == 0 ||
+		piece.placement_data_index == Piece::NUM_PIECES + 1) {
+		return BitBoard::empty();
+	}
+	if (piece.placement_data_index < Piece::NUM_PIECES) {
+		return validPlacementAnchors(bb,
+			PIECE_PLACEMENT_DATA[piece.placement_data_index]);
+	}
+	return validPlacementAnchors(bb, BitBoard(piece.bits, 0));
+}
+#endif
+
 NextGameStateIterator::NextGameStateIterator(GameState state, Piece piece_arg) :
 	original(state), next(piece_arg.getBitBoard()), anchors(BitBoard::empty()),
 	piece(piece_arg.bits),
@@ -1033,6 +1162,77 @@ MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
 					!p0_cleared && !p1_cleared) {
 					continue;
 				}
+#if BLOKIE_VECTOR_GENERATION
+				// Nothing cleared at any point means all three placements are
+				// disjoint and this board is their union however they were
+				// ordered. The pieces start sorted, so the first ordering
+				// reaches every one of those boards with nothing skipped.
+				const bool skip_uncleared = !is_first_permutation &&
+					!p0_cleared && !p1_cleared;
+				// Placements are generated a batch at a time; scoring stays one
+				// board at a time, so the evaluation keeps its own cutoff.
+				const uint64_t p2_bits = p2.getBitBoard().getA();
+				if (p2_bits == 0) {
+					// A blank slot is placed by doing nothing. The board is
+					// unchanged, so nothing can have cleared.
+					if (!skip_uncleared) {
+						const auto score = evaluate(after_p1, best.evaluation);
+						if (score < best.evaluation) {
+							best.evaluation = score;
+							best.state = after_p1;
+							best.placements[0] = it_0.getPlacement();
+							best.placements[1] = it_1.getPlacement();
+							best.placements[2] = BitBoard::empty();
+						}
+					}
+				} else {
+					const auto anchor_bits = after_p1.placementAnchors(p2);
+					uint64_t anchors_a = anchor_bits.getA();
+					uint64_t anchors_b = anchor_bits.getB();
+					const uint64_t board_a = after_p1.getBitBoard().getA();
+					const uint64_t board_b = after_p1.getBitBoard().getB();
+					while (anchors_a != 0 || anchors_b != 0) {
+						// Anchors are taken lowest first out of a and then b,
+						// which is the order the iterator walks them in. Ties
+						// are settled by the first board that beats the best,
+						// so the order has to be the one it had.
+						GenWord offsets = splat(0);
+						unsigned lanes = 0;
+						while (lanes < GEN_LANES) {
+							if (anchors_a != 0) {
+								offsets[lanes++] =
+									(uint64_t)std::countr_zero(anchors_a);
+								anchors_a &= anchors_a - 1;
+							} else if (anchors_b != 0) {
+								offsets[lanes++] =
+									54 + (uint64_t)std::countr_zero(anchors_b);
+								anchors_b &= anchors_b - 1;
+							} else {
+								break;
+							}
+						}
+						const auto batch = generateBatch(board_a, board_b,
+							p2_bits, offsets);
+						for (unsigned lane = 0; lane < lanes; ++lane) {
+							if (skip_uncleared && batch.cleared[lane] == 0) {
+								continue;
+							}
+							const GameState after_p2(
+								BitBoard(batch.a[lane], batch.b[lane]));
+							const auto score =
+								evaluate(after_p2, best.evaluation);
+							if (score < best.evaluation) {
+								best.evaluation = score;
+								best.state = after_p2;
+								best.placements[0] = it_0.getPlacement();
+								best.placements[1] = it_1.getPlacement();
+								best.placements[2] = translatePiece(p2_bits,
+									(unsigned)offsets[lane]);
+							}
+						}
+					}
+				}
+#else
 				const auto states_2 = after_p1.nextStates(p2);
 				const auto last_2 = states_2.end();
 				for (auto it_2 = states_2.begin(); it_2 != last_2; ++it_2) {
@@ -1054,6 +1254,7 @@ MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
 						best.placements[2] = it_2.getPlacement();
 					}
 				}
+#endif
 			}
 		}
 		is_first_permutation = false;
