@@ -302,6 +302,11 @@ public:
 	// use immediate weights instead of loading an EvalWeights object.
 	static MoveResult makeMoveSimpleDefault(GameState state, PieceSet piece_set);
 
+	// Whether all three pieces can be placed in some order. Unlike the move
+	// search, this stops at the first legal line of play and does no evaluation.
+	// It is useful for sampling the probability that a dealt set ends a game.
+	static bool tripleFits(GameState state, PieceSet piece_set);
+
 	// Similar to makeMoveSimple, but considers possible placements of the 4th piece.
 	static GameState makeMoveLookahead(EvalWeights weights, GameState state, PieceSet piece_set);
 

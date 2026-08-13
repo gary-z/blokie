@@ -15,6 +15,10 @@ cmake_minimum_required (VERSION 3.20)
 # with the recorded ones, and anything older becomes an error instead.
 option(BLOKIE_REQUIRE_GCC16
 	"Fail configuration unless the native build uses GCC 16 or newer" OFF)
+set(BLOKIE_PROBE_TEST_PAIRS 10000 CACHE STRING
+	"Board/triple pairs checked by the routine probe-equivalence ctest")
+option(BLOKIE_ENABLE_LONG_TESTS
+	"Add long-running statistical and exhaustive validation tests" OFF)
 
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE AND
 	NOT DEFINED CMAKE_CXX_COMPILER AND
@@ -190,6 +194,19 @@ else()
 		add_executable(search-test search-test.cpp)
 		target_link_libraries(search-test PRIVATE solver)
 		add_test(NAME search COMMAND search-test)
+
+		add_executable(probe-test probe-test.cpp)
+		target_link_libraries(probe-test PRIVATE solver Threads::Threads)
+		add_test(NAME probe-equivalence COMMAND probe-test
+			${BLOKIE_PROBE_TEST_PAIRS})
+		if(BLOKIE_ENABLE_LONG_TESTS)
+			add_test(NAME probe-equivalence-10m COMMAND probe-test 10000000)
+			set_tests_properties(probe-equivalence-10m PROPERTIES LABELS long)
+		endif()
+
+		add_test(NAME fitness-probe-rng COMMAND ${CMAKE_COMMAND}
+			-DFITNESS=$<TARGET_FILE:fitness>
+			-P ${CMAKE_CURRENT_SOURCE_DIR}/fitness-probe-test.cmake)
 	endif()
 
 	# Release builds are -flto, so codegen happens at link and every target
@@ -202,5 +219,6 @@ else()
 	if(BUILD_TESTING)
 		target_enable_native_isa(eval-test)
 		target_enable_native_isa(search-test)
+		target_enable_native_isa(probe-test)
 	endif()
 endif()
