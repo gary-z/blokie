@@ -184,9 +184,11 @@ individual placement. It fired on only 0.0219% of boards.
 | uniform 30 | 30.000 | 2.44 |
 
 On the independent bank, uniform 20, adaptive 20/1000, and uniform 30 measured
-2.99×, 2.96×, and 2.97×. Adaptive sampling did not beat the simpler uniform
-policy. `--probe-adaptive` remains available for reproduction, but this trigger
-is not recommended.
+2.99×, 2.96×, and 2.97×. Allocating on this trigger did not beat the simpler
+uniform policy, so the flag that selected it was removed rather than shipped as
+an option nobody should choose. The result is recorded here so the idea is not
+retried blindly: the trigger is too rare to move the average, and it is the
+occupancy signal below that pays.
 
 Occupancy is a much better allocation signal. The 25.6-million-board
 `202608250000` run recorded risk and probe cost at every occupied-square count.

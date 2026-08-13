@@ -68,14 +68,6 @@ Piece randomPiece(std::mt19937_64& rng,
     return Piece::byIndex(piece_dist(rng));
 }
 
-bool hasIndividuallyUnplaceablePiece(GameState game) {
-    for (const Piece piece : Piece::getAll()) {
-        const auto states = game.nextStates(piece);
-        if (!(states.begin() != states.end())) return true;
-    }
-    return false;
-}
-
 // Deaths and exposure split by how far into a game they happened. The point of
 // a cutoff is that the chance of dying settles to a constant once the board has
 // forgotten it started empty, and a game stopped early still tells you it
@@ -153,31 +145,25 @@ GameResult playOneGame(uint64_t seed, const Options& opt) {
 
         const bool measured = depth >= opt.burn_in;
         if ((opt.probes != 0 || opt.adaptive_low != 0) && measured) {
-            const bool needs_occupancy = opt.probe_occupancy_table ||
-                (opt.adaptive_low != 0 && opt.adaptive_occupancy >= 0);
+            const bool needs_occupancy =
+                opt.probe_occupancy_table || opt.adaptive_low != 0;
             const int occupied = needs_occupancy
                 ? game.getBitBoard().count() : 0;
             const auto probe_start = std::chrono::steady_clock::now();
             uint64_t probes = opt.probes;
             if (opt.adaptive_low != 0) {
-                bool high = false;
                 bool middle = false;
-                if (opt.adaptive_occupancy >= 0) {
-                    high = occupied >= (opt.adaptive_occupancy_high >= 0
-                        ? opt.adaptive_occupancy_high
-                        : opt.adaptive_occupancy);
-                    if (high) {
-                        probes = opt.adaptive_high;
-                    } else if (opt.adaptive_occupancy_high >= 0 &&
-                               occupied >= opt.adaptive_occupancy) {
-                        probes = opt.adaptive_middle;
-                        middle = true;
-                    } else {
-                        probes = opt.adaptive_low;
-                    }
+                const bool high = occupied >= (opt.adaptive_occupancy_high >= 0
+                    ? opt.adaptive_occupancy_high
+                    : opt.adaptive_occupancy);
+                if (high) {
+                    probes = opt.adaptive_high;
+                } else if (opt.adaptive_occupancy_high >= 0 &&
+                           occupied >= opt.adaptive_occupancy) {
+                    probes = opt.adaptive_middle;
+                    middle = true;
                 } else {
-                    high = hasIndividuallyUnplaceablePiece(game);
-                    probes = high ? opt.adaptive_high : opt.adaptive_low;
+                    probes = opt.adaptive_low;
                 }
                 if (high) ++result.adaptive_high_boards;
                 else if (middle) ++result.adaptive_middle_boards;
@@ -267,9 +253,6 @@ void usage(const char* argv0) {
         "                    which is what says whether the hazard is flat\n"
         "  --probe M         sample M independent triples at every measured\n"
         "                    board, using a separate reproducible RNG stream\n"
-        "  --probe-adaptive LOW HIGH\n"
-        "                    use HIGH probes when any standard piece cannot fit\n"
-        "                    alone, and LOW otherwise; both must be positive\n"
         "  --probe-occupancy LOW HIGH SQUARES\n"
         "                    use HIGH probes at SQUARES or more occupied cells,\n"
         "                    and LOW otherwise; allocation uses only the board\n"
@@ -321,20 +304,6 @@ int main(int argc, char** argv) {
             opt.probes = std::strtoull(argv[++i], nullptr, 10);
             if (opt.probes == 0) {
                 std::fprintf(stderr, "--probe must be positive\n");
-                return 1;
-            }
-        } else if (std::strcmp(argv[i], "--probe-adaptive") == 0 &&
-                   i + 2 < argc) {
-            if (probe_policy_seen) {
-                std::fprintf(stderr, "probe policies are mutually exclusive\n");
-                return 1;
-            }
-            probe_policy_seen = true;
-            opt.adaptive_low = std::strtoull(argv[++i], nullptr, 10);
-            opt.adaptive_high = std::strtoull(argv[++i], nullptr, 10);
-            if (opt.adaptive_low == 0 || opt.adaptive_high == 0) {
-                std::fprintf(stderr,
-                    "--probe-adaptive counts must both be positive\n");
                 return 1;
             }
         } else if (std::strcmp(argv[i], "--probe-occupancy") == 0 &&
@@ -416,11 +385,6 @@ int main(int argc, char** argv) {
                      "--max-moves and --chain-moves are mutually exclusive\n");
         return 1;
     }
-    if (opt.probes != 0 && opt.adaptive_low != 0) {
-        std::fprintf(stderr,
-                     "--probe and --probe-adaptive are mutually exclusive\n");
-        return 1;
-    }
     if (opt.probe_occupancy_table && opt.probes == 0 &&
         opt.adaptive_low == 0) {
         std::fprintf(stderr,
@@ -481,10 +445,9 @@ int main(int argc, char** argv) {
                 (unsigned long long)opt.adaptive_middle,
                 (unsigned long long)opt.adaptive_high);
         } else {
-            std::fprintf(stderr, ", adaptive probes %llu/%llu%s",
+            std::fprintf(stderr, ", adaptive probes %llu/%llu by occupancy",
                 (unsigned long long)opt.adaptive_low,
-                (unsigned long long)opt.adaptive_high,
-                opt.adaptive_occupancy >= 0 ? " by occupancy" : "");
+                (unsigned long long)opt.adaptive_high);
         }
     }
     if (opt.custom_weights) {
@@ -791,10 +754,10 @@ int main(int argc, char** argv) {
 
             if (opt.adaptive_low != 0) {
                 std::fprintf(stderr,
-                    "  adaptive high-probe boards=%llu (%.4Lf%%)%s\n",
+                    "  adaptive high-probe boards=%llu (%.4Lf%%) "
+                    "by occupancy\n",
                     (unsigned long long)adaptive_high_boards,
-                    100.0L * adaptive_high_boards / probe_boards,
-                    opt.adaptive_occupancy >= 0 ? " by occupancy" : "");
+                    100.0L * adaptive_high_boards / probe_boards);
                 if (opt.adaptive_middle != 0) {
                     std::fprintf(stderr,
                         "  adaptive middle-probe boards=%llu (%.4Lf%%) "
