@@ -7,7 +7,12 @@
 import { blokie, bits } from '../../engine/js/blokie.js';
 import { encodeGameState, decodeGameState } from '../../web/storage.js';
 
+/** @typedef {import('../../engine/js/blokie.js').Deck} Deck */
+/** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
+/** @typedef {import('../../web/storage.js').GameState} GameState */
+
 let failures = 0;
+/** @type {(condition: boolean, description: string) => void} */
 function check(condition, description) {
     if (!condition) {
         failures++;
@@ -17,10 +22,29 @@ function check(condition, description) {
     console.log("ok - %s", description);
 }
 
+/**
+ * A value the check below it is built on, which has to be there for that check
+ * to mean anything. Throws rather than handing back null, so a fixture that
+ * stopped working says so here instead of failing further down as a null
+ * dereference.
+ * @template T
+ * @param {T | null} value
+ * @param {string} what
+ * @returns {T}
+ */
+function must(value, what) {
+    if (value === null) {
+        throw new Error(`${what} should not have been null`);
+    }
+    return value;
+}
+
+/** @type {(a: BitBoard, b: BitBoard) => boolean} */
 function sameBitboard(a, b) {
     return a.a === b.a && a.b === b.b && a.c === b.c;
 }
 
+/** @type {() => GameState} */
 function newGameState() {
     return {
         game: blokie.newGame(),
@@ -32,6 +56,7 @@ function newGameState() {
 
 // Plays the deck onto the board wherever each piece first fits, so the saved
 // state under test has a real board, score, and part-emptied deck.
+/** @type {(game_state: GameState) => GameState} */
 function playSomePieces(game_state) {
     for (let i = 0; i < game_state.piece_set.length; ++i) {
         const piece = game_state.piece_set[i];
@@ -94,21 +119,29 @@ check(fresh !== null && bits.isEmpty(fresh.game.board) && fresh.game.score === 0
 // The deck is searched by object identity, so slots holding the same shape
 // still have to be separate objects after a restore.
 const twins = newGameState();
-twins.piece_set = [twins.piece_set[0], twins.piece_set[0], twins.piece_set[0]];
-const restored_twins = decodeGameState(encodeGameState(twins));
+// Spelled out because a `Deck` is three slots exactly, and in a .js file an
+// array literal stays an array however many entries it has -- TypeScript only
+// reads one as a tuple from its context in .ts. Every deck built by hand in the
+// repository needs this, which is why web/storage.js carries one too.
+twins.piece_set = /** @type {Deck} */ (
+    [twins.piece_set[0], twins.piece_set[0], twins.piece_set[0]]);
+const restored_twins = must(decodeGameState(encodeGameState(twins)),
+    'the twin-slot save');
 check(restored_twins.piece_set[0] !== restored_twins.piece_set[1]
     && restored_twins.piece_set[1] !== restored_twins.piece_set[2],
     "identical deck slots restore as separate objects");
 
 const big = newGameState();
 big.game = { ...big.game, score: 1500000 };
-check(decodeGameState(encodeGameState(big)).game.score === 1500000,
+check(must(decodeGameState(encodeGameState(big)),
+    'the million-point save').game.score === 1500000,
     "a million-point score round trips");
 
 const streak = newGameState();
 streak.game = { ...streak.game, previous_move_was_clear: true };
 streak.clear_streak = 7;
-const restored_streak = decodeGameState(encodeGameState(streak));
+const restored_streak = must(decodeGameState(encodeGameState(streak)),
+    'the clear-streak save');
 check(restored_streak.clear_streak === 7
     && restored_streak.game.previous_move_was_clear === true,
     "a run of clears round trips as a length, not just a flag");
@@ -150,7 +183,11 @@ const longest = encodeGameState({
         score: Number.MAX_SAFE_INTEGER,
         previous_move_was_clear: true,
     },
-    piece_set: [0, 1, 2].map(() => ({ a: 0x7FFFFFF, b: 0x7FFFFFF, c: 0x7FFFFFF })),
+    piece_set: /** @type {Deck} */ (
+        [0, 1, 2].map(() => ({ a: 0x7FFFFFF, b: 0x7FFFFFF, c: 0x7FFFFFF }))),
+    // Not encoded -- a restore recomputes it -- but a GameState carries it, and
+    // the point here is to hand encodeGameState a real one.
+    game_over: false,
     clear_streak: Number.MAX_SAFE_INTEGER,
 });
 check(longest.length < 200, `the largest possible save is small (${longest.length} bytes)`);

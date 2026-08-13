@@ -7,9 +7,14 @@
 
 import { blokie, bits, init } from '../../engine/js/blokie.js';
 
+/** @typedef {import('../../engine/js/blokie.js').Deck} Deck */
+/** @typedef {import('../../engine/js/blokie.js').Game} Game */
+/** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
+
 await init();
 
 let failures = 0;
+/** @type {(condition: boolean, description: string) => void} */
 function check(condition, description) {
     if (!condition) {
         failures++;
@@ -19,6 +24,7 @@ function check(condition, description) {
     console.log("ok - %s", description);
 }
 
+/** @type {(board: BitBoard, score?: number) => Game} */
 function gameWithBoard(board, score = 0) {
     return {
         board: board,
@@ -34,6 +40,7 @@ function gameWithBoard(board, score = 0) {
 // .........  ..#######  ###.#####  .######.#  ..#.##...
 // ###.#.#..  .##.#####  ....#.###  ....#....
 const STUCK_BOARD = { a: 132118528, b: 22833534, c: 4432374 };
+/** @type {Deck} */
 const STUCK_DECK = [
     { a: 1054720, b: 12, c: 0 },
     { a: 0, b: 0, c: 0 },
@@ -75,7 +82,9 @@ check(new Set(open_plan.map(m => m.piece_index)).size === open_plan.length,
 // deck fits, rather than stalling on the first deck it cannot fully place. The
 // deck is never refilled here, so this is a handful of moves either way.
 let game = stuck_game;
-let deck = STUCK_DECK.map(p => ({ ...p }));
+// Copied rather than shared, since the loop below plays slots out of it. `map`
+// gives an array back and a deck is three slots exactly, so it is spelled here.
+let deck = /** @type {Deck} */ (STUCK_DECK.map(p => ({ ...p })));
 let moves = 0;
 let every_placement_legal = true;
 for (;;) {

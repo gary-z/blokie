@@ -13,9 +13,29 @@
 
 import { blokie, bits, init } from '../../engine/js/blokie.js';
 
+/** @typedef {import('../../engine/js/blokie.js').Deck} Deck */
+/** @typedef {import('../../engine/js/blokie.js').Game} Game */
+/** @typedef {import('../../engine/js/blokie.js').Move} Move */
+/** @typedef {import('../../engine/js/blokie.js').Piece} Piece */
+/** @typedef {import('../../engine/js/blokie.js').AIMove} AIMove */
+/** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
+
+/**
+ * A board the brute force reached, and the best score it was reached with.
+ * @typedef {{board: BitBoard, score: number}} ReachedBoard
+ */
+
+/**
+ * What replaying the solver's answer produced, or null if replaying it was not
+ * possible -- an illegal placement, a slot named twice, or a board that did not
+ * match what the solver reported.
+ * @typedef {{board: BitBoard, score: number, pieces_played: number} | null} Replayed
+ */
+
 await init();
 
 let failures = 0;
+/** @type {(condition: boolean, description: string) => boolean} */
 function check(condition, description) {
     if (!condition) {
         failures++;
@@ -28,6 +48,7 @@ function check(condition, description) {
 
 const EMPTY = bits.empty();
 
+/** @type {(board: BitBoard, previous_move_was_clear?: boolean) => Game} */
 function gameWithBoard(board, previous_move_was_clear = false) {
     return {
         board: board,
@@ -36,14 +57,17 @@ function gameWithBoard(board, previous_move_was_clear = false) {
     };
 }
 
+/** @type {(bb: BitBoard) => string} */
 const key = (bb) => `${bb.a},${bb.b},${bb.c}`;
 
 // The solver's board evaluation.
+/** @type {(board: BitBoard) => number} */
 function evaluate(board) {
     return blokie.evaluate(board);
 }
 
 // Every legal placement of one piece, as the move it would produce.
+/** @type {(game: Game, piece: Piece) => Move[]} */
 function placementsOf(game, piece) {
     if (bits.isEmpty(piece)) {
         return [];
@@ -64,8 +88,11 @@ function placementsOf(game, piece) {
 // Every board reachable by playing the whole deck, in any order, and the best
 // score each of them can be reached with. Blank slots are not moves, so they
 // are simply left out.
+/** @type {(game: Game, deck: Deck) => Map<string, ReachedBoard>} */
 function reachableBoards(game, deck) {
+    /** @type {Map<string, ReachedBoard>} */
     const best = new Map();
+    /** @type {(state: Game, remaining: number[]) => void} */
     const walk = (state, remaining) => {
         if (remaining.length === 0) {
             const k = key(state.board);
@@ -89,7 +116,9 @@ function reachableBoards(game, deck) {
 // Replays what the solver came back with, as the app would: every placement has
 // to be legal, every slot it names has to hold the piece it placed, and the
 // boards it reports have to be the ones that come out.
+/** @type {(game: Game, deck: Deck, result: AIMove) => Replayed} */
 function replay(game, deck, result) {
+    /** @type {Set<number>} */
     const used = new Set();
     let state = game;
     for (const planned of result.moves) {
@@ -123,6 +152,10 @@ function replay(game, deck, result) {
 }
 
 // One position, checked to the hilt.
+/**
+ * @type {(name: string, board: BitBoard, deck: Deck,
+ *         previous_move_was_clear?: boolean) => void}
+ */
 function checkPosition(name, board, deck, previous_move_was_clear = false) {
     const game = gameWithBoard(board, previous_move_was_clear);
     const reachable = reachableBoards(game, deck);
@@ -138,8 +171,12 @@ function checkPosition(name, board, deck, previous_move_was_clear = false) {
         return;
     }
 
-    if (!check(played !== null && played.pieces_played === held,
-        `${name}: the move it returns is a legal play of the whole deck`)) {
+    const legal = `${name}: the move it returns is a legal play of the whole deck`;
+    if (played === null) {
+        check(false, legal);
+        return;
+    }
+    if (!check(played.pieces_played === held, legal)) {
         return;
     }
 
@@ -236,6 +273,7 @@ checkPosition("the first ordering is the flexible one, not the sorted one",
 
 // The 47 pieces, recovered through the public API and put in a fixed order so
 // the sweep below deals the same decks every run.
+/** @type {Piece[]} */
 const PIECES = [];
 {
     const seen = new Set();
@@ -252,6 +290,7 @@ const PIECES = [];
 }
 check(PIECES.length === 47, "the deck deals all 47 pieces");
 
+/** @type {(seed: number) => () => number} */
 function mulberry32(seed) {
     return function () {
         seed = (seed + 0x6D2B79F5) | 0;
@@ -264,7 +303,9 @@ function mulberry32(seed) {
 // The rows, columns and boxes that are completely filled. A board in play never
 // has one -- it is cleared the moment it is made -- and the engine counts on
 // that, so a board dealt here must not have one either.
+/** @type {(board: BitBoard) => number[][][]} */
 function completedLines(board) {
+    /** @type {number[][][]} */
     const lines = [];
     for (let i = 0; i < 9; ++i) {
         const row = [], column = [], box = [];
@@ -285,6 +326,7 @@ function completedLines(board) {
 // Busy boards, so the brute force stays cheap and clears stay likely -- an
 // empty board has thousands of placements and nothing to clear, which is the
 // case the search has the least to think about.
+/** @type {(random: () => number, fullness: number) => BitBoard} */
 function randomBoard(random, fullness) {
     let board = blokie.newGame().board;
     for (let r = 0; r < 9; ++r) {
@@ -323,7 +365,8 @@ let with_a_move = 0;
 const before_sweep = failures;
 for (let trial = 0; trial < 1500; ++trial) {
     const board = randomBoard(random, 0.4 + 0.3 * random());
-    const deck = [0, 1, 2].map(() => PIECES[Math.floor(random() * PIECES.length)]);
+    const deck = /** @type {Deck} */ (
+        [0, 1, 2].map(() => PIECES[Math.floor(random() * PIECES.length)]));
     // Decks that repeat a shape, and decks with slots already played out of,
     // both take different routes through the search.
     if (trial % 4 === 0) {
@@ -384,6 +427,7 @@ check(failures === before_sweep,
 // positions the search above was checked on.
 {
     const board = { a: 6815804, b: 161655, c: 99374901 };
+    /** @type {Deck} */
     const deck = [
         { a: 787459, b: 0, c: 0 },
         { a: 525319, b: 0, c: 0 },

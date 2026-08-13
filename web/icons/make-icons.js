@@ -20,6 +20,13 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 
+/**
+ * An RGB triple, 0-255 a channel. Spelled as an array rather than a
+ * three-element tuple because in a .js file an array literal stays an array
+ * whatever it is annotated with, and every colour here is written as one.
+ * @typedef {number[]} Colour
+ */
+
 // The game's own blue, the pink the mark answers it with, and the board's
 // white behind both.
 const BLUE = [54, 112, 232];
@@ -62,11 +69,16 @@ const ICONS = [
 // rectangle is how much of that pixel the rectangle paints. Sizes below are
 // picked so the edges land on whole pixels and this only ever returns 0 or 1,
 // but it keeps the drawing honest at a size that doesn't divide as neatly.
+/** @type {(a0: number, a1: number, b0: number, b1: number) => number} */
 function overlap(a0, a1, b0, b1) {
     return Math.max(0, Math.min(a1, b1) - Math.max(a0, b0));
 }
 
 // One flat rectangle, blended over whatever is under it.
+/**
+ * @type {(pixels: Buffer, size: number, x0: number, y0: number,
+ *         x1: number, y1: number, colour: Colour) => void}
+ */
 function fillRect(pixels, size, x0, y0, x1, y1, colour) {
     for (let y = Math.max(0, Math.floor(y0)); y < Math.min(size, Math.ceil(y1)); ++y) {
         const rows = overlap(y, y + 1, y0, y1);
@@ -85,6 +97,7 @@ function fillRect(pixels, size, x0, y0, x1, y1, colour) {
 // colour on a black rectangle a stroke larger all round, so the outline falls
 // out of the cells that are there rather than being drawn as its own shape --
 // which is what leaves the notch in the top right corner clean.
+/** @type {(size: number, fraction: number) => Buffer} */
 function drawIcon(size, fraction) {
     const unit = Math.max(1, Math.round(size * fraction / SPAN));
     const origin = Math.round((size - unit * SPAN) / 2);
@@ -116,6 +129,7 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
     return c >>> 0;
 });
 
+/** @type {(buffer: Buffer) => number} */
 function crc32(buffer) {
     let c = 0xFFFFFFFF;
     for (const byte of buffer) {
@@ -124,6 +138,7 @@ function crc32(buffer) {
     return (c ^ 0xFFFFFFFF) >>> 0;
 }
 
+/** @type {(type: string, data: Buffer) => Buffer} */
 function chunk(type, data) {
     const length = Buffer.alloc(4);
     length.writeUInt32BE(data.length);
@@ -136,6 +151,7 @@ function chunk(type, data) {
 // A PNG of flat colour, with every scanline left unfiltered: deflate has an
 // easy enough time of the runs that picking a filter per row would save bytes
 // that aren't there.
+/** @type {(pixels: Buffer, size: number) => Buffer} */
 function encodePng(pixels, size) {
     const stride = size * 3;
     const raw = Buffer.alloc(size * (1 + stride));

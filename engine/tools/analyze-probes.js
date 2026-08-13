@@ -6,6 +6,35 @@
 
 import { readFileSync } from 'fs';
 
+/**
+ * One fixed-exposure chain, as the row that recorded it describes it. Each is
+ * an independent replicate with the same denominator, which is what makes the
+ * across-chain variance below meaningful.
+ * @typedef {object} Chain
+ * @property {number} seed Identifies the chain, and is what the baseline times
+ *   are joined on.
+ * @property {number} boards
+ * @property {number} failures
+ * @property {number} probeSeconds
+ * @property {number} totalSeconds
+ * @property {number} exposure
+ * @property {number} deaths
+ * @property {number} estimate The per-board hazard this chain came to, taken
+ *   from the recorded column when the run wrote one and reconstructed from the
+ *   failure count when it did not.
+ */
+
+/**
+ * A probe run, and the chains it holds.
+ * @typedef {object} ProbeRun
+ * @property {string} path
+ * @property {number} probes The M of `--probe M`, or 0 for an adaptive run.
+ * @property {string} label How the run is named in the output: the adaptive
+ *   schedule when there was one, and the probe count otherwise.
+ * @property {Chain[]} chains
+ */
+
+/** @type {(path: string) => ProbeRun} */
 function readRun(path) {
     let probes = 0;
     let label = null;
@@ -65,6 +94,7 @@ function readRun(path) {
     return { path, probes, label: label ?? String(probes), chains };
 }
 
+/** @type {(paths: string[]) => Map<number, number>} */
 function readBaseline(paths) {
     const times = new Map();
     for (const path of paths) {
@@ -81,12 +111,14 @@ function readBaseline(paths) {
     return times;
 }
 
+/** @type {(values: number[]) => number} */
 function variance(values) {
     const mean = values.reduce((a, b) => a + b, 0) / values.length;
     return values.reduce((sum, x) => sum + (x - mean) ** 2, 0) /
         (values.length - 1);
 }
 
+/** @type {(seed: number) => () => number} */
 function mulberry32(seed) {
     return function random() {
         seed |= 0;
@@ -97,6 +129,7 @@ function mulberry32(seed) {
     };
 }
 
+/** @type {(sorted: number[], p: number) => number} */
 function quantile(sorted, p) {
     const index = p * (sorted.length - 1);
     const lo = Math.floor(index);
@@ -169,11 +202,14 @@ for (const path of paths) {
         let probedTime = 0;
         let baselineTime = 0;
         for (const chain of run.chains) {
-            if (!baseline.has(chain.seed)) {
+            // Read once rather than has()-then-get(), so what is checked and
+            // what is added up are the same lookup.
+            const unprobed = baseline.get(chain.seed);
+            if (unprobed === undefined) {
                 throw new Error(`baseline files: missing seed ${chain.seed}`);
             }
             probedTime += chain.totalSeconds;
-            baselineTime += baseline.get(chain.seed);
+            baselineTime += unprobed;
         }
         costRatio = probedTime / baselineTime;
     }

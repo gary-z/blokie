@@ -4,6 +4,42 @@ import { saveGameState, loadGameState, saveAssistSetting, loadAssistSetting } fr
 import { initSfx, playSfx } from "./sfx.js";
 import { registerServiceWorker } from "./pwa.js";
 
+/** @typedef {import('../engine/js/blokie.js').Game} Game */
+/** @typedef {import('../engine/js/blokie.js').Deck} Deck */
+/** @typedef {import('../engine/js/blokie.js').Piece} Piece */
+/** @typedef {import('../engine/js/blokie.js').Move} Move */
+/** @typedef {import('../engine/js/blokie.js').Placement} Placement */
+/** @typedef {import('../engine/js/blokie.js').BitBoard} BitBoard */
+/** @typedef {import('../engine/js/blokie.js').PieceBounds} PieceBounds */
+/** @typedef {import('./storage.js').GameState} GameState */
+
+/**
+ * An element index.html is known to define. Throws rather than handing back
+ * null, so an id that was renamed on one side and not the other fails at the
+ * point it is looked up instead of somewhere further down as a null
+ * dereference.
+ * @type {(id: string) => HTMLElement}
+ */
+function element(id) {
+    const found = document.getElementById(id);
+    if (found === null) {
+        throw new Error(`index.html has no element with id "${id}"`);
+    }
+    return found;
+}
+
+/**
+ * The same, for a selector inside an element already in hand.
+ * @type {(root: ParentNode, selector: string) => HTMLElement}
+ */
+function child(root, selector) {
+    const found = root.querySelector(selector);
+    if (found === null) {
+        throw new Error(`no element matching "${selector}"`);
+    }
+    return /** @type {HTMLElement} */ (found);
+}
+
 
 // You play the game by dragging pieces onto the board. The AI assist can play
 // for you instead, at a speed chosen in the bottom bar, until you switch it off
@@ -21,21 +57,48 @@ function getNewGameState() {
     };
 }
 
+/**
+ * Everything a render reads. The two bitboards are written on every drag and
+ * cleared when it ends, so they are named here rather than left to be inferred
+ * from the nulls they start as.
+ * @typedef {object} AppState
+ * @property {GameState} game_state
+ * @property {number} assist_request_id
+ * @property {BitBoard | null} drag_shadow Shadow cells on the board.
+ * @property {BitBoard | null} clear_preview Squares a valid manual placement
+ *   would clear.
+ * @property {number} piece_in_hand_index Deck slot whose piece is off the
+ *   deck: being dragged, or flying to the board (-1 = none).
+ */
+
+// In `state` rather than beside it so JSON.stringify change detection triggers
+// a re-render when any of it moves.
+/** @type {AppState} */
 let state = {
     game_state: getNewGameState(),
-
-    // UI state
     assist_request_id: 0,
-
-    // Rendering state (in state so JSON.stringify change detection triggers re-render)
-    drag_shadow: null,        // bitboard or null - shadow cells on board
-    clear_preview: null,      // squares a valid manual placement would clear
-    piece_in_hand_index: -1,  // deck slot whose piece is off the deck: being
-                              // dragged, or flying to the board (-1 = none)
+    drag_shadow: null,
+    clear_preview: null,
+    piece_in_hand_index: -1,
 };
 
-// Drag state kept outside `state` (contains DOM refs, not serializable)
-let drag_info = null;       // { pieceIndex, piece, bounds, startX, startY, active }
+/**
+ * A drag in progress. `active` is false until the pointer has moved far enough
+ * to count as a drag rather than a tap, which is what the threshold below is
+ * measured against.
+ * @typedef {object} DragInfo
+ * @property {number} pieceIndex
+ * @property {Piece} piece
+ * @property {PieceBounds} bounds
+ * @property {number} startX
+ * @property {number} startY
+ * @property {boolean} active
+ */
+
+// Drag state kept outside `state`: it holds DOM refs, which do not serialize.
+/** @type {DragInfo | null} */
+let drag_info = null;
+/** @type {HTMLElement | null} */
 let drag_floating_el = null;
 
 // Rendering is scheduled before the saved game is read back, so nothing is
@@ -54,7 +117,7 @@ const FINGER_CLEARANCE = 30;  // px of clearance above the touch point
 
 document.addEventListener("DOMContentLoaded", function (event) {
     // Restore who was playing before anything reads the picker.
-    const ai_assist = /** @type {HTMLSelectElement} */ (document.getElementById('ai-assist'));
+    const ai_assist = /** @type {HTMLSelectElement} */ (element('ai-assist'));
     const saved_assist = loadAssistSetting();
     if (saved_assist !== null && [...ai_assist.options].some(o => o.value === saved_assist)) {
         ai_assist.value = saved_assist;
@@ -70,7 +133,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
     showWhoIsPlaying();  // the picker may be carrying a restored selection
 
     initSettings();
-    initSfx(document.getElementById('sound'));
+    initSfx(element('sound'));
     registerServiceWorker();
 
     document.addEventListener('mouseup', (event) => {
@@ -100,16 +163,16 @@ document.addEventListener("DOMContentLoaded", function (event) {
     }, { passive: false });
 
     // The board itself is not interactive: pieces only land on it by drag.
-    document.getElementById('new-game').addEventListener('click', onNewGame);
-    initRestartButton(document.getElementById('restart'));
+    element('new-game').addEventListener('click', onNewGame);
+    initRestartButton(element('restart'));
 
-    const pieces_on_deck_container = document.getElementById('pieces-on-deck-container');
+    const pieces_on_deck_container = element('pieces-on-deck-container');
     pieces_on_deck_container.addEventListener('touchstart', (event) => {
         if (!gameIsActive()) return;
         const cell = /** @type {HTMLElement} */ (event.target);
         if (cell.nodeName !== 'TD') return;
         const table = cell.closest('table');
-        if (table.className !== 'pieces-on-deck') return;
+        if (table === null || table.className !== 'pieces-on-deck') return;
 
         const pieceIndex = parseInt(table.id.slice(-1));
         const piece = state.game_state.piece_set[pieceIndex];
@@ -131,7 +194,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
         const cell = /** @type {HTMLElement} */ (event.target);
         if (cell.nodeName !== 'TD') return;
         const table = cell.closest('table');
-        if (table.className !== 'pieces-on-deck') return;
+        if (table === null || table.className !== 'pieces-on-deck') return;
 
         const pieceIndex = parseInt(table.id.slice(-1));
         const piece = state.game_state.piece_set[pieceIndex];
@@ -184,10 +247,11 @@ function gameIsActive() {
 // Sound and the Github link live behind the gear in the corner, so the bar
 // under the board is only ever about who is playing.
 function initSettings() {
-    const settings = document.getElementById('settings');
-    const button = document.getElementById('settings-button');
-    const menu = document.getElementById('settings-menu');
+    const settings = element('settings');
+    const button = element('settings-button');
+    const menu = element('settings-menu');
 
+    /** @type {(open: boolean) => void} */
     function setMenuOpen(open) {
         menu.hidden = !open;
         button.setAttribute('aria-expanded', String(open));
@@ -206,14 +270,16 @@ function initSettings() {
     // touchstart would have produced, so waiting for one leaves the menu open
     // over the board for the whole drag. Click is kept for keyboard presses,
     // which reach a control without a pointer ever going down.
+    /** @type {(event: Event) => void} */
     const closeIfOutside = (event) => {
-        if (!menu.hidden && !settings.contains(event.target)) {
+        if (!menu.hidden
+            && !settings.contains(/** @type {Node | null} */ (event.target))) {
             setMenuOpen(false);
         }
     };
     document.addEventListener('pointerdown', closeIfOutside);
     document.addEventListener('click', closeIfOutside);
-    menu.querySelector('a').addEventListener('click', () => setMenuOpen(false));
+    child(menu, 'a').addEventListener('click', () => setMenuOpen(false));
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && !menu.hidden) {
@@ -227,6 +293,7 @@ function initSettings() {
 
 // The piece drawn at board scale rather than deck scale, since the board is
 // where it is headed and where it has to be lined up by eye.
+/** @type {(piece: Piece, bounds: PieceBounds) => HTMLElement} */
 function createFloatingPiece(piece, bounds) {
     const board = getBoardGeometry();
 
@@ -264,14 +331,27 @@ function createFloatingPiece(piece, bounds) {
 
 // The board on screen, and the size of one of its squares. Read fresh every
 // time: the board is sized off the viewport, so it moves with the window.
+/**
+ * The board as the drag reads it: where it is on screen, and how big a square
+ * is. Measured per drag move rather than cached, since a rotation or a resize
+ * moves it under the finger.
+ * @typedef {{rect: DOMRect, cellW: number, cellH: number}} BoardGeometry
+ */
+
+/** @type {() => BoardGeometry} */
 function getBoardGeometry() {
-    const rect = document.getElementById('game-board').getBoundingClientRect();
+    const rect = element('game-board').getBoundingClientRect();
     return { rect: rect, cellW: rect.width / 9, cellH: rect.height / 9 };
 }
 
 // Where the piece being dragged is drawn, in screen pixels: centered on the
 // finger and lifted clear of it. The one place this is worked out, so the piece
 // you see, the shadow under it and the square it lands in can't disagree.
+/**
+ * @type {(clientX: number, clientY: number, bounds: PieceBounds)
+ *     => {left: number, top: number, width: number, height: number,
+ *         board: BoardGeometry}}
+ */
 function getFloatingPieceRect(clientX, clientY, bounds) {
     const board = getBoardGeometry();
     const width = bounds.cols * board.cellW;
@@ -285,6 +365,10 @@ function getFloatingPieceRect(clientX, clientY, bounds) {
     };
 }
 
+/**
+ * @type {(el: HTMLElement, clientX: number, clientY: number,
+ *         bounds: PieceBounds) => void}
+ */
 function updateFloatingPosition(el, clientX, clientY, bounds) {
     const piece_rect = getFloatingPieceRect(clientX, clientY, bounds);
     el.style.left = piece_rect.left + 'px';
@@ -302,6 +386,10 @@ const SNAP_RADIUS_SQUARES = 1.5;
 // The placement the drag is asking for: the one nearest to where the piece is
 // drawn, which is the same square an exact reading would give whenever the
 // piece fits there. Null when it is not being held near anywhere it fits.
+/**
+ * @type {(clientX: number, clientY: number, piece: Piece,
+ *         bounds: PieceBounds) => Move | null}
+ */
 function calcShadowPlacement(clientX, clientY, piece, bounds) {
     const piece_rect = getFloatingPieceRect(clientX, clientY, bounds);
     const board = piece_rect.board;
@@ -317,6 +405,7 @@ function calcShadowPlacement(clientX, clientY, piece, bounds) {
 // Return every occupied square which would disappear if this placement were
 // committed. Asking the engine for the prospective game keeps the preview in
 // lockstep with the actual row, column and box clearing rules.
+/** @type {(piece: Piece, placement: Placement) => BitBoard | null} */
 function calcClearPreview(piece, placement) {
     const result = blokie.place(state.game_state.game, placement);
     if (result === null || !result.new_game.previous_move_was_clear) return null;
@@ -333,6 +422,7 @@ function calcClearPreview(piece, placement) {
     return preview;
 }
 
+/** @type {(clientX: number, clientY: number) => void} */
 function handleDragMove(clientX, clientY) {
     if (!drag_info) return;
 
@@ -353,6 +443,10 @@ function handleDragMove(clientX, clientY) {
         playSfx('pickup');
     }
 
+    // Created the moment the drag went active, either just above or on an
+    // earlier move; an inactive drag has already returned by here.
+    if (drag_floating_el === null) return;
+
     updateFloatingPosition(drag_floating_el, clientX, clientY, drag_info.bounds);
 
     const shadow = calcShadowPlacement(clientX, clientY, drag_info.piece, drag_info.bounds);
@@ -363,6 +457,7 @@ function handleDragMove(clientX, clientY) {
     drag_floating_el.classList.toggle('clear-preview', state.clear_preview !== null);
 }
 
+/** @type {(clientX: number, clientY: number) => void} */
 function handleDragEnd(clientX, clientY) {
     if (!drag_info) return;
 
@@ -429,6 +524,7 @@ async function onNewGame() {
 }
 
 const RESTART_CONFIRM_MS = 3000;
+/** @type {ReturnType<typeof setTimeout> | null} */
 let restart_confirm_timer = null;
 // Replaced once the menu holds them; no-ops until then, since the first game is
 // started before anything has been opened.
@@ -440,10 +536,12 @@ let closeSettingsMenu = () => { };
 // question withdraws itself if it goes unanswered, and the menu stays up to be
 // answered, the same way it does while sound is being toggled. Once the game is
 // over there is nothing left to lose and the press goes straight through.
+/** @type {(button: HTMLElement) => void} */
 function initRestartButton(button) {
-    const label = document.getElementById('restart-label');
+    const label = element('restart-label');
     const asked = label.innerText;
 
+    /** @type {(text: string, title: string) => void} */
     const setLabel = (text, title) => {
         label.innerText = text;
         button.title = title;
@@ -473,6 +571,10 @@ function initRestartButton(button) {
 //
 // `silent` is for the assist at Max, where the moves land faster than the
 // sounds could be heard as anything but noise.
+/**
+ * @type {(piece_index: number, result: Move,
+ *         options?: {silent?: boolean}) => void}
+ */
 function commitMove(piece_index, result, { silent = false } = {}) {
     if (!silent) {
         playSfx('place');
@@ -526,6 +628,7 @@ function commitMove(piece_index, result, { silent = false } = {}) {
 // A one-render bridge between the engine's already-cleared board and the DOM.
 // This deliberately stays outside saved state: restoring a game should not
 // replay the last move's animation.
+/** @type {Placement | null} */
 let pending_clear_placement = null;
 
 // The same kind of bridge for a set of pieces that has just been dealt, spent
@@ -536,7 +639,7 @@ let pending_new_deck = false;
 
 /** @returns {HTMLSelectElement} */
 function assistPicker() {
-    return /** @type {HTMLSelectElement} */ (document.getElementById('ai-assist'));
+    return /** @type {HTMLSelectElement} */ (element('ai-assist'));
 }
 
 function assistIsOn() {
@@ -561,6 +664,7 @@ function assistShowsMoves() {
 }
 
 // The game ends when nothing on deck fits anywhere, whoever is placing.
+/** @type {(game_state: GameState) => GameState} */
 function refreshGameOver(game_state) {
     game_state.game_over = !blokie.hasValidMove(game_state.game.board, game_state.piece_set);
     return game_state;
@@ -569,12 +673,16 @@ function refreshGameOver(game_state) {
 // The worker plans; everything below plays what it comes back with. It is kept
 // alive across plans so the solver is only instantiated once, and thrown away
 // whenever the game moves on without it.
+/** @type {Worker | null} */
 let ai_worker = null;
 
 // What the assist has left to play of the deck the worker last looked at, as
 // `{ piece_index, placement }` in the order it wants to play them.
+/** @type {import('../engine/js/blokie.js').PlannedMove[]} */
 let assist_plan = [];
+/** @type {ReturnType<typeof setTimeout> | null} */
 let assist_move_timer = null;   // the next move
+/** @type {ReturnType<typeof setTimeout> | null} */
 let assist_fly_timer = null;    // the piece currently in the air landing
 let assist_deck_is_new = false; // a fresh deck gets a beat to be looked at
 let assist_is_starting = false; // the first move starts as soon as it is planned
@@ -587,9 +695,9 @@ function stopAI() {
     // Bumping the id makes any plan already in flight from the terminated
     // worker get ignored, so it can't be played onto a board that has moved on.
     state.assist_request_id++;
-    clearTimeout(assist_move_timer);
+    if (assist_move_timer !== null) clearTimeout(assist_move_timer);
     assist_move_timer = null;
-    clearTimeout(assist_fly_timer);
+    if (assist_fly_timer !== null) clearTimeout(assist_fly_timer);
     assist_fly_timer = null;
     assist_plan = [];
     assist_deck_is_new = false;
@@ -628,6 +736,9 @@ function onGameStateChanged({ after_manual_move = false } = {}) {
 }
 
 function requestAssistPlan() {
+    // Only called from continueAssist, which has already returned if there is
+    // no worker to ask.
+    if (ai_worker === null) return;
     ai_worker.postMessage({
         id: state.assist_request_id,
         game: state.game_state.game,
@@ -653,7 +764,9 @@ function continueAssist() {
     // clamp nested zero-delay timeouts to 4ms.
     if (!assistShowsMoves()) {
         while (assist_plan.length > 0 && !state.game_state.game_over) {
-            const move = resolveAssistMove(assist_plan.shift());
+            const planned = assist_plan.shift();
+            if (planned === undefined) break;
+            const move = resolveAssistMove(planned);
             if (move === null) {
                 onGameStateChanged();
                 return;
@@ -674,6 +787,11 @@ function continueAssist() {
     }
 
     const delay_ms = getAssistDelayMs();
+    // Not reached with the assist off, since the guard at the top of this
+    // function has already returned by then. Checked all the same because the
+    // picker is the only thing that says how long to wait, so there is nothing
+    // to schedule without it.
+    if (delay_ms === null) return;
     // A deck that just came out is worth a look before it starts being played.
     const wait_ms = assist_deck_is_new ? delay_ms * 2 : delay_ms;
     assist_deck_is_new = false;
@@ -682,6 +800,10 @@ function continueAssist() {
 
 // Works out what a planned move does to the game as it stands now. Null means
 // the plan is stale -- the deck moved under it -- and should be thrown away.
+/**
+ * @type {(move: import('../engine/js/blokie.js').PlannedMove)
+ *     => {piece_index: number, piece: Piece, result: Move} | null}
+ */
 function resolveAssistMove(move) {
     const piece = state.game_state.piece_set[move.piece_index];
     const result = blokie.place(state.game_state.game, move.placement);
@@ -697,7 +819,9 @@ function resolveAssistMove(move) {
 // piece arrives, exactly as they do under a finger.
 function playNextAssistMove() {
     assist_move_timer = null;
-    const move = resolveAssistMove(assist_plan.shift());
+    const planned = assist_plan.shift();
+    // An empty plan is the same situation as a stale one: ask for another.
+    const move = planned === undefined ? null : resolveAssistMove(planned);
     if (move === null) {
         onGameStateChanged();
         return;
@@ -720,15 +844,20 @@ let last_rendered_state_json = '';
 
 // The assist's piece on its way from the deck to the board. Started and taken
 // down by the assist driver above; nothing here decides when a move happens.
-let _fly_anim = null; // { el }
+/** @type {{el: HTMLElement} | null} */
+let _fly_anim = null;
 const FLY_ANIM_MS = 300;
 
+/**
+ * @type {(pieceIndex: number, piece: Piece, placement: Placement)
+ *     => {el: HTMLElement}}
+ */
 function startFlyAnimation(pieceIndex, piece, placement) {
     const bounds = bits.bounds(piece);
     const el = createFloatingPiece(piece, bounds);
 
     // Source: center of the on-deck slot
-    const deckTable = document.getElementById('piece-on-deck-' + pieceIndex);
+    const deckTable = element('piece-on-deck-' + pieceIndex);
     const deckRect = deckTable.getBoundingClientRect();
 
     // Target: top-left of where the piece lands on the board
@@ -791,6 +920,7 @@ const SCORE_CARD_MARGIN_PX = 4;
 // Where a card for this move belongs, in screen pixels: the middle of the
 // squares the piece covered. Read off the board as it stands, the same way the
 // drag and the assist's flight are.
+/** @type {(placement: Placement) => {x: number, y: number}} */
 function getPlacementCenter(placement) {
     const board = getBoardGeometry();
     let min_r = 9, min_c = 9, max_r = -1, max_c = -1;
@@ -820,6 +950,7 @@ function getPlacementCenter(placement) {
 // combo and a streak are the reason the number is as big as it is, so they
 // belong beside it rather than following it across the board as cards of their
 // own.
+/** @type {(points: number, placement: Placement, bonuses?: string[]) => void} */
 function showMoveScoreCard(points, placement, bonuses = []) {
     const center = getPlacementCenter(placement);
     const el = document.createElement('div');
@@ -868,8 +999,8 @@ function render() {
 window.requestAnimationFrame(render);
 
 function renderImpl() {
-    const board_table = document.getElementById('game-board');
-    const pieces_on_deck_div = document.getElementById('pieces-on-deck-container');
+    const board_table = /** @type {HTMLTableElement} */ (element('game-board'));
+    const pieces_on_deck_div = element('pieces-on-deck-container');
     const game_state = state.game_state;
 
     showGameOver(!gameIsActive(), game_state.game.score);
@@ -907,6 +1038,7 @@ function renderImpl() {
 // the beat the assist gives a new deck at its slowest animated speed.
 const DECK_FADE_MS = 300;
 
+/** @type {(pieces_on_deck_div: HTMLElement) => void} */
 function fadeInDeck(pieces_on_deck_div) {
     for (const table of pieces_on_deck_div.children) {
         table.animate([{ opacity: 0 }, { opacity: 1 }], {
@@ -920,8 +1052,9 @@ function fadeInDeck(pieces_on_deck_div) {
 // game. Saying "final" up there as well used to be the whole of the game-over
 // signal; the card says it now, and on a narrow phone the longer line wrapped
 // and shoved the board down at the worst possible moment.
+/** @type {(score: number) => void} */
 function updateScore(score) {
-    const score_el = document.getElementById('score');
+    const score_el = element('score');
     score_el.innerText = score.toLocaleString();
 }
 
@@ -929,11 +1062,12 @@ let game_over_shown = false;
 
 // The card over the board, the wash behind it and the drained pieces below are
 // one signal, raised and lowered together.
+/** @type {(over: boolean, score: number) => void} */
 function showGameOver(over, score) {
     if (over === game_over_shown) return;
     game_over_shown = over;
 
-    const panel = document.getElementById('game-over');
+    const panel = element('game-over');
     document.body.classList.toggle('game-over', over);
     if (!over) {
         panel.hidden = true;
@@ -943,11 +1077,12 @@ function showGameOver(over, score) {
     // Revealed before it is filled in: a hidden panel is not in the
     // accessibility tree, and a live region that isn't there announces nothing.
     panel.hidden = false;
-    document.getElementById('final-score').innerText = score.toLocaleString();
+    element('final-score').innerText = score.toLocaleString();
     // Puts the way out under the keyboard, and names it for a screen reader.
-    document.getElementById('new-game').focus({ preventScroll: true });
+    element('new-game').focus({ preventScroll: true });
 }
 
+/** @type {(td: HTMLElement, cls: string) => void} */
 function _setCell(td, cls) {
     const old = td.className;
     if (old === cls) return;
@@ -964,6 +1099,11 @@ function _setCell(td, cls) {
     td.className = cls;
 }
 
+/**
+ * @type {(board_table: HTMLTableElement, pieces_on_deck_div: HTMLElement,
+ *         board: BitBoard, piece_set: Deck,
+ *         clearing_placement: Placement | null) => void}
+ */
 function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_placement) {
     for (let r = 0; r < 9; ++r) {
         for (let c = 0; c < 9; ++c) {
@@ -1000,7 +1140,9 @@ function drawGame(board_table, pieces_on_deck_div, board, piece_set, clearing_pl
         const piece = bits.center(piece_set[i]);
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
-                const td = pieces_on_deck_div.children[i].rows[r].cells[c];
+                const deck_table = /** @type {HTMLTableElement} */ (
+                    pieces_on_deck_div.children[i]);
+                const td = deck_table.rows[r].cells[c];
                 const cls = (!hidePiece && bits.at(piece, r, c)) ? 'has-piece' : '';
                 if (td.className !== cls) td.className = cls;
             }

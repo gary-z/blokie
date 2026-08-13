@@ -21,7 +21,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+/**
+ * One entry of the manifest's `icons`, as far as this file reads it. The
+ * manifest is parsed from JSON, so nothing else here knows its shape.
+ * @typedef {{src: string, sizes?: string, purpose?: string}} ManifestIcon
+ */
+
 let failures = 0;
+/** @type {(condition: boolean, description: string) => void} */
 function check(condition, description) {
     if (!condition) {
         failures++;
@@ -35,24 +42,30 @@ const repo_root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const staged = process.argv[2] !== undefined;
 const site_root = staged ? path.resolve(process.argv[2]) : repo_root;
 
+/** @type {(relative: string) => string} */
 function read(relative) {
     return fs.readFileSync(path.join(site_root, relative), 'utf8');
 }
 
 // A URL as the browser would ask for it, back to the file that answers it. The
 // shell is a directory, which is served as the index.html inside it.
+/** @type {(url_path: string) => string} */
 function siteFile(url_path) {
     const relative = url_path.replace(/^\.\//, '');
     return path.join(site_root, relative === '' ? 'index.html' : relative);
 }
 
+/** @type {(url_path: string) => boolean} */
 function exists(url_path) {
     const file = siteFile(url_path);
     return fs.existsSync(file) && fs.statSync(file).isFile();
 }
 
 // The pixel size a PNG really is, off its header, so an icon cannot claim in
-// the manifest to be a size it is not.
+// the manifest to be a size it is not. Formatted the way a manifest writes it,
+// since comparing against `icon.sizes` is the whole of what it is for. Null
+// when the file is not a PNG at all.
+/** @type {(file: string) => string | null} */
 function pngSize(file) {
     const header = Buffer.alloc(24);
     const handle = fs.openSync(file, 'r');
@@ -136,7 +149,8 @@ let manifest = null;
 try {
     manifest = JSON.parse(read(MANIFEST.replace(/^\.\//, '')));
 } catch (e) {
-    check(false, `the manifest is valid JSON (${e.message})`);
+    check(false, 'the manifest is valid JSON '
+        + `(${e instanceof Error ? e.message : String(e)})`);
 }
 
 if (manifest !== null) {
@@ -159,6 +173,7 @@ if (manifest !== null) {
         check(resolved === '.', `${field} (${manifest[field]}) resolves to the site root`);
     }
 
+    /** @type {ManifestIcon[]} */
     const icons = Array.isArray(manifest.icons) ? manifest.icons : [];
     for (const icon of icons) {
         const url_path = path.posix.join(manifest_directory, icon.src);
@@ -172,6 +187,7 @@ if (manifest !== null) {
     // What a browser wants before it will offer to install: something small
     // enough for a list, something large enough for a splash screen, and one
     // it may crop to a circle without cutting the mark.
+    /** @type {(test: (icon: ManifestIcon) => boolean) => boolean} */
     const has = (test) => icons.some(test);
     check(has(icon => icon.sizes === '192x192'), 'there is a 192px icon');
     check(has(icon => icon.sizes === '512x512'), 'there is a 512px icon');

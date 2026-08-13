@@ -44,6 +44,12 @@ const SOUNDS = {
 // within a third of a dB of the place. Peak is still 0.58, so nothing clips.
 const EVENT_GAIN = { pickup: 0.45, place: 0.9, reject: 1.0, clear: 0.9 };
 
+/**
+ * What can be played. Taken off SOUNDS rather than written out again, so a
+ * new sound is a new key there and nothing else.
+ * @typedef {keyof typeof SOUNDS} SoundEvent
+ */
+
 // Cleared cells shrink out over 0.2s. Landing the sound just after that starts
 // reads as the clear causing it, rather than as part of the placement.
 const CLEAR_DELAY_S = 0.06;
@@ -53,14 +59,18 @@ const CLEAR_DELAY_S = 0.06;
 const AudioContextClass = window.AudioContext
     || /** @type {{webkitAudioContext?: typeof AudioContext}} */ (window).webkitAudioContext;
 
+/** @type {AudioContext | null} */
 let audio_ctx = null;
 let sound_on = false;
-const fetched = new Map();   // file name -> Promise<ArrayBuffer>, until decoded
-const decoded = new Map();   // file name -> AudioBuffer, once it is ready
+/** @type {Map<string, Promise<ArrayBuffer>>} file name -> bytes, until decoded */
+const fetched = new Map();
+/** @type {Map<string, AudioBuffer>} file name -> clip, once it is ready */
+const decoded = new Map();
 let decode_failed = false;
 
 const CLIPS = [...new Set(Object.values(SOUNDS).flat().map(h => h.file))];
 
+/** @type {(name: string) => URL} */
 function clipUrl(name) {
     return new URL(`sfx/${name}.wav`, import.meta.url);
 }
@@ -92,8 +102,12 @@ function warmUp() {
         // it is given, so the same bytes must not be decoded twice.
         const bytes = fetched.get(name);
         fetched.delete(name);
+        if (bytes === undefined) continue;
+        // Captured, because `audio_ctx` is module state and the null check
+        // above does not survive the await.
+        const ctx = audio_ctx;
         bytes
-            .then(b => audio_ctx.decodeAudioData(b))
+            .then(b => ctx.decodeAudioData(b))
             .then(buffer => decoded.set(name, buffer))
             .catch(() => {
                 // Silence beats a broken game.
@@ -103,6 +117,7 @@ function warmUp() {
     }
 }
 
+/** @type {(event: SoundEvent) => void} */
 function playSfx(event) {
     if (!sound_on || audio_ctx === null) return;
     const hits = SOUNDS[event];
@@ -118,7 +133,8 @@ function playSfx(event) {
     const base = audio_ctx.currentTime + (event === 'clear' ? CLEAR_DELAY_S : 0);
     for (const hit of hits) {
         const source = audio_ctx.createBufferSource();
-        source.buffer = decoded.get(hit.file);
+        // Every hit was checked into `decoded` just above.
+        source.buffer = decoded.get(hit.file) ?? null;
         source.playbackRate.value = hit.rate;
         const gain = audio_ctx.createGain();
         gain.gain.value = EVENT_GAIN[event] * hit.gain;
@@ -130,11 +146,15 @@ function playSfx(event) {
 // `from_gesture` is what makes it safe to build an AudioContext: doing that
 // without one leaves it suspended and has the browser complain, once here and
 // again on every attempt to resume it.
+/** @type {(on: boolean, button: HTMLElement, from_gesture: boolean) => void} */
 function setSoundOn(on, button, from_gesture) {
     sound_on = on;
     // Only the icon: the button reads "Sound" beside it either way, and
     // aria-pressed is what carries the state to a screen reader.
-    button.querySelector('.menu-icon').textContent = on ? '\u{1F50A}' : '\u{1F507}';
+    const icon = button.querySelector('.menu-icon');
+    if (icon !== null) {
+        icon.textContent = on ? '\u{1F50A}' : '\u{1F507}';
+    }
     button.classList.toggle('sound-on', on);
     button.setAttribute('aria-pressed', String(on));
     button.title = on ? 'Turn sound off' : 'Turn sound on';
@@ -146,6 +166,9 @@ function setSoundOn(on, button, from_gesture) {
     }
 }
 
+// Null when the page has no sound button, which is what a caller reaching for
+// one by id can hand over.
+/** @type {(button: HTMLElement | null) => void} */
 function initSfx(button) {
     if (button === null) return;
     // Restoring a setting is not a gesture, so this only starts the download.
