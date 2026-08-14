@@ -60,20 +60,31 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # -Wall -Wextra -Werror does not configure a stricter build, it configures a
 # build that cannot start, so the compiler that speaks the other dialect is
 # asked for the same things in its own words.
+#
+# Both branches APPEND to the per-configuration flags rather than assigning
+# them. A plain set() here reads as "these are the release flags", but what it
+# does is silently discard whatever the caller passed in
+# -DCMAKE_CXX_FLAGS_RELEASE=..., because the ordinary variable it creates
+# shadows the cache entry that the command line wrote. The build still
+# configures, still compiles and still passes its tests -- with the caller's
+# flags absent. That is the worst shape a build bug can have: an experiment
+# gated on -DSOME_MACRO=1 quietly measures the unmodified engine, and the
+# result looks like evidence about the macro. Appending keeps the caller's
+# flags and still lets these win, since later flags take precedence.
 if(MSVC)
 	# /permissive- turns off the Microsoft extensions that would let
 	# nonstandard code through here and fail everywhere else.
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /permissive-")
 	# /GL is whole-program optimization, MSVC's -flto, and it needs /LTCG at
 	# link time to finish the job.
-	set(CMAKE_CXX_FLAGS_RELEASE "/O2 /GL /DNDEBUG")
+	string(APPEND CMAKE_CXX_FLAGS_RELEASE " /O2 /GL /DNDEBUG")
 	set(CMAKE_EXE_LINKER_FLAGS_RELEASE
 		"${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
 	set(CMAKE_STATIC_LINKER_FLAGS_RELEASE
 		"${CMAKE_STATIC_LINKER_FLAGS_RELEASE} /LTCG")
 else()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
-	set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto -DNDEBUG")
+	string(APPEND CMAKE_CXX_FLAGS_RELEASE " -O3 -flto -DNDEBUG")
 endif()
 
 # Release builds are -flto, which leaves every object file holding the
