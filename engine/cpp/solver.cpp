@@ -149,12 +149,6 @@ namespace {
 
 		return anchors & placementAnchorBounds(max_row, max_col);
 	}
-
-	// Stands in for the evaluation of a position a piece does not fit in at
-	// all. Small enough that one per piece still cannot overflow a uint64_t,
-	// large enough to outweigh any real board evaluation.
-	constexpr uint64_t GAME_OVER_PENALTY =
-		UINT64_MAX / (Piece::NUM_PIECES + 1);
 }
 
 // === BIT BOARD
@@ -899,89 +893,6 @@ GameState ClearsFirstGameStates::operator[](size_t index) const {
 }
 
 // ====== AI
-GameState AI::makeMoveLookahead(EvalWeights weights, GameState game, PieceSet piece_set) {
-	std::sort(piece_set.pieces, piece_set.pieces + 3);
-	const int num_pieces = AI::countPieces(piece_set);
-
-	uint64_t bestScore = UINT64_MAX;
-	auto bestNext = GameState(BitBoard::full());
-
-	const auto can_clear_with_2_pieces = AI::canClearWith2PiecesOrFewer(game, piece_set);
-
-	// Foreach permutation of the pieces.
-	bool is_first_permutation = true;
-	do {
-		const auto p0 = piece_set.pieces[0];
-		const auto p1 = piece_set.pieces[1];
-		const auto p2 = piece_set.pieces[2];
-		for (const auto after_p0 : game.nextStatesClearsFirst(p0)) {
-			for (const auto after_p1 : after_p0.nextStatesClearsFirst(p1)) {
-				const auto after_p1_max_count = game.getBitBoard().count() +
-					p0.count() +
-					p1.count();
-				// Nothing cleared, so these two placements land on the same
-				// board played the other way round, in an ordering the loop
-				// also walks. Off on the first ordering. See makeMoveSimple.
-				if (!is_first_permutation && p1 < p0 &&
-					after_p1.getBitBoard().count() == after_p1_max_count) {
-					continue;
-				}
-
-				for (const auto after_p2 : after_p1.nextStates(p2)) {
-					// No clears anywhere, so this board is the union of three
-					// disjoint placements and the first ordering
-					// already reached it.
-					if (!is_first_permutation &&
-						after_p2.getBitBoard().count() == game.getBitBoard().count()
-						+ p0.count() +
-						p1.count() +
-						p2.count()
-						) {
-						continue;
-					}
-
-					uint64_t total_after_p2 = 0;
-					bool is_1x1 = true;
-					for (const auto p3 : Piece::getAll()) {
-						if (is_1x1) {
-							// Be pessimistic and pretend we won't get a 1x1.
-							is_1x1 = false;
-							continue;
-						}
-
-						uint64_t best_after_p3 = UINT64_MAX;
-						for (const auto after_p3 : after_p2.nextStates(p3)) {
-							best_after_p3 = std::min(best_after_p3,
-								after_p3.simpleEval(weights));
-						}
-						if (best_after_p3 == UINT64_MAX) {
-							// p3 does not fit anywhere, which is the game
-							// ending. Charge a large but finite penalty:
-							// summing UINT64_MAX would wrap around and make
-							// the position look like the best one on offer.
-							best_after_p3 = GAME_OVER_PENALTY;
-						}
-						total_after_p2 += best_after_p3;
-						if (total_after_p2 > bestScore) {
-							// after_p3 is worse than the existing candidate already.
-							break;
-						}
-					}
-
-					if (total_after_p2 < bestScore) {
-						bestScore = total_after_p2;
-						bestNext = after_p2;
-					}
-				}
-			}
-		}
-		is_first_permutation = false;
-	} while (can_clear_with_2_pieces &&
-		std::next_permutation(piece_set.pieces, piece_set.pieces + num_pieces));
-
-	return bestNext;
-}
-
 namespace {
 template<typename Evaluate>
 MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
