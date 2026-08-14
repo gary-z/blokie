@@ -19,3 +19,6 @@ jobs:
 
       - name: Check the precache list, the manifest, and the page agree
         run: node test/web/pwa-test.js
+
+      - name: Check the saved-game cookie round trips
+        run: node test/web/storage-test.js
