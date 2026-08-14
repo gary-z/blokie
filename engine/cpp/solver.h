@@ -311,9 +311,6 @@ public:
 	// It is useful for sampling the probability that a dealt set ends a game.
 	static bool tripleFits(GameState state, PieceSet piece_set);
 
-	// Similar to makeMoveSimple, but considers possible placements of the 4th piece.
-	static GameState makeMoveLookahead(EvalWeights weights, GameState state, PieceSet piece_set);
-
 	// How many of the three slots hold a piece. Blank slots sort last, so this
 	// counts the leading run of a sorted piece set and is only meaningful for
 	// one. A blank slot is placed by doing nothing, so it is also the number of

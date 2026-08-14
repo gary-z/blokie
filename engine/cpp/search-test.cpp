@@ -522,61 +522,6 @@ void testSearchPruningOnOpenBoards() {
 		"whose best board no clear can move");
 }
 
-void testLookaheadGameOver() {
-	auto diagonal_holes = BitBoard::full();
-	for (unsigned index = 0; index < 9; ++index) {
-		diagonal_holes = diagonal_holes - test::square(index, index);
-	}
-	const PieceSet pieces(Piece::byIndex(32), Piece::byIndex(32), Piece::byIndex(32));
-	const auto result = AI::makeMoveLookahead(EvalWeights::getDefault(),
-		GameState(diagonal_holes), pieces);
-	test::require(result.isOver(), "lookahead reports a hand that cannot fit");
-}
-
-uint64_t referenceLookaheadCost(BitBoard board, const EvalWeights &weights) {
-	constexpr uint64_t game_over_penalty =
-		std::numeric_limits<uint64_t>::max() / (Piece::NUM_PIECES + 1);
-	uint64_t result = 0;
-	// The implementation deliberately excludes the 1x1 at index zero from its
-	// expectation, to avoid giving every position an overly optimistic escape.
-	for (int piece_index = 1; piece_index < Piece::NUM_PIECES; ++piece_index) {
-		uint64_t best = std::numeric_limits<uint64_t>::max();
-		for (const auto &placement :
-			test::referencePlacements(board, Piece::byIndex(piece_index))) {
-			best = std::min(best, GameState(placement.board).simpleEval(weights));
-		}
-		result += best == std::numeric_limits<uint64_t>::max() ?
-			game_over_penalty : best;
-	}
-	return result;
-}
-
-void testLookaheadAgainstReference() {
-	// One real piece and two blank slots keep the outer exhaustive search small,
-	// while the oracle still evaluates every one of the 46 modeled next pieces.
-	auto diagonal_holes = BitBoard::full();
-	for (unsigned index = 0; index < 9; ++index) {
-		diagonal_holes = diagonal_holes - test::square(index, index);
-	}
-	const auto one = Piece::byIndex(0);
-	const PieceSet pieces(one, Piece(), Piece());
-	std::set<BitBoard> reachable;
-	collectReachableBoards(diagonal_holes, {one}, reachable);
-	test::require(!reachable.empty(), "lookahead fixture has reachable boards");
-
-	const auto weights = EvalWeights::getDefault();
-	uint64_t expected = std::numeric_limits<uint64_t>::max();
-	for (const auto &candidate : reachable) {
-		expected = std::min(expected, referenceLookaheadCost(candidate, weights));
-	}
-	const auto actual = AI::makeMoveLookahead(weights,
-		GameState(diagonal_holes), pieces).getBitBoard();
-	test::require(reachable.find(actual) != reachable.end(),
-		"lookahead result is reachable");
-	test::require(referenceLookaheadCost(actual, weights) == expected,
-		"lookahead minimizes the independent next-piece expectation");
-}
-
 } // namespace
 
 int main() {
@@ -594,7 +539,5 @@ int main() {
 		{"blank and game-over searches", testBlankAndGameOverSearches},
 		{"random search against brute force", testRandomSearchAgainstBruteForce},
 		{"search pruning on open boards", testSearchPruningOnOpenBoards},
-		{"lookahead game-over handling", testLookaheadGameOver},
-		{"lookahead against brute force", testLookaheadAgainstReference},
 	});
 }
