@@ -522,6 +522,71 @@ void testSearchPruningOnOpenBoards() {
 		"whose best board no clear can move");
 }
 
+// Boards where a line is nearly full, which is where the two rules that let a
+// clear through have anything to do. Both argue that a placement which cleared
+// can be played elsewhere in the order and clear the same lines: one takes a
+// pair whose second placement cleared without using a cell of the first, the
+// other takes the last two placements when neither cleared and the first one
+// did. Neither can fire on a board too open to complete a line, so the sweep
+// above passes whatever they do.
+//
+// The lines here are full but for two cells, so a clear usually arrives on the
+// second placement of a pair and needs a cell the first one put down. That is
+// the case the extended pair test has to decide correctly, and the case a
+// board with one-cell gaps never produces.
+void testSearchPruningWhereClearsAreAvailable() {
+	const auto weights = EvalWeights::getDefault();
+	test::Random random(0xC1EA4B0A4DULL);
+	int playable = 0;
+	int could_clear_early = 0;
+	for (int sample = 0; sample < 200; ++sample) {
+		auto board = random.board(1);
+		for (int line = 0; line < 3; ++line) {
+			const unsigned index = random.below(9);
+			const bool is_row = random.below(2) == 0;
+			const auto full = is_row ?
+				BitBoard::row(index) : BitBoard::column(index);
+			auto gaps = BitBoard::empty();
+			while (gaps.count() < 2) {
+				const unsigned along = random.below(9);
+				gaps = gaps | (is_row ? test::square(index, along)
+					: test::square(along, index));
+			}
+			board = (board | full) - gaps;
+		}
+		board = test::clearCompletedLines(board);
+		const PieceSet pieces(
+			Piece::byIndex(static_cast<int>(random.below(Piece::NUM_PIECES))),
+			Piece::byIndex(static_cast<int>(random.below(Piece::NUM_PIECES))),
+			Piece::byIndex(static_cast<int>(random.below(Piece::NUM_PIECES))));
+		const auto context = "clearing board sample " + std::to_string(sample);
+
+		const auto reference = searchWithoutPruning(board, pieces);
+		const auto move = AI::makeMoveSimple(weights, GameState(board), pieces);
+		if (!reference.any_line_of_play) {
+			test::require(move.evaluation == std::numeric_limits<uint64_t>::max(),
+				context + ": search found a move where nothing can be played");
+			continue;
+		}
+		++playable;
+		if (AI::canClearWith2PiecesOrFewer(GameState(board), pieces)) {
+			++could_clear_early;
+		}
+		test::require(move.evaluation == reference.best,
+			context + ": search settled for " + std::to_string(move.evaluation) +
+			", searching the same hand without pruning finds " +
+			std::to_string(reference.best));
+	}
+
+	test::require(playable >= 150,
+		"clearing board sweep should be mostly playable hands");
+	// Without these the sweep is the open-board sweep with a different seed:
+	// one ordering is searched at all, and no rule that lets a clear through
+	// can fire.
+	test::require(could_clear_early >= 100,
+		"clearing board sweep should mostly be hands that can clear early");
+}
+
 } // namespace
 
 int main() {
@@ -539,5 +604,7 @@ int main() {
 		{"blank and game-over searches", testBlankAndGameOverSearches},
 		{"random search against brute force", testRandomSearchAgainstBruteForce},
 		{"search pruning on open boards", testSearchPruningOnOpenBoards},
+		{"search pruning where clears are available",
+			testSearchPruningWhereClearsAreAvailable},
 	});
 }

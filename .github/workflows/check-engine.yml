@@ -31,7 +31,7 @@ jobs:
         run: cmake -S engine/cpp -B /tmp/blokie-native-tests -DCMAKE_BUILD_TYPE=Release
 
       - name: Build native engine tests
-        run: cmake --build /tmp/blokie-native-tests --parallel 2 --target eval-test search-test probe-test fitness
+        run: cmake --build /tmp/blokie-native-tests --parallel 2 --target eval-test search-test probe-test fitness search-stats
 
       - name: Native engine tests
         run: ctest --test-dir /tmp/blokie-native-tests --output-on-failure
