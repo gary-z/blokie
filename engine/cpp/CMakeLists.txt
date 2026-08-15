@@ -166,12 +166,12 @@ function(target_enable_native_isa target)
 endfunction()
 
 # Core solver library - no threading, no RNG (WASM-compatible)
-add_library(solver STATIC bitboard.cpp game.cpp solver.cpp)
+add_library(solver STATIC bitboard.cpp eval.cpp game.cpp solver.cpp)
 # Keep the split files compiling as a single translation unit for the solver
 # itself. Separate files give the intended module boundaries, but compiling
 # them together lets the optimizer inline the hot BitBoard and evaluation
 # routines into the search without relying on cross-TU LTO heuristics that
-# measured ~3% slower. The library is still three files on disk.
+# measured ~3% slower. The library is still four files on disk.
 set_target_properties(solver PROPERTIES UNITY_BUILD ON)
 
 if(EMSCRIPTEN)
