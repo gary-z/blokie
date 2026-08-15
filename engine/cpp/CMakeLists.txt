@@ -166,7 +166,13 @@ function(target_enable_native_isa target)
 endfunction()
 
 # Core solver library - no threading, no RNG (WASM-compatible)
-add_library(solver STATIC solver.cpp)
+add_library(solver STATIC bitboard.cpp game.cpp solver.cpp)
+# Keep the split files compiling as a single translation unit for the solver
+# itself. Separate files give the intended module boundaries, but compiling
+# them together lets the optimizer inline the hot BitBoard and evaluation
+# routines into the search without relying on cross-TU LTO heuristics that
+# measured ~3% slower. The library is still three files on disk.
+set_target_properties(solver PROPERTIES UNITY_BUILD ON)
 
 if(EMSCRIPTEN)
 	# WASM build: solver + Emscripten bindings -> blokie-solver.js + blokie-solver.wasm
@@ -201,15 +207,23 @@ else()
 	target_link_libraries(search-stats PRIVATE solver)
 
 	if(BUILD_TESTING)
-		add_executable(eval-test eval-test.cpp)
+		add_executable(eval-test tests/eval-test.cpp)
 		target_link_libraries(eval-test PRIVATE solver)
 		add_test(NAME evaluation COMMAND eval-test)
 
-		add_executable(search-test search-test.cpp)
+		add_executable(bitboard-test tests/bitboard-test.cpp)
+		target_link_libraries(bitboard-test PRIVATE solver)
+		add_test(NAME bitboard COMMAND bitboard-test)
+
+		add_executable(placement-test tests/placement-test.cpp)
+		target_link_libraries(placement-test PRIVATE solver)
+		add_test(NAME placement COMMAND placement-test)
+
+		add_executable(search-test tests/search-test.cpp)
 		target_link_libraries(search-test PRIVATE solver)
 		add_test(NAME search COMMAND search-test)
 
-		add_executable(probe-test probe-test.cpp)
+		add_executable(probe-test tests/probe-test.cpp)
 		target_link_libraries(probe-test PRIVATE solver Threads::Threads)
 		add_test(NAME probe-equivalence COMMAND probe-test
 			${BLOKIE_PROBE_TEST_PAIRS})
@@ -233,6 +247,8 @@ else()
 	target_enable_native_isa(search-stats)
 	if(BUILD_TESTING)
 		target_enable_native_isa(eval-test)
+		target_enable_native_isa(bitboard-test)
+		target_enable_native_isa(placement-test)
 		target_enable_native_isa(search-test)
 		target_enable_native_isa(probe-test)
 	endif()
