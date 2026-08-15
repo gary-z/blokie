@@ -1,4 +1,4 @@
-#include "solver.h"
+#include "../solver.h"
 #include "test-support.h"
 
 #include <algorithm>
