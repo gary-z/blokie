@@ -312,285 +312,285 @@
     ]
   },
   {
-    "id": "mined-structure-1",
-    "description": "Mined from play: two placements of one piece from one parent, 22 squares. A clears 5.96 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 4092. Both sides reach 8/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "id": "mined-run-1",
+    "description": "Mined from play, then stripped to the 5 squares the mistake needs (it started at 22). Two placements of one piece from one parent. A keeps a run of 3 unbroken where B leaves 2, and A's fullest line reaches 3 against 3. Nothing in the eval scores how near a line is to completing, so the broken version looks no worse. It prefers B by 4092; A clears 0.77 more squares on the next set.",
     "a": [
-      "......###",
-      ".....###.",
-      "#....####",
-      "###..####",
-      "....##...",
-      "....##...",
+      ".........",
+      ".........",
+      "#........",
+      "###......",
+      ".........",
+      "....#....",
       ".........",
       ".........",
       "........."
     ],
     "b": [
-      "......###",
-      ".....###.",
-      ".....####",
-      "..#..####",
-      "....##...",
-      "....##...",
+      ".........",
+      ".........",
+      ".........",
+      "..#......",
+      ".........",
+      "....#....",
       ".........",
       "#........",
       "##......."
     ]
   },
   {
-    "id": "mined-nearline-1",
-    "description": "Mined from play: two placements of one piece from one parent, 21 squares. A clears 5.20 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 29728. A leaves column 2 at 7/9, 2 from a clear, where B's fullest line is cube 1,1 at 5/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "id": "mined-rim-1",
+    "description": "Mined from play, then stripped to the 11 squares the mistake needs (it started at 21). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 6 against B's 3. The eval prefers B by 7565; A clears 0.99 more squares on the next set, counted over every hand.",
     "a": [
-      "###......",
+      ".........",
       "..#......",
       "..#......",
-      "..#.##...",
+      "..#..#...",
       "######...",
       ".........",
-      "......###",
-      ".##......",
-      ".##......"
+      "......#..",
+      ".........",
+      "........."
     ],
     "b": [
-      "###......",
+      ".........",
       "..#......",
       ".........",
-      "....##..#",
+      ".....#..#",
       "...###..#",
       "......###",
-      "......###",
-      ".##......",
-      ".##......"
+      "......#..",
+      ".........",
+      "........."
     ]
   },
   {
-    "id": "mined-structure-2",
-    "description": "Mined from play: two placements of one piece from one parent, 33 squares. A clears 6.38 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 7251. Both sides reach 8/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "id": "mined-rim-2",
+    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 33). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 0. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 9563; A clears 0.26 more squares on the next set, counted over every hand.",
     "a": [
-      "##....###",
-      "#.....#..",
-      "##....#..",
+      ".........",
+      "......#..",
+      "......#..",
       "....###..",
-      "....###..",
-      "...#####.",
-      "......###",
-      "#.....###",
-      "###....##"
+      ".....##..",
+      "....#.#..",
+      ".........",
+      ".........",
+      "........."
     ],
     "b": [
-      "##....###",
-      "#........",
-      "##.......",
       ".........",
-      "....###..",
-      "...#####.",
-      ".....####",
-      "#....####",
-      "######.##"
+      ".........",
+      ".........",
+      ".........",
+      ".....##..",
+      "....#.#..",
+      ".....#...",
+      ".....#...",
+      "...###..."
     ]
   },
   {
-    "id": "mined-nearline-2",
-    "description": "Mined from play: two placements of one piece from one parent, 28 squares. A clears 6.50 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 25672. A leaves row 3 at 8/9, 1 from a clear, where B's fullest line is column 0 at 7/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "id": "mined-rim-3",
+    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 28). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 32960; A clears 0.53 more squares on the next set, counted over every hand.",
     "a": [
-      "#........",
-      "##....###",
-      "###.#.###",
-      "###.#####",
       ".........",
-      "#.....#..",
       ".........",
-      "#....#...",
-      "#..#.#..."
+      "....#.###",
+      "....#####",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
     ],
     "b": [
-      "#........",
-      "##....###",
-      "###....##",
-      "###....##",
       ".........",
-      "#.....#..",
       ".........",
-      "#....##.#",
-      "#..#.####"
-    ]
-  },
-  {
-    "id": "mined-lineprog-1",
-    "description": "Mined from play: two placements of one piece from one parent, 20 squares. A clears 4.99 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 39240. A advances row 6 to 6/9 against B's row 8 at 5/9. Progress toward a clear is not something the eval scores.",
-    "a": [
       ".......##",
-      ".......#.",
-      ".....#.#.",
-      "...###...",
-      ".#.#.#...",
-      ".#.......",
-      "######...",
+      ".......##",
       ".........",
-      "...##...."
+      ".........",
+      ".........",
+      "......#.#",
+      "......###"
+    ]
+  },
+  {
+    "id": "mined-rim-4",
+    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 20). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 32499; A clears 2.21 more squares on the next set, counted over every hand.",
+    "a": [
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".#.......",
+      ".#.......",
+      "#####....",
+      ".........",
+      "........."
     ],
     "b": [
-      ".......##",
-      ".......#.",
-      ".....#.#.",
-      "...###...",
-      "...#.#...",
       ".........",
-      ".#.###...",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".#.##....",
       ".#.......",
-      "#####...."
+      "###......"
     ]
   },
   {
     "id": "mined-shape-1",
-    "description": "Mined from play: two placements of one piece from one parent, 21 squares. A clears 5.24 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 22371. B is nearer a clear (cube 0,1 at 7/9 against A's row 6 at 6/9) and still plays worse. What A keeps is room for the pieces that come next, not a nearly finished line.",
+    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 21). Two placements of one piece from one parent. The two sides are level on edge contact and on longest run, so what separates them is where the squares sit. The eval prefers B by 6931; A clears 0.33 more squares on the next set, counted over every hand.",
     "a": [
-      ".....#...",
+      ".........",
       ".....#...",
       ".....#...",
       ".........",
-      "##.......",
-      "####....#",
-      "####...##",
-      "####....#",
+      ".........",
+      "........#",
+      "#.#....##",
+      "........#",
       "........."
     ],
     "b": [
-      "....##...",
+      "....#....",
       "...###...",
       "....##...",
       ".........",
-      "##.......",
-      "####.....",
-      "####.....",
-      "####.....",
+      ".........",
+      ".........",
+      "#.#......",
+      ".........",
       "........."
     ]
   },
   {
-    "id": "mined-lineprog-2",
-    "description": "Mined from play: two placements of one piece from one parent, 14 squares. A clears 4.63 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 12442. A advances column 5 to 5/9 against B's row 0 at 4/9. Progress toward a clear is not something the eval scores.",
+    "id": "mined-rim-5",
+    "description": "Mined from play, then stripped to the 5 squares the mistake needs (it started at 14). Two placements of one piece from one parent. B puts 4 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 3 against B's 3. The eval prefers B by 37633; A clears 1.06 more squares on the next set, counted over every hand.",
     "a": [
-      ".....####",
-      ".....##..",
-      ".........",
-      "..#..#...",
-      "..#......",
       ".........",
       "......#..",
-      ".....##..",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "......#..",
+      "......#..",
       ".....##.."
     ],
     "b": [
-      ".....####",
-      ".....##..",
       ".........",
-      "..#..#...",
-      "..#......",
+      "......#..",
+      ".........",
+      ".........",
+      ".........",
       ".........",
       "........#",
-      ".....#..#",
+      "........#",
       ".......##"
     ]
   },
   {
-    "id": "mined-nearline-3",
-    "description": "Mined from play: two placements of one piece from one parent, 16 squares. A clears 6.08 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 65348. A leaves row 4 at 8/9, 1 from a clear, where B's fullest line is row 8 at 5/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "id": "mined-rim-6",
+    "description": "Mined from play, then stripped to the 6 squares the mistake needs (it started at 16). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 6 against B's 5. The eval prefers B by 35384; A clears 2.16 more squares on the next set, counted over every hand.",
     "a": [
-      "...#.....",
-      "...#.....",
-      "#....#...",
       ".........",
-      "######.##",
       ".........",
-      "..###...#",
+      ".........",
+      ".........",
+      "######...",
+      ".........",
+      ".........",
       ".........",
       "........."
     ],
     "b": [
-      "...#.....",
-      "...#.....",
-      "#....#...",
       ".........",
-      "#......##",
       ".........",
-      "..###...#",
+      ".........",
+      ".........",
+      "#........",
+      ".........",
+      ".........",
       ".........",
       "#####...."
     ]
   },
   {
-    "id": "mined-nearline-4",
-    "description": "Mined from play: two placements of one piece from one parent, 37 squares. A clears 4.57 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 85081. A leaves row 2 at 8/9, 1 from a clear, where B's fullest line is cube 1,2 at 8/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "id": "mined-rim-7",
+    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 37). Two placements of one piece from one parent. B puts 5 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 5. The eval prefers B by 44214; A clears 0.73 more squares on the next set, counted over every hand.",
     "a": [
-      ".....#...",
       ".........",
-      "#####.###",
-      "####...##",
-      "......###",
-      "...#.####",
-      "##.#.####",
-      "##......#",
-      "##...#..#"
-    ],
-    "b": [
-      "######...",
       ".........",
-      "......###",
-      "####...##",
-      "......###",
-      "...#.####",
-      "##.#.####",
-      "##......#",
-      "##...#..#"
-    ]
-  },
-  {
-    "id": "mined-lineprog-3",
-    "description": "Mined from play: two placements of one piece from one parent, 22 squares. A clears 5.91 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 32722. A advances row 7 to 7/9 against B's cube 2,0 at 6/9. Progress toward a clear is not something the eval scores.",
-    "a": [
-      "......#..",
-      "...##....",
+      "#####....",
+      ".###.....",
       ".........",
-      "#........",
-      "........#",
-      "....#...#",
-      "#....####",
-      "###..####",
-      "##......#"
-    ],
-    "b": [
-      ".....###.",
-      "...#####.",
-      ".........",
-      "#........",
-      "........#",
-      "....#...#",
-      "#.....#.#",
-      "###.....#",
-      "##......#"
-    ]
-  },
-  {
-    "id": "mined-shape-2",
-    "description": "Mined from play: two placements of one piece from one parent, 16 squares. A clears 4.79 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 29517. B is nearer a clear (column 0 at 7/9 against A's row 2 at 6/9) and still plays worse. What A keeps is room for the pieces that come next, not a nearly finished line.",
-    "a": [
-      "#.....#..",
-      "......#..",
-      "###...###",
-      "#..##.###",
-      "#........",
       ".........",
       ".........",
       ".........",
       "........."
     ],
     "b": [
-      "#........",
+      "#####....",
       ".........",
-      "###......",
-      "#..##.###",
+      ".........",
+      ".###.....",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ]
+  },
+  {
+    "id": "mined-rim-8",
+    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 22). Two placements of one piece from one parent. B puts 4 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 4 against B's 3. The eval prefers B by 22194; A clears 0.25 more squares on the next set, counted over every hand.",
+    "a": [
+      "......#..",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      ".....###.",
+      "..#..####",
+      "........."
+    ],
+    "b": [
+      ".....###.",
+      ".....###.",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "......#..",
+      "..#.....#",
+      "........."
+    ]
+  },
+  {
+    "id": "mined-rim-9",
+    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 16). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 3. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 4 against B's 3. The eval prefers B by 49212; A clears 1.09 more squares on the next set, counted over every hand.",
+    "a": [
+      "......#..",
+      "......#..",
+      "#.....###",
+      "....#.#..",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "b": [
+      ".........",
+      ".........",
       "#........",
+      "....#.#..",
+      ".........",
       ".........",
       "#........",
       "#........",
@@ -598,237 +598,237 @@
     ]
   },
   {
-    "id": "mined-cubeprog-1",
-    "description": "Mined from play: two placements of one piece from one parent, 17 squares. A clears 4.05 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 7476. A advances cube 0,2 to 7/9 against B's cube 0,2 at 6/9. Progress toward a clear is not something the eval scores.",
+    "id": "mined-rim-10",
+    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 17). Two placements of one piece from one parent. B puts 4 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 15279; A clears 2.28 more squares on the next set, counted over every hand.",
     "a": [
-      "......###",
-      "...##.##.",
-      "...#..##.",
+      "......#..",
+      "......#..",
+      "......#..",
       "......###",
       "......#..",
-      "..#......",
-      "..#......",
-      "..#......",
+      ".........",
+      ".........",
+      ".........",
       "........."
     ],
     "b": [
-      "......###",
-      "...##.##.",
-      "...#...#.",
+      "......#..",
+      "......#..",
+      ".........",
       "#........",
       "###......",
-      "#.#......",
-      "..#......",
-      "..#......",
+      "#........",
+      ".........",
+      ".........",
       "........."
     ]
   },
   {
-    "id": "mined-shape-3",
-    "description": "Mined from play: two placements of one piece from one parent, 27 squares. A clears 3.94 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 60010. B is nearer a clear (cube 2,2 at 8/9 against A's column 1 at 7/9) and still plays worse. What A keeps is room for the pieces that come next, not a nearly finished line.",
+    "id": "mined-rim-11",
+    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 27). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 4 against B's 3. The eval prefers B by 30157; A clears 1.58 more squares on the next set, counted over every hand.",
     "a": [
-      "##.......",
-      "##.#.....",
-      "##.#.....",
-      "##.......",
-      ".#.....##",
-      ".#....###",
-      "###...###",
-      "......###",
-      "........#"
+      ".........",
+      ".........",
+      ".........",
+      ".#.......",
+      ".#.......",
+      ".#.......",
+      "###....#.",
+      ".........",
+      "........."
     ],
     "b": [
-      "##.......",
-      "##.#.....",
-      "##.#.....",
-      "##.......",
-      ".......##",
-      "......###",
-      ".....####",
-      ".....####",
-      "....###.#"
+      ".........",
+      ".........",
+      ".........",
+      ".#.......",
+      ".........",
+      ".........",
+      ".....#.#.",
+      ".....#...",
+      "....###.."
     ]
   },
   {
-    "id": "mined-structure-3",
-    "description": "Mined from play: two placements of one piece from one parent, 17 squares. A clears 3.56 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 32846. Both sides reach 7/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "id": "mined-run-2",
+    "description": "Mined from play, then stripped to the 6 squares the mistake needs (it started at 17). Two placements of one piece from one parent. A keeps a run of 4 unbroken where B leaves 2, and A's fullest line reaches 4 against 3. Nothing in the eval scores how near a line is to completing, so the broken version looks no worse. It prefers B by 5536; A clears 1.01 more squares on the next set.",
     "a": [
-      ".#....#..",
       "......#..",
       "......#..",
-      "......##.",
+      "......#..",
       "......#..",
       ".........",
-      ".#.##....",
-      "##.##....",
-      "...###..."
+      ".........",
+      ".#.......",
+      "...#.....",
+      "........."
     ],
     "b": [
-      ".#....#..",
+      "......#..",
       "......#..",
       ".........",
-      "......##.",
       "......#..",
       ".........",
-      "##.##....",
-      "##.##....",
-      "...###..."
+      ".........",
+      "##.......",
+      "...#.....",
+      "........."
     ]
   },
   {
-    "id": "mined-structure-4",
-    "description": "Mined from play: two placements of one piece from one parent, 19 squares. A clears 5.80 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 27511. Both sides reach 6/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "id": "mined-shape-2",
+    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 19). Two placements of one piece from one parent. The two sides are level on edge contact and on longest run, so what separates them is where the squares sit. The eval prefers B by 20971; A clears 0.77 more squares on the next set, counted over every hand.",
     "a": [
       ".........",
       ".........",
-      "....#....",
-      "#...##..#",
-      "#........",
-      "#........",
-      "###...###",
-      "##....###",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "###......",
+      "##....#.#",
       "..#......"
     ],
     "b": [
       ".........",
       ".........",
-      "....#....",
-      "#...##..#",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
       "#........",
-      "#........",
-      "#.....###",
-      ".##...###",
+      ".##...#.#",
       "###......"
     ]
   },
   {
-    "id": "mined-nearline-5",
-    "description": "Mined from play: two placements of one piece from one parent, 18 squares. A clears 4.80 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 19995. A leaves row 5 at 8/9, 1 from a clear, where B's fullest line is column 0 at 6/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "id": "mined-rim-12",
+    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 18). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 15954; A clears 1.54 more squares on the next set, counted over every hand.",
     "a": [
-      "...#.....",
       ".........",
       ".........",
-      "#........",
-      "......#.#",
-      "#####.###",
-      "##......#",
-      "#.......#",
-      "........#"
-    ],
-    "b": [
-      "####.....",
-      "#........",
       ".........",
-      "#........",
-      "......#.#",
-      "#...#.###",
-      "#.......#",
-      "#.......#",
-      "........#"
-    ]
-  },
-  {
-    "id": "mined-structure-5",
-    "description": "Mined from play: two placements of one piece from one parent, 27 squares. A clears 5.88 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 18519. Both sides reach 7/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
-    "a": [
-      "#...##...",
-      "#........",
-      "...#.....",
-      ".#...#...",
-      "##......#",
-      "##..#####",
-      "##..#####",
-      "........#",
-      "#.#......"
-    ],
-    "b": [
-      "#...##...",
-      "#........",
-      "...#.....",
-      ".#...#...",
-      "##......#",
-      "##....###",
-      "##..#..##",
-      "......###",
-      "#.#....##"
-    ]
-  },
-  {
-    "id": "mined-nearline-6",
-    "description": "Mined from play: two placements of one piece from one parent, 33 squares. A clears 5.81 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 8449. A leaves row 5 at 8/9, 1 from a clear, where B's fullest line is cube 0,0 at 7/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
-    "a": [
-      "...##....",
+      ".........",
+      ".........",
+      "#####....",
       "##.......",
-      ".....#...",
-      "..#......",
-      "####...##",
-      "####.####",
-      ".#.#.####",
-      ".#.#..###",
-      "#.......#"
+      ".........",
+      "........."
     ],
     "b": [
-      "..###....",
       "###......",
-      "###..#...",
-      ".........",
-      "##.#...##",
-      "...#.####",
-      ".#.#.####",
-      ".#.#..###",
-      "#.......#"
-    ]
-  },
-  {
-    "id": "mined-lineprog-4",
-    "description": "Mined from play: two placements of one piece from one parent, 20 squares. A clears 4.90 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 13955. A advances column 1 to 7/9 against B's cube 2,0 at 6/9. Progress toward a clear is not something the eval scores.",
-    "a": [
-      ".##......",
-      ".........",
-      "....##...",
-      "###.##...",
-      "##.......",
-      ".#..#....",
-      ".##.....#",
-      ".##......",
-      ".##......"
-    ],
-    "b": [
-      ".##....##",
-      "........#",
-      "....##..#",
-      "..#.##...",
       "#........",
-      "....#....",
-      ".##.....#",
-      ".##......",
-      ".##......"
+      ".........",
+      ".........",
+      ".........",
+      "#...#....",
+      "#........",
+      ".........",
+      "........."
     ]
   },
   {
-    "id": "mined-structure-6",
-    "description": "Mined from play: two placements of one piece from one parent, 34 squares. A clears 2.87 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 57038. Both sides reach 8/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "id": "mined-rim-13",
+    "description": "Mined from play, then stripped to the 11 squares the mistake needs (it started at 27). Two placements of one piece from one parent. B puts 5 squares on the board edge against A's 3. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 4. The eval prefers B by 10204; A clears 0.36 more squares on the next set, counted over every hand.",
     "a": [
-      ".##......",
-      "..##.....",
       ".........",
-      "..#####..",
-      ".#####...",
-      ".####....",
-      ".#####..#",
-      ".###....#",
-      "####...##"
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "....####.",
+      "....#####",
+      "........#",
+      "..#......"
     ],
     "b": [
       ".........",
       ".........",
       ".........",
-      "..#####..",
-      ".#####...",
-      ".####....",
-      ".#####..#",
-      ".#####..#",
-      "####.####"
+      ".........",
+      ".........",
+      "......##.",
+      "....#..##",
+      "......###",
+      "..#....##"
+    ]
+  },
+  {
+    "id": "mined-shape-3",
+    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 33). Two placements of one piece from one parent. The two sides are level on edge contact and on longest run, so what separates them is where the squares sit. The eval prefers B by 2311; A clears 0.62 more squares on the next set, counted over every hand.",
+    "a": [
+      ".........",
+      "##.......",
+      ".........",
+      "..#......",
+      "###......",
+      "###......",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "b": [
+      "..#......",
+      "###......",
+      "###......",
+      ".........",
+      "##.......",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ]
+  },
+  {
+    "id": "mined-rim-14",
+    "description": "Mined from play, then stripped to the 6 squares the mistake needs (it started at 20). Two placements of one piece from one parent. B puts 5 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 3 against B's 3. The eval prefers B by 5637; A clears 0.75 more squares on the next set, counted over every hand.",
+    "a": [
+      ".........",
+      ".........",
+      ".........",
+      "###......",
+      "##.......",
+      ".#.......",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "b": [
+      ".......##",
+      "........#",
+      "........#",
+      "..#......",
+      "#........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ]
+  },
+  {
+    "id": "mined-run-3",
+    "description": "Mined from play, then stripped to the 5 squares the mistake needs (it started at 26). Two placements of one piece from one parent. A keeps a run of 5 unbroken where B leaves 4, and A's fullest line reaches 5 against 4. Nothing in the eval scores how near a line is to completing, so the broken version looks no worse. It prefers B by 23643; A clears 0.66 more squares on the next set.",
+    "a": [
+      "..#......",
+      "..#......",
+      "..#......",
+      "..#......",
+      "..#......",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "b": [
+      "..#......",
+      ".........",
+      ".........",
+      ".........",
+      ".........",
+      "...#.....",
+      "...#.....",
+      "...#.....",
+      "...#....."
     ]
   }
 ]

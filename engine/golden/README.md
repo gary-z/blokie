@@ -351,12 +351,53 @@ seeds the screen never saw. Of 2,111 screened candidates, 150 were confirmed
 exhaustively and all 150 held; the twenty kept were chosen for spread across
 occupancy, piece and mechanism rather than for the largest margins.
 
-What the batch says about the eval is more useful than any single pair. The
-margins are large — 2.9 to 6.5 squares per set, against 0.09 to 1.9 for the
-hand-written pairs — and the mechanism repeats: the eval has no term for how
-close a line is to completing, so a board sitting at 8/9 on a row looks no
-better to it than one at 5/9. Every one of the twenty also reverses or fades
-under [the self-consistency check](#does-the-eval-agree-with-itself).
+### Trimming a mined pair to what it is about
+
+A board lifted out of a real game carries twenty or thirty squares, and almost
+none of them are why the eval is wrong. Since the two sides share a parent, the
+shared squares can be peeled off a few at a time and the pair re-measured:
+whatever the contradiction survives without was never part of it. Removing only
+from the shared part keeps both sides level in occupancy and keeps them two
+placements of one piece, so the trimmed pair is still a pair.
+
+**Trim against the window, not against the next set.** Trimming to preserve the
+one-move clearing count is much cheaper and it does not work: of twenty pairs
+minimised that way, eight stopped holding once played out — three reversed
+outright and five went unresolved. The one-move count and "A is still ahead over
+sets 3 to 6" are different claims, and stripping context breaks the second while
+leaving the first intact. Re-run against the window measure, all twenty held.
+
+It is worth what it costs. The pairs came down from 14–37 squares to 5–11, and
+at that size the mistake is visible by eye:
+
+```
+  A (better)      B (what the search plays)
+  .........       .........
+  .........       .........
+  .........       .........
+  .........       .........
+  ######...       #........
+  .........       .........
+  .........       .........
+  .........       .........
+  .........       #####....
+```
+
+Six squares. A builds one row toward a clear; B lays five of them along the
+bottom edge. The eval prefers B by 35,384, and A clears 2.16 more squares on the
+next set.
+
+### What the batch says
+
+More than any pair in it. **Fourteen of the twenty are the same mistake**: B
+pushes squares onto the board rim where A keeps them inside. The board edge is
+not counted as a boundary, so a piece flush against the wall reads as tidier
+than the same piece extending a line inward — which is the mechanism the
+hand-written `2x2-prefer-middle` and `line-prefer-middle` point at, arrived at
+independently and now with fourteen witnesses. Three more turn on a run the eval
+is happy to leave broken, since nothing in it scores how near a line is to
+completing. Twenty of the twenty also reverse or fade under
+[the self-consistency check](#does-the-eval-agree-with-itself).
 
 ## Evaluating an eval change
 
