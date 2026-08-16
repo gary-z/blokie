@@ -1,0 +1,262 @@
+# Golden board pairs
+
+Human-curated pairs of boards that share a parent placement. Each pair says
+**A is better than B** — the engine’s eval (lower is better) should score
+`eval(A) < eval(B)`.
+
+A pair is a **directional indicator**, and only that. It says which of two
+boards is preferable; it says nothing about how much the preference is worth.
+Read [How to use these pairs](#how-to-use-these-pairs) before treating a pass
+rate as evidence about the engine — the corpus is for finding places the eval
+is blind or backwards, not for tuning weights and not as a fitness proxy.
+
+## File
+
+`engine/golden/golden.json` is the source of truth. It is a JSON array,
+parsed by `engine/cpp/golden` and `golden_verify`. Each entry has an `id`,
+a `description`, and two boards `a` (preferred) and `b` as arrays of nine
+9-character strings (one per row, `'.'` empty, `'#'` occupied).
+
+```json
+[
+  {
+    "id": "keep-center-open",
+    "description": "Keeping the centre 3x3 free leaves more room for 5-bars.",
+    "a": [
+      ".........",
+      ".........",
+      ".........",
+      "...###...",
+      "...#.#...",
+      "...###...",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "b": [
+      ".........",
+      ".........",
+      ".........",
+      "...###...",
+      "...###...",
+      "...###...",
+      ".........",
+      ".........",
+      "........."
+    ]
+  }
+]
+```
+
+Rules:
+
+* Boards are 9 strings of 9 characters. `'.'` = empty, `'#'` = occupied. First string is row 0 (top),
+  first char is column 0 (left). One string per line keeps diffs readable.
+* `a` is the **preferred** board, `b` is the other. The checker enforces
+  `eval(a) < eval(b)`; lower eval is better.
+* `id` should be short, unique, filesystem-safe (used in reports). If omitted
+  the pair becomes `pair_1`, `pair_2`, …
+* `description` is free-form human reasoning for why `a` is better.
+* Pairs are assumed to be siblings — two placements of the same piece from the
+  same parent — so a pair can encode “don’t put the 3-bar here”. Nothing checks
+  that assumption: `golden` only enforces `eval(a) < eval(b)`, and a pair whose
+  boards could not have come from one parent still scores. Equal occupancy on
+  the two sides, below, is the part that is worth keeping honest.
+* Boards should already be *cleared*: no full row, column, or 3×3 cube remains.
+  (A full line is cleared the instant it is made.)
+* Keep boards visually scannable. Prefer `.` and `#`. The JSON file itself
+  is the spec — no separate comment syntax to break.
+
+* **Both boards should hold the same number of squares.** True siblings give
+  this for free, and it is what makes the validation below work: dealt the same
+  pieces, the board left holding fewer squares is exactly the board that
+  cleared more, with the eval never entering the comparison.
+
+The old `golden.txt` arrow format (`A` then `>` then `B` with `#` comments)
+is still parsed for backwards compatibility, but `golden.json` is canonical.
+
+## How to use these pairs
+
+### What a pair can tell you
+
+* **Which side is better, directionally.** And it can be checked: for any
+  board, every triple the game can deal — all 47³ = 103,823 — can be enumerated
+  and played by the real search, giving the expected squares cleared by the
+  next set exactly, with no sampling error, in seconds.
+* **That the eval has a sign backwards.** `diversify-diags` is the live
+  example: the eval prefers B, and the game clears 0.331 squares per set more
+  from A.
+* **That a distinction is missing entirely.** On `diversify-and-set-up-combo`
+  the two boards produce identical values for all thirteen features, and none
+  of 20,000 random weight vectors separates them. The cause is structural — the
+  eval is exactly transpose-invariant, so orientation is not a concept it has.
+  That pair cannot be fixed by tuning. It is a request for a feature.
+
+### What a pair cannot tell you
+
+* **How to set a weight.** Zeroing each weight in turn and quadrupling three
+  gives engines whose mean game length runs from 4,270 to 58,726 moves. Sixteen
+  of those seventeen evals scored *identically* on a corpus, and the one that
+  scored better played 4.4× worse. Rank correlation between pass rate and mean
+  length came out at −0.31. A pass rate is not a fitness proxy; use `fitness`
+  and [`../../docs/evaluating-changes.md`](../../docs/evaluating-changes.md).
+* **How much the preference is worth.** A pair is ordinal. For sparse boards
+  the entire difference is worth about 0.03% of a game.
+* **Anything, if validated by survival or score.** Two boards two squares apart
+  diverge to full independence within ~25 moves, and that window holds about
+  3×10⁻⁴ expected deaths. There is no horizon at which playing them out works.
+
+### Validating a new pair
+
+The check that works is a short paired rollout from both boards on the **same
+piece stream**, reading **squares cleared** rather than the eval:
+
+1. **Equal occupancy on both sides**, and no full row, column or cube. The
+   editor enforces both.
+2. **Compute the exhaustive next-set numbers** — expected squares cleared, and
+   `P(no fit)`, over all 103,823 triples. Exact, about seven seconds a board.
+3. **If `P(no fit)` > 0 the board can die, and deaths are the measure.**
+   Otherwise roll forward N = 1..8 with common random numbers and read clears.
+4. **Accept if A leads somewhere in N = 2..6.** Not N = 1: a pair that sets up
+   a combo declines a clear now to take a bigger one later, and
+   `combo-potential-1` does exactly that — behind by 0.258 squares at one move,
+   ahead from three moves on. Above N ≈ 8 the signal decays as the boards mix.
+5. **Drop or flip a pair that loses at every N.** `clearing-planning-1` was
+   removed this way: B won on the exhaustive measure, on clears at every N, and
+   on the eval.
+6. **Never condition a death away.** Count deaths across all trials, not only
+   the ones a side survived — dropping them is what makes a board that wins by
+   dying look good. A side that scores better *and* dies more is contradictory,
+   not passing.
+
+Which measure to trust depends on how full the boards are:
+
+| occupied squares | what happens there | measure |
+|---|---|---|
+| 2–20 | `P(no fit)` = 0; death is unreachable in the window | squares cleared |
+| 23–35 | risk becomes measurable, 32× baseline by 24 squares | clears **and** deaths |
+| 36–44 | 1,000× baseline; 17% chance of dying within 4 moves | `P(no fit)`, exhaustively |
+
+Every pair in the file today sits in the first row, so `P(no fit)` is 0.00000
+on all sixteen boards and no death signal exists to find.
+
+### Reading the eval after N moves
+
+Tempting, and half-trustworthy. Rolling forward and reading the eval has far
+more signal than reading clears — but it is circular, and measurably so: on an
+earlier placeholder corpus the rollout verdict agreed with the static verdict
+twelve times out of twelve, because it mostly carries the starting difference
+forward. Trust it in two cases only, where circularity cannot be the
+explanation:
+
+* the static difference is **zero**, so there is nothing to carry forward;
+* the rollout **contradicts** the static eval.
+
+Everywhere else, squares cleared is the verdict and the eval is commentary.
+
+## Tools
+
+Built from `engine/cpp/CMakeLists.txt`:
+
+```bash
+# after cmake configure
+make golden golden_verify -j
+./golden               # check eval vs human, quick
+./golden --verbose     # show evals + boards
+./golden --json        # machine-readable
+./golden --strict      # exit 1 if any pair fails (CI)
+
+# verify intuition vs simulation (common random numbers, 50 rollouts each)
+./golden_verify
+./golden_verify --trials 500 --horizon 5000 --threads 8
+./golden_verify --probe 2000          # immediate triple-fit risk only, fast
+./golden_verify --file engine/golden/golden.json --verbose
+```
+
+`golden_verify` reports three agreements:
+
+* **Human vs Eval** — does the eval score the human’s preferred board lower?
+* **Human vs Sim** — does a Monte-Carlo playout from A survive longer on average?
+* **Human vs Probe** — does a random triple sampled at the start position die
+  less often from A?
+
+If Human vs Sim disagrees, the intuition may be wrong, narrow, or too
+short-horizon. If Eval vs Sim disagrees, the eval features are likely
+narrow. The probe column is the cheapest longer-term proxy; the full playout
+(`--horizon` sets) is the authority.
+
+## Editor
+
+`engine/golden/editor.html` draws the two boards, and scores them with the
+same WASM the game plays with — `engine/wasm/blokie-solver.js`, whose
+`evaluate()` is `GameState::simpleEval` under the default weights. That is the
+number `golden.cpp` compares, so a pair marked PASS in the editor passes
+`./golden` without a build:
+
+* Each board's eval sits in its header, and the pair gets `EVAL PASS` /
+  `EVAL FAIL` as you draw.
+* Every pair in the corpus carries the same badge, with a count of how many
+  pass at the top of the list.
+* A board holding a full row, column or cube gets no verdict. The game clears a
+  line the instant it is made, so that board is not a position the game can be
+  in and its eval does not describe anything.
+
+It needs to be served over http — both the fetch of `./golden.json` and the
+import of the solver are blocked under `file://`:
+
+```bash
+python3 -m http.server 8000    # from the repo root
+# open http://localhost:8000/engine/golden/editor.html
+```
+
+## Adding a pair
+
+1. Pick a parent board and a piece, place it two ways, clear lines, and copy
+   the two resulting boards as 9×9 blocks. The boards differ by exactly that
+   piece’s placement (plus any lines it cleared).
+2. Decide which resulting board you’d rather play from.
+3. Append to `golden.json` (one string per row, keep the array vertical):
+
+```json
+{
+  "id": "my-new-pair",
+  "description": "One-sentence why a is better.",
+  "a": [
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    "........."
+  ],
+  "b": [
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    ".........",
+    "........."
+  ]
+}
+```
+
+`a` is the board you prefer. Keep each board string exactly 9 chars.
+
+4. Run `./golden` and `./golden_verify --probe 2000` to see where the eval and
+   simulation land. It’s fine if some pairs don’t pass today — the file is the
+   spec, the eval catches up.
+
+## Evaluating an eval change
+
+```bash
+cmake -S engine/cpp -B /tmp/blokie && make -C /tmp/blokie golden -j
+/tmp/blokie/golden --file engine/golden/golden.json
+```
+
+Compare `main` vs your branch to see if a weight or feature moves the needle before paying for a full `fitness` run.

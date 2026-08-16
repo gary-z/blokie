@@ -34,6 +34,9 @@
     "compare:fitness": "node engine/tools/compare-fitness.js",
     "compare:probes": "node engine/tools/compare-probes.js",
     "analyze:probes": "node engine/tools/analyze-probes.js",
-    "analyze:chains": "node engine/tools/analyze-chain-lengths.js"
+    "analyze:chains": "node engine/tools/analyze-chain-lengths.js",
+    "test:golden": "cmake -S engine/cpp -B /tmp/blokie-golden -DCMAKE_BUILD_TYPE=Release >/dev/null && make -C /tmp/blokie-golden golden -j$(nproc 2>/dev/null || echo 4) >/dev/null && /tmp/blokie-golden/golden --file engine/golden/golden.json",
+    "verify:golden": "cmake -S engine/cpp -B /tmp/blokie-golden -DCMAKE_BUILD_TYPE=Release >/dev/null && make -C /tmp/blokie-golden golden_verify -j$(nproc 2>/dev/null || echo 4) >/dev/null && /tmp/blokie-golden/golden_verify --file engine/golden/golden.json --trials 50 --horizon 500",
+    "verify:golden:probe": "cmake -S engine/cpp -B /tmp/blokie-golden -DCMAKE_BUILD_TYPE=Release >/dev/null && make -C /tmp/blokie-golden golden_verify -j$(nproc 2>/dev/null || echo 4) >/dev/null && /tmp/blokie-golden/golden_verify --file engine/golden/golden.json --probe 2000"
   }
 }
