@@ -323,6 +323,82 @@ the repo.
    the eval makes of it. It’s fine if a pair doesn’t pass `golden` today — that
    is the interesting case. It is not fine if `golden_measure` says B.
 
+## Mining pairs from play
+
+Twenty of the pairs here (`mined-*`) were not written by hand. They were found
+by watching the search make a choice and measuring whether it chose well, which
+turns out to be cheap and to produce boards a person would not think to draw.
+
+The shape of it: take a board from a real game, take one piece, enumerate every
+placement of it, and score each resulting board. The search plays the one with
+the lowest eval. If some other placement of the same piece measurably outplays
+it, those two boards are a pair the eval gets backwards — and by construction
+they share a parent, share a piece, and are positions the game can reach.
+
+Three properties come free, and they are the ones hand-written pairs have to be
+careful about. `nextStates` clears as it goes, so no candidate can hold a full
+line. Only equal-occupancy siblings are compared, so "cleared more" is never an
+artefact of one side holding fewer squares. And the sibling relation is real
+rather than assumed.
+
+The one thing to be careful about is selection. Screening thousands of
+candidates on a sampled measure and then reporting that same measure is how you
+manufacture findings that do not reproduce. So screening and reporting use
+different numbers: a shared sample of hands ranks candidates cheaply, then the
+survivors are re-measured over *every* hand the game can deal, which has no
+sampling error to be lucky with, and finally `golden_measure` plays them out on
+seeds the screen never saw. Of 2,111 screened candidates, 150 were confirmed
+exhaustively and all 150 held; the twenty kept were chosen for spread across
+occupancy, piece and mechanism rather than for the largest margins.
+
+### Trimming a mined pair to what it is about
+
+A board lifted out of a real game carries twenty or thirty squares, and almost
+none of them are why the eval is wrong. Since the two sides share a parent, the
+shared squares can be peeled off a few at a time and the pair re-measured:
+whatever the contradiction survives without was never part of it. Removing only
+from the shared part keeps both sides level in occupancy and keeps them two
+placements of one piece, so the trimmed pair is still a pair.
+
+**Trim against the window, not against the next set.** Trimming to preserve the
+one-move clearing count is much cheaper and it does not work: of twenty pairs
+minimised that way, eight stopped holding once played out — three reversed
+outright and five went unresolved. The one-move count and "A is still ahead over
+sets 3 to 6" are different claims, and stripping context breaks the second while
+leaving the first intact. Re-run against the window measure, all twenty held.
+
+It is worth what it costs. The pairs came down from 14–37 squares to 5–11, and
+at that size the mistake is visible by eye:
+
+```
+  A (better)      B (what the search plays)
+  .........       .........
+  .........       .........
+  .........       .........
+  .........       .........
+  ######...       #........
+  .........       .........
+  .........       .........
+  .........       .........
+  .........       #####....
+```
+
+Six squares. A builds one row toward a clear; B lays five of them along the
+bottom edge. The eval prefers B by 35,384, and A clears 2.16 more squares on the
+next set.
+
+### What the batch says
+
+More than any pair in it. **Fourteen of the twenty are the same mistake**: B
+pushes squares onto the board rim where A keeps them inside. The board edge is
+not counted as a boundary, so a piece flush against the wall reads as tidier
+than the same piece extending a line inward — which is the mechanism the
+hand-written `2x2-prefer-middle` and `line-prefer-middle` point at, arrived at
+independently and now with fourteen witnesses. Three more turn on a run the eval
+is happy to leave broken, since nothing in it scores how near a line is to
+completing. Twenty of the twenty also reverse or fade under
+[the self-consistency check](#does-the-eval-agree-with-itself).
+
 ## Evaluating an eval change
 
 ```bash
