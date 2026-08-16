@@ -13,7 +13,7 @@ is blind or backwards, not for tuning weights and not as a fitness proxy.
 ## File
 
 `engine/golden/golden.json` is the source of truth. It is a JSON array,
-parsed by `engine/cpp/golden` and `golden_verify`. Each entry has an `id`,
+parsed by `golden` and `golden_measure`. Each entry has an `id`,
 a `description`, and two boards `a` (preferred) and `b` as arrays of nine
 9-character strings (one per row, `'.'` empty, `'#'` occupied).
 
@@ -168,7 +168,7 @@ Built from `engine/cpp/CMakeLists.txt`:
 
 ```bash
 # after cmake configure
-make golden golden_measure golden_verify -j
+make golden golden_measure -j
 ./golden               # check eval vs human, quick
 ./golden --verbose     # show evals + boards
 ./golden --json        # machine-readable
@@ -179,12 +179,6 @@ make golden golden_measure golden_verify -j
 ./golden_measure
 ./golden_measure --window 5 8       # a pair whose payoff lands later
 ./golden_measure --max-trials 64000 # spend longer on a close one
-
-# verify intuition vs simulation (common random numbers, 50 rollouts each)
-./golden_verify
-./golden_verify --trials 500 --horizon 5000 --threads 8
-./golden_verify --probe 2000          # immediate triple-fit risk only, fast
-./golden_verify --file engine/golden/golden.json --verbose
 ```
 
 `golden_measure` is the one to run on a new pair. It reports, per pair:
@@ -207,17 +201,15 @@ It stops each pair as soon as the answer is clear, so a decisive pair costs a
 thousand rollouts and only a close one costs sixteen thousand. The whole
 eight-pair corpus takes about a minute on 32 cores.
 
-`golden_verify` reports three agreements:
-
-* **Human vs Eval** — does the eval score the human’s preferred board lower?
-* **Human vs Sim** — does a Monte-Carlo playout from A survive longer on average?
-* **Human vs Probe** — does a random triple sampled at the start position die
-  less often from A?
-
-If Human vs Sim disagrees, the intuition may be wrong, narrow, or too
-short-horizon. If Eval vs Sim disagrees, the eval features are likely
-narrow. The probe column is the cheapest longer-term proxy; the full playout
-(`--horizon` sets) is the authority.
+There was a third tool, `golden_verify`, which compared the human against a
+Monte-Carlo playout and against a sampled triple-fit probe. It has been
+removed. Its playout column measured survival from a starting board, which the
+mixing result above says is not measurable at any horizon, and in practice the
+column reported the horizon cap rather than survival — nearly every rollout
+reached the cap, so one unlucky death moved a pair's verdict. Its probe column
+measured `P(no fit)` by sampling, which `golden_measure` now computes exactly
+over every hand, and it scored a 0-vs-0 tie as a disagreement, so on a corpus
+of safe boards it reported 0% agreement no matter what the pairs said.
 
 ## Editor
 
@@ -282,9 +274,9 @@ python3 -m http.server 8000    # from the repo root
 
 `a` is the board you prefer. Keep each board string exactly 9 chars.
 
-4. Run `./golden` and `./golden_verify --probe 2000` to see where the eval and
-   simulation land. It’s fine if some pairs don’t pass today — the file is the
-   spec, the eval catches up.
+4. Run `./golden_measure` to check the pair is real, and `./golden` to see what
+   the eval makes of it. It’s fine if a pair doesn’t pass `golden` today — that
+   is the interesting case. It is not fine if `golden_measure` says B.
 
 ## Evaluating an eval change
 
