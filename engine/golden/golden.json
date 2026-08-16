@@ -310,5 +310,525 @@
       ".........",
       "........."
     ]
+  },
+  {
+    "id": "mined-structure-1",
+    "description": "Mined from play: two placements of one piece from one parent, 22 squares. A clears 5.96 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 4092. Both sides reach 8/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "a": [
+      "......###",
+      ".....###.",
+      "#....####",
+      "###..####",
+      "....##...",
+      "....##...",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "b": [
+      "......###",
+      ".....###.",
+      ".....####",
+      "..#..####",
+      "....##...",
+      "....##...",
+      ".........",
+      "#........",
+      "##......."
+    ]
+  },
+  {
+    "id": "mined-nearline-1",
+    "description": "Mined from play: two placements of one piece from one parent, 21 squares. A clears 5.20 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 29728. A leaves column 2 at 7/9, 2 from a clear, where B's fullest line is cube 1,1 at 5/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "a": [
+      "###......",
+      "..#......",
+      "..#......",
+      "..#.##...",
+      "######...",
+      ".........",
+      "......###",
+      ".##......",
+      ".##......"
+    ],
+    "b": [
+      "###......",
+      "..#......",
+      ".........",
+      "....##..#",
+      "...###..#",
+      "......###",
+      "......###",
+      ".##......",
+      ".##......"
+    ]
+  },
+  {
+    "id": "mined-structure-2",
+    "description": "Mined from play: two placements of one piece from one parent, 33 squares. A clears 6.38 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 7251. Both sides reach 8/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "a": [
+      "##....###",
+      "#.....#..",
+      "##....#..",
+      "....###..",
+      "....###..",
+      "...#####.",
+      "......###",
+      "#.....###",
+      "###....##"
+    ],
+    "b": [
+      "##....###",
+      "#........",
+      "##.......",
+      ".........",
+      "....###..",
+      "...#####.",
+      ".....####",
+      "#....####",
+      "######.##"
+    ]
+  },
+  {
+    "id": "mined-nearline-2",
+    "description": "Mined from play: two placements of one piece from one parent, 28 squares. A clears 6.50 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 25672. A leaves row 3 at 8/9, 1 from a clear, where B's fullest line is column 0 at 7/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "a": [
+      "#........",
+      "##....###",
+      "###.#.###",
+      "###.#####",
+      ".........",
+      "#.....#..",
+      ".........",
+      "#....#...",
+      "#..#.#..."
+    ],
+    "b": [
+      "#........",
+      "##....###",
+      "###....##",
+      "###....##",
+      ".........",
+      "#.....#..",
+      ".........",
+      "#....##.#",
+      "#..#.####"
+    ]
+  },
+  {
+    "id": "mined-lineprog-1",
+    "description": "Mined from play: two placements of one piece from one parent, 20 squares. A clears 4.99 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 39240. A advances row 6 to 6/9 against B's row 8 at 5/9. Progress toward a clear is not something the eval scores.",
+    "a": [
+      ".......##",
+      ".......#.",
+      ".....#.#.",
+      "...###...",
+      ".#.#.#...",
+      ".#.......",
+      "######...",
+      ".........",
+      "...##...."
+    ],
+    "b": [
+      ".......##",
+      ".......#.",
+      ".....#.#.",
+      "...###...",
+      "...#.#...",
+      ".........",
+      ".#.###...",
+      ".#.......",
+      "#####...."
+    ]
+  },
+  {
+    "id": "mined-shape-1",
+    "description": "Mined from play: two placements of one piece from one parent, 21 squares. A clears 5.24 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 22371. B is nearer a clear (cube 0,1 at 7/9 against A's row 6 at 6/9) and still plays worse. What A keeps is room for the pieces that come next, not a nearly finished line.",
+    "a": [
+      ".....#...",
+      ".....#...",
+      ".....#...",
+      ".........",
+      "##.......",
+      "####....#",
+      "####...##",
+      "####....#",
+      "........."
+    ],
+    "b": [
+      "....##...",
+      "...###...",
+      "....##...",
+      ".........",
+      "##.......",
+      "####.....",
+      "####.....",
+      "####.....",
+      "........."
+    ]
+  },
+  {
+    "id": "mined-lineprog-2",
+    "description": "Mined from play: two placements of one piece from one parent, 14 squares. A clears 4.63 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 12442. A advances column 5 to 5/9 against B's row 0 at 4/9. Progress toward a clear is not something the eval scores.",
+    "a": [
+      ".....####",
+      ".....##..",
+      ".........",
+      "..#..#...",
+      "..#......",
+      ".........",
+      "......#..",
+      ".....##..",
+      ".....##.."
+    ],
+    "b": [
+      ".....####",
+      ".....##..",
+      ".........",
+      "..#..#...",
+      "..#......",
+      ".........",
+      "........#",
+      ".....#..#",
+      ".......##"
+    ]
+  },
+  {
+    "id": "mined-nearline-3",
+    "description": "Mined from play: two placements of one piece from one parent, 16 squares. A clears 6.08 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 65348. A leaves row 4 at 8/9, 1 from a clear, where B's fullest line is row 8 at 5/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "a": [
+      "...#.....",
+      "...#.....",
+      "#....#...",
+      ".........",
+      "######.##",
+      ".........",
+      "..###...#",
+      ".........",
+      "........."
+    ],
+    "b": [
+      "...#.....",
+      "...#.....",
+      "#....#...",
+      ".........",
+      "#......##",
+      ".........",
+      "..###...#",
+      ".........",
+      "#####...."
+    ]
+  },
+  {
+    "id": "mined-nearline-4",
+    "description": "Mined from play: two placements of one piece from one parent, 37 squares. A clears 4.57 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 85081. A leaves row 2 at 8/9, 1 from a clear, where B's fullest line is cube 1,2 at 8/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "a": [
+      ".....#...",
+      ".........",
+      "#####.###",
+      "####...##",
+      "......###",
+      "...#.####",
+      "##.#.####",
+      "##......#",
+      "##...#..#"
+    ],
+    "b": [
+      "######...",
+      ".........",
+      "......###",
+      "####...##",
+      "......###",
+      "...#.####",
+      "##.#.####",
+      "##......#",
+      "##...#..#"
+    ]
+  },
+  {
+    "id": "mined-lineprog-3",
+    "description": "Mined from play: two placements of one piece from one parent, 22 squares. A clears 5.91 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 32722. A advances row 7 to 7/9 against B's cube 2,0 at 6/9. Progress toward a clear is not something the eval scores.",
+    "a": [
+      "......#..",
+      "...##....",
+      ".........",
+      "#........",
+      "........#",
+      "....#...#",
+      "#....####",
+      "###..####",
+      "##......#"
+    ],
+    "b": [
+      ".....###.",
+      "...#####.",
+      ".........",
+      "#........",
+      "........#",
+      "....#...#",
+      "#.....#.#",
+      "###.....#",
+      "##......#"
+    ]
+  },
+  {
+    "id": "mined-shape-2",
+    "description": "Mined from play: two placements of one piece from one parent, 16 squares. A clears 4.79 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 29517. B is nearer a clear (column 0 at 7/9 against A's row 2 at 6/9) and still plays worse. What A keeps is room for the pieces that come next, not a nearly finished line.",
+    "a": [
+      "#.....#..",
+      "......#..",
+      "###...###",
+      "#..##.###",
+      "#........",
+      ".........",
+      ".........",
+      ".........",
+      "........."
+    ],
+    "b": [
+      "#........",
+      ".........",
+      "###......",
+      "#..##.###",
+      "#........",
+      ".........",
+      "#........",
+      "#........",
+      "###......"
+    ]
+  },
+  {
+    "id": "mined-cubeprog-1",
+    "description": "Mined from play: two placements of one piece from one parent, 17 squares. A clears 4.05 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 7476. A advances cube 0,2 to 7/9 against B's cube 0,2 at 6/9. Progress toward a clear is not something the eval scores.",
+    "a": [
+      "......###",
+      "...##.##.",
+      "...#..##.",
+      "......###",
+      "......#..",
+      "..#......",
+      "..#......",
+      "..#......",
+      "........."
+    ],
+    "b": [
+      "......###",
+      "...##.##.",
+      "...#...#.",
+      "#........",
+      "###......",
+      "#.#......",
+      "..#......",
+      "..#......",
+      "........."
+    ]
+  },
+  {
+    "id": "mined-shape-3",
+    "description": "Mined from play: two placements of one piece from one parent, 27 squares. A clears 3.94 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 60010. B is nearer a clear (cube 2,2 at 8/9 against A's column 1 at 7/9) and still plays worse. What A keeps is room for the pieces that come next, not a nearly finished line.",
+    "a": [
+      "##.......",
+      "##.#.....",
+      "##.#.....",
+      "##.......",
+      ".#.....##",
+      ".#....###",
+      "###...###",
+      "......###",
+      "........#"
+    ],
+    "b": [
+      "##.......",
+      "##.#.....",
+      "##.#.....",
+      "##.......",
+      ".......##",
+      "......###",
+      ".....####",
+      ".....####",
+      "....###.#"
+    ]
+  },
+  {
+    "id": "mined-structure-3",
+    "description": "Mined from play: two placements of one piece from one parent, 17 squares. A clears 3.56 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 32846. Both sides reach 7/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "a": [
+      ".#....#..",
+      "......#..",
+      "......#..",
+      "......##.",
+      "......#..",
+      ".........",
+      ".#.##....",
+      "##.##....",
+      "...###..."
+    ],
+    "b": [
+      ".#....#..",
+      "......#..",
+      ".........",
+      "......##.",
+      "......#..",
+      ".........",
+      "##.##....",
+      "##.##....",
+      "...###..."
+    ]
+  },
+  {
+    "id": "mined-structure-4",
+    "description": "Mined from play: two placements of one piece from one parent, 19 squares. A clears 5.80 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 27511. Both sides reach 6/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "a": [
+      ".........",
+      ".........",
+      "....#....",
+      "#...##..#",
+      "#........",
+      "#........",
+      "###...###",
+      "##....###",
+      "..#......"
+    ],
+    "b": [
+      ".........",
+      ".........",
+      "....#....",
+      "#...##..#",
+      "#........",
+      "#........",
+      "#.....###",
+      ".##...###",
+      "###......"
+    ]
+  },
+  {
+    "id": "mined-nearline-5",
+    "description": "Mined from play: two placements of one piece from one parent, 18 squares. A clears 4.80 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 19995. A leaves row 5 at 8/9, 1 from a clear, where B's fullest line is column 0 at 6/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "a": [
+      "...#.....",
+      ".........",
+      ".........",
+      "#........",
+      "......#.#",
+      "#####.###",
+      "##......#",
+      "#.......#",
+      "........#"
+    ],
+    "b": [
+      "####.....",
+      "#........",
+      ".........",
+      "#........",
+      "......#.#",
+      "#...#.###",
+      "#.......#",
+      "#.......#",
+      "........#"
+    ]
+  },
+  {
+    "id": "mined-structure-5",
+    "description": "Mined from play: two placements of one piece from one parent, 27 squares. A clears 5.88 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 18519. Both sides reach 7/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "a": [
+      "#...##...",
+      "#........",
+      "...#.....",
+      ".#...#...",
+      "##......#",
+      "##..#####",
+      "##..#####",
+      "........#",
+      "#.#......"
+    ],
+    "b": [
+      "#...##...",
+      "#........",
+      "...#.....",
+      ".#...#...",
+      "##......#",
+      "##....###",
+      "##..#..##",
+      "......###",
+      "#.#....##"
+    ]
+  },
+  {
+    "id": "mined-nearline-6",
+    "description": "Mined from play: two placements of one piece from one parent, 33 squares. A clears 5.81 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 8449. A leaves row 5 at 8/9, 1 from a clear, where B's fullest line is cube 0,0 at 7/9. The eval has no term for how close a line is to completing, so it cannot see this at all.",
+    "a": [
+      "...##....",
+      "##.......",
+      ".....#...",
+      "..#......",
+      "####...##",
+      "####.####",
+      ".#.#.####",
+      ".#.#..###",
+      "#.......#"
+    ],
+    "b": [
+      "..###....",
+      "###......",
+      "###..#...",
+      ".........",
+      "##.#...##",
+      "...#.####",
+      ".#.#.####",
+      ".#.#..###",
+      "#.......#"
+    ]
+  },
+  {
+    "id": "mined-lineprog-4",
+    "description": "Mined from play: two placements of one piece from one parent, 20 squares. A clears 4.90 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 13955. A advances column 1 to 7/9 against B's cube 2,0 at 6/9. Progress toward a clear is not something the eval scores.",
+    "a": [
+      ".##......",
+      ".........",
+      "....##...",
+      "###.##...",
+      "##.......",
+      ".#..#....",
+      ".##.....#",
+      ".##......",
+      ".##......"
+    ],
+    "b": [
+      ".##....##",
+      "........#",
+      "....##..#",
+      "..#.##...",
+      "#........",
+      "....#....",
+      ".##.....#",
+      ".##......",
+      ".##......"
+    ]
+  },
+  {
+    "id": "mined-structure-6",
+    "description": "Mined from play: two placements of one piece from one parent, 34 squares. A clears 2.87 more squares on the next set, counted over every hand the game can deal; the search plays B, preferring it by 57038. Both sides reach 8/9 on their fullest line, so what separates them is where the squares sit rather than how many are down. The eval orders it backwards.",
+    "a": [
+      ".##......",
+      "..##.....",
+      ".........",
+      "..#####..",
+      ".#####...",
+      ".####....",
+      ".#####..#",
+      ".###....#",
+      "####...##"
+    ],
+    "b": [
+      ".........",
+      ".........",
+      ".........",
+      "..#####..",
+      ".#####...",
+      ".####....",
+      ".#####..#",
+      ".#####..#",
+      "####.####"
+    ]
   }
 ]

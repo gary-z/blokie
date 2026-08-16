@@ -323,6 +323,41 @@ the repo.
    the eval makes of it. It’s fine if a pair doesn’t pass `golden` today — that
    is the interesting case. It is not fine if `golden_measure` says B.
 
+## Mining pairs from play
+
+Twenty of the pairs here (`mined-*`) were not written by hand. They were found
+by watching the search make a choice and measuring whether it chose well, which
+turns out to be cheap and to produce boards a person would not think to draw.
+
+The shape of it: take a board from a real game, take one piece, enumerate every
+placement of it, and score each resulting board. The search plays the one with
+the lowest eval. If some other placement of the same piece measurably outplays
+it, those two boards are a pair the eval gets backwards — and by construction
+they share a parent, share a piece, and are positions the game can reach.
+
+Three properties come free, and they are the ones hand-written pairs have to be
+careful about. `nextStates` clears as it goes, so no candidate can hold a full
+line. Only equal-occupancy siblings are compared, so "cleared more" is never an
+artefact of one side holding fewer squares. And the sibling relation is real
+rather than assumed.
+
+The one thing to be careful about is selection. Screening thousands of
+candidates on a sampled measure and then reporting that same measure is how you
+manufacture findings that do not reproduce. So screening and reporting use
+different numbers: a shared sample of hands ranks candidates cheaply, then the
+survivors are re-measured over *every* hand the game can deal, which has no
+sampling error to be lucky with, and finally `golden_measure` plays them out on
+seeds the screen never saw. Of 2,111 screened candidates, 150 were confirmed
+exhaustively and all 150 held; the twenty kept were chosen for spread across
+occupancy, piece and mechanism rather than for the largest margins.
+
+What the batch says about the eval is more useful than any single pair. The
+margins are large — 2.9 to 6.5 squares per set, against 0.09 to 1.9 for the
+hand-written pairs — and the mechanism repeats: the eval has no term for how
+close a line is to completing, so a board sitting at 8/9 on a row looks no
+better to it than one at 5/9. Every one of the twenty also reverses or fades
+under [the self-consistency check](#does-the-eval-agree-with-itself).
+
 ## Evaluating an eval change
 
 ```bash
