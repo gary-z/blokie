@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Golden Editor — local</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../../web/styles.css">
+<style>
+  /* Reuse demo tokens but keep editor independent */
+  body {
+    background: #f6f7f8;
+    color: #1a1a1a;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  #editor-shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 18px 16px 40px;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 8px 0 14px;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  header h1 span {
+    font-weight: 400;
+    color: #6b7280;
+    font-size: 13px;
+    margin-left: 8px;
+    border: 1px solid #d1d5db;
+    padding: 2px 8px;
+    border-radius: 999px;
+    vertical-align: middle;
+  }
+  header .hint {
+    font-size: 13px;
+    color: #6b7280;
+    max-width: 520px;
+    line-height: 1.4;
+  }
+  /* Two boards side by side — mirrors #game-board */
+  #boards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin: 14px 0 16px;
+  }
+  @media (max-width: 820px) {
+    #boards { grid-template-columns: 1fr; }
+  }
+  .board-card {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .board-card h2 {
+    margin: 0 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .board-card h2 span {
+    font-weight: 400;
+    font-size: 12px;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .board-card h2 small {
+    color: #6b7280;
+    font-weight: 400;
+  }
+  table.golden-board {
+    border-collapse: collapse;
+    background: white;
+    outline: 3px solid rgb(180,185,190);
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    table-layout: fixed;
+    user-select: none;
+    touch-action: none;
+  }
+  table.golden-board td {
+    width: 11.111%;
+    height: 11.111%;
+    border: 1px solid rgb(180,185,190);
+    background: white;
+    padding: 0;
+    cursor: pointer;
+  }
+  /* 3x3 cube tint — same as demo */
+  table.golden-board tr:nth-child(-n+3) td:nth-child(n+4):nth-child(-n+6),
+  table.golden-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(-n+3),
+  table.golden-board tr:nth-child(n+4):nth-child(-n+6) td:nth-child(n+7):nth-child(-n+9),
+  table.golden-board tr:nth-child(n+7):nth-child(-n+9) td:nth-child(n+4):nth-child(-n+6) {
+    background: rgb(228,233,238);
+  }
+  table.golden-board td.has-piece {
+    background: rgb(54,112,232) !important;
+    border: 2px solid black;
+  }
+  .board-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .board-actions button, .meta-actions button, .preview-actions button {
+    appearance: none;
+    border: 1px solid #d1d5db;
+    background: white;
+    color: #111827;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .board-actions button:hover, .meta-actions button:hover, .preview-actions button:hover {
+    background: #f3f4f6;
+  }
+  .board-actions button.primary, .meta-actions button.primary {
+    background: rgb(54,112,232);
+    color: white;
+    border-color: rgb(54,112,232);
+  }
+  .board-actions button.primary:hover { background: rgb(42,92,200); }
+  .count { font-size: 12px; color: #6b7280; margin-top: 8px; }
+  #meta {
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 14px;
+    display: grid;
+    gap: 12px;
+  }
+  #meta label { font-size: 13px; font-weight: 600; color: #111827; display: grid; gap: 6px; }
+  #meta input, #meta textarea {
+    font: inherit;
+    font-size: 14px;
+    padding: 9px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #f9fafb;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  #meta textarea { min-height: 72px; resize: vertical; }
+  #meta input:focus, #meta textarea:focus { background: white; border-color: rgb(54,112,232); box-shadow: 0 0 0 3px rgba(54,112,232,0.15); }
+  #meta .row { display: grid; grid-template-columns: 260px 1fr; gap: 12px; }
+  @media (max-width: 820px) { #meta .row { grid-template-columns: 1fr; } }
+  #preview {
+    margin-top: 16px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  #preview header { padding: 12px 14px 0; margin: 0; }
+  #preview header h2 { font-size: 14px; margin: 0; }
+  #preview pre {
+    margin: 10px 14px;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 14px;
+    border-radius: 8px;
+    overflow: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+    max-height: 340px;
+  }
+  .preview-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 0 14px 14px;
+  }
+  .preview-actions .status { font-size: 12px; color: #6b7280; align-self: center; margin-left: 4px; }
+  #finder {
+    margin-top: 18px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 14px;
+  }
+  #finder h2 { margin: 0 0 10px; font-size: 14px; }
+  #finder .search-row { display: flex; gap: 10px; margin-bottom: 12px; }
+  #finder input[type="search"] {
+    flex: 1;
+    font: inherit;
+    font-size: 14px;
+    padding: 9px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #f9fafb;
+  }
+  #finder input[type="search"]:focus { background: white; border-color: rgb(54,112,232); outline: none; box-shadow: 0 0 0 3px rgba(54,112,232,0.15); }
+  #finder .meta { font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+  #existing-list {
+    display: grid;
+    gap: 10px;
+    max-height: 520px;
+    overflow: auto;
+    padding-right: 2px;
+  }
+  .pair-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: start;
+    cursor: pointer;
+  }
+  .pair-card:hover { border-color: #bfc6d1; background: #f9fafb; }
+  .pair-card.active { border-color: rgb(54,112,232); box-shadow: 0 0 0 3px rgba(54,112,232,0.15); }
+  @media (max-width: 760px) { .pair-card { grid-template-columns: 1fr; } }
+  .pair-card h3 { margin: 0 0 4px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .pair-card p { margin: 0; font-size: 12px; color: #4b5563; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pair-card .boards { display: flex; gap: 10px; align-items: flex-start; }
+  .pair-card .delete-btn { margin-left: auto; font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid #fecaca; background: #fff; color: #b42318; cursor: pointer; font-weight: 600; }
+  .pair-card .delete-btn:hover { background: #fef2f2; }
+  .mini-boards { display: flex; gap: 8px; justify-content: center; }
+  .mini-boards table, .pair-card table { border-collapse: collapse; background: white; outline: 2px solid rgb(180,185,190); width: 90px; height: 90px; table-layout: fixed; }
+  .mini-boards td, .pair-card td { border: 1px solid rgb(180,185,190); padding: 0; }
+  .mini-boards td.has-piece, .pair-card td.has-piece { background: rgb(54,112,232) !important; border: 1px solid black; }
+  .mini-boards .label, .pair-card .label { text-align: center; font-size: 10px; font-weight: 700; color: #6b7280; margin-top: 4px; }
+  #validate-msg.error { color: #b42318; }
+  #validate-msg.ok { color: #15803d; }
+  /* Eval verdicts, straight from the WASM the game plays with */
+  .eval-chip {
+    font-variant-numeric: tabular-nums;
+    font-weight: 400;
+    font-size: 12px;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  #eval-verdict { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #eval-verdict .tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+  .tag.pass { color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+  .tag.fail { color: #b42318; background: #fef2f2; border-color: #fecaca; }
+  .tag.unknown { color: #6b7280; background: #f9fafb; border-color: #e5e7eb; }
+  #eval-verdict .detail { font-weight: 400; color: #4b5563; font-variant-numeric: tabular-nums; }
+  .pair-card .tag { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; border: 1px solid transparent; }
+  .pair-card.eval-fail { border-left: 3px solid #fca5a5; }
+  .pair-card .eval-detail { font-size: 11px; color: #6b7280; font-weight: 400; font-variant-numeric: tabular-nums; }
+  .board-card.invalid table.golden-board { outline-color: #ef4444; }
+  .pair-card.invalid { border-color: #fca5a5; background: #fef2f2; }
+  .pair-card table.invalid { outline: 2px solid #ef4444; }
+  .invalid-badge { font-size: 11px; color: #b42318; font-weight: 700; text-align: center; margin-top: 4px; }
+  .board-actions button:disabled, .preview-actions button:disabled { opacity: 0.45; cursor: not-allowed; }
+  kbd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #f3f4f6; border: 1px solid #d1d5db; border-bottom-width: 2px; padding: 1px 6px; border-radius: 6px; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="editor-shell">
+  <header>
+    <h1>Golden Editor <span>local only</span></h1>
+    <div class="hint">Toggle squares on two 9×9 boards. Boards use <kbd>#</kbd> filled / <kbd>.</kbd> empty — same as <code>engine/golden/golden.json</code>. Every pair is scored by the WASM the game plays with, so PASS/FAIL here is what <code>./golden</code> reports.</div>
+  </header>
+
+  <div id="boards">
+    <div class="board-card" id="card-a">
+      <h2>Board A <span>preferred</span> <small class="eval-chip" id="eval-a">eval —</small></h2>
+      <table class="golden-board" id="board-a" aria-label="Board A"></table>
+      <div class="board-actions">
+        <button type="button" data-action="clear" data-board="a">Clear</button>
+        <button type="button" data-action="fill" data-board="a">Fill</button>
+        <button type="button" data-action="copy" data-board="a">Copy → B</button>
+      </div>
+      <div class="count" id="count-a"></div>
+    </div>
+    <div class="board-card" id="card-b">
+      <h2>Board B <span>other</span> <small class="eval-chip" id="eval-b">eval —</small></h2>
+      <table class="golden-board" id="board-b" aria-label="Board B"></table>
+      <div class="board-actions">
+        <button type="button" data-action="clear" data-board="b">Clear</button>
+        <button type="button" data-action="fill" data-board="b">Fill</button>
+        <button type="button" data-action="copy" data-board="b">Copy → A</button>
+      </div>
+      <div class="count" id="count-b"></div>
+    </div>
+  </div>
+
+  <div id="meta">
+    <div class="row">
+      <label>Pair id
+        <input id="pair-id" placeholder="keep-center-open" pattern="[a-z0-9_\-]+" spellcheck="false">
+      </label>
+      <label>Description — why A is better than B
+        <textarea id="pair-desc" placeholder="One sentence: e.g. Keeping centre 3x3 free leaves more room for 5-bars."></textarea>
+      </label>
+    </div>
+    <div id="validate-msg" class="count" style="font-weight:600"></div>
+    <div id="eval-verdict"></div>
+  </div>
+
+  <div id="preview">
+    <div class="preview-actions">
+      <button type="button" class="primary" id="btn-add">Add pair to corpus</button>
+      <button type="button" id="btn-copy-json">Copy entire corpus</button>
+      <button type="button" id="btn-download">Download golden.json</button>
+      <span class="status" id="copy-status"></span>
+    </div>
+  </div>
+
+  <div id="finder">
+    <h2>Existing golden cases</h2>
+    <div class="search-row">
+      <input type="search" id="search" placeholder="Filter by id or description — e.g. centre, squashed, corridor">
+      <button type="button" id="btn-reload">Reload</button>
+    </div>
+    <div class="meta" id="finder-meta">Loading…</div>
+    <div id="existing-list"></div>
+  </div>
+
+  <p style="font-size:12px;color:#6b7280;margin:14px 2px 0">Runs locally only. Serve with <kbd>python3 -m http.server 8000</kbd> from repo root and open <kbd>/blokie/engine/golden/editor.html</kbd>. It reads <code>./golden.json</code> and <code>../wasm/blokie-solver.js</code> — <code>file://</code> blocks both.</p>
+</div>
+
+<script>
+"use strict";
+const N = 9;
+let boardA = Array.from({length: N}, () => Array(N).fill(false));
+let boardB = Array.from({length: N}, () => Array(N).fill(false));
+let drag = null; // {board:'a'|'b', value:boolean}
+
+// === The eval the game actually plays with ===
+//
+// engine/wasm/blokie-solver.js is the same module web/ai-worker.js loads, and
+// its evaluate() is GameState::simpleEval with the default weights -- the same
+// number engine/golden/golden.cpp compares. So a pair marked PASS here passes
+// `./golden` too, without a build.
+
+/** @type {{evaluate: (a:number,b:number,c:number)=>number} | null} */
+let solver = null;
+let solverError = '';
+
+// (r,c) lives in word r/3 at bit (r%3)*9 + c -- the layout engine/js/blokie.js
+// and bindings.cpp agree on.
+function boardToWords(board) {
+  const w = [0, 0, 0];
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    if (board[r][c]) w[(r / 3) | 0] |= 1 << ((r % 3) * 9 + c);
+  }
+  return w;
+}
+function evalBoard(board) {
+  if (!solver) return null;
+  const [a, b, c] = boardToWords(board);
+  return solver.evaluate(a, b, c);
+}
+function evalRows(rows) {
+  if (!solver || hasFullLineRows(rows)) return null;
+  return evalBoard(rowsToBoard(rows));
+}
+/** PASS when eval(A) < eval(B) -- lower is better. null when either side is unscorable. */
+function verdictFor(evalA, evalB) {
+  if (evalA === null || evalB === null) return null;
+  return evalA < evalB;
+}
+async function loadSolver() {
+  try {
+    const mod = await import('../wasm/blokie-solver.js');
+    solver = await mod.default();
+  } catch (e) {
+    solverError = e && e.message ? e.message : String(e);
+  }
+  updateEvalVerdict();
+  if(allPairs.length) renderFinder();
+}
+
+function makeBoard(table, board) {
+  table.replaceChildren();
+  for (let r=0;r<N;r++) {
+    const tr = document.createElement('tr');
+    for (let c=0;c<N;c++) {
+      const td = document.createElement('td');
+      td.dataset.r = String(r);
+      td.dataset.c = String(c);
+      if (board[r][c]) td.classList.add('has-piece');
+      td.addEventListener('pointerdown', (e) => onPointerDown(e, table, td));
+      td.addEventListener('pointerenter', (e) => onPointerEnter(e, table, td));
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+}
+function renderBoard(table, board) {
+  // fast sync classes
+  const tds = table.querySelectorAll('td');
+  let i=0;
+  for (let r=0;r<N;r++) for(let c=0;c<N;c++) {
+    const td = tds[i++];
+    td.classList.toggle('has-piece', !!board[r][c]);
+  }
+}
+function onPointerDown(e, table, td) {
+  e.preventDefault();
+  const board = table.id === 'board-a' ? boardA : boardB;
+  const r = +td.dataset.r, c = +td.dataset.c;
+  const next = !board[r][c];
+  board[r][c] = next;
+  drag = { board: table.id === 'board-a' ? 'a' : 'b', value: next };
+  renderBoard(table, board);
+  updateCounts(); updatePreview(); liveValidation();
+  if (td.setPointerCapture) try{ td.setPointerCapture(e.pointerId);}catch{}
+}
+function onPointerEnter(e, table, td) {
+  if (!drag) return;
+  const isA = table.id === 'board-a';
+  if ((drag.board==='a')!==isA) return;
+  if (e.buttons===0 && e.pressure===0) return;
+  const board = isA ? boardA : boardB;
+  const r = +td.dataset.r, c = +td.dataset.c;
+  if (board[r][c] !== drag.value) {
+    board[r][c] = drag.value;
+    renderBoard(table, board);
+    updateCounts(); updatePreview(); liveValidation();
+  }
+}
+window.addEventListener('pointerup', ()=> drag=null);
+window.addEventListener('pointercancel', ()=> drag=null);
+
+function boardToRows(board) {
+  return board.map(row => row.map(v=> v ? '#' : '.').join(''));
+}
+function rowsToBoard(rows) {
+  return rows.map(s => [...s].map(ch => ch==='#'));
+}
+function updateCounts() {
+  const ca = boardA.flat().filter(Boolean).length;
+  const cb = boardB.flat().filter(Boolean).length;
+  document.getElementById('count-a').textContent = `${ca} filled • ${81-ca} empty`;
+  document.getElementById('count-b').textContent = `${cb} filled • ${81-cb} empty`;
+}
+let editingId = null;
+
+function currentPair() {
+  const id = document.getElementById('pair-id').value.trim() || 'my-new-pair';
+  const desc = document.getElementById('pair-desc').value.trim() || 'One-sentence why A is better.';
+  return { id, description: desc, a: boardToRows(boardA), b: boardToRows(boardB) };
+}
+function updatePreview() {
+  // no visible preview — copy/download work on entire corpus
+}
+function getCorpus() {
+  const cur = currentPair();
+  const corpus = allPairs.map(p => ({...p, a: [...p.a], b: [...p.b]}));
+  const hasContent = cur.id !== 'my-new-pair' || cur.description !== 'One-sentence why A is better.' || boardA.flat().some(Boolean) || boardB.flat().some(Boolean);
+  if (!hasContent && !editingId) return corpus;
+  let idx = -1;
+  if (editingId) idx = corpus.findIndex(p => p.id === editingId);
+  let curIdx = corpus.findIndex(p => p.id === cur.id);
+  if (idx !== -1) {
+    if (cur.id === editingId) {
+      corpus[idx] = cur;
+      if (curIdx !== -1 && curIdx !== idx) corpus.splice(curIdx > idx ? curIdx : curIdx, 1);
+    } else {
+      // new id while editing existing — add as new, keep original
+      if (curIdx !== -1) corpus[curIdx] = cur;
+      else corpus.push(cur);
+    }
+  } else if (curIdx !== -1) {
+    corpus[curIdx] = cur;
+  } else {
+    if (hasContent) corpus.push(cur);
+  }
+  return corpus;
+}
+function setBoards(aRows,bRows) {
+  boardA = rowsToBoard(aRows);
+  boardB = rowsToBoard(bRows);
+  renderBoard(document.getElementById('board-a'), boardA);
+  renderBoard(document.getElementById('board-b'), boardB);
+  updateCounts(); liveValidation();
+}
+function setBoardsAndEdit(aRows,bRows,id,desc) {
+  editingId = id;
+  document.getElementById('pair-id').value = id;
+  document.getElementById('pair-desc').value = desc || '';
+  setBoards(aRows,bRows);
+}
+function clearBoard(board) { for(let r=0;r<N;r++) for(let c=0;c<N;c++) board[r][c]=false; }
+function fillBoard(board) { for(let r=0;r<N;r++) for(let c=0;c<N;c++) board[r][c]=true; }
+function hasFullLine(board){
+  for(let i=0;i<N;i++){
+    if (board[i].every(v=>v)) return `row ${i}`;
+    if (board.every(row=>row[i])) return `col ${i}`;
+  }
+  for(let br=0;br<3;br++) for(let bc=0;bc<3;bc++){
+    let full=true;
+    for(let dr=0;dr<3;dr++) for(let dc=0;dc<3;dc++) if(!board[br*3+dr][bc*3+dc]) full=false;
+    if(full) return `cube ${br},${bc}`;
+  }
+  return null;
+}
+function hasFullLineRows(rows){
+  // rows: string[] 9x9 '.'/'#'
+  if(!Array.isArray(rows)||rows.length!==9) return 'bad size';
+  for(const s of rows) if(typeof s!=='string'||s.length!==9||/[^.#]/.test(s)) return 'bad chars';
+  return hasFullLine(rowsToBoard(rows));
+}
+function liveValidation(){
+  updateEvalVerdict();
+  const fa = hasFullLine(boardA), fb = hasFullLine(boardB);
+  const msg = document.getElementById('validate-msg');
+  const addBtn = document.getElementById('btn-add');
+  const ca = document.getElementById('card-a'), cb = document.getElementById('card-b');
+  if (fa||fb){
+    const parts=[]; if(fa) parts.push(`A:${fa}`); if(fb) parts.push(`B:${fb}`);
+    msg.textContent = `⚠ Invalid — full ${parts.join(' ')} — game would have cleared it. Fix before adding.`;
+    msg.className = 'count error';
+    msg.style.color = '#b42318';
+    if(addBtn){ addBtn.disabled = true; addBtn.style.opacity='0.45'; addBtn.style.cursor='not-allowed'; addBtn.title='Fix full line before adding'; }
+    if(ca) ca.classList.toggle('invalid', !!fa);
+    if(cb) cb.classList.toggle('invalid', !!fb);
+    return false;
+  } else {
+    msg.textContent = `✓ 9×9, '.'/'#' only, no full line.`;
+    msg.className = 'count ok';
+    msg.style.color = '#15803d';
+    if(addBtn){ addBtn.disabled = false; addBtn.style.opacity=''; addBtn.style.cursor=''; addBtn.title=''; }
+    if(ca) ca.classList.remove('invalid');
+    if(cb) cb.classList.remove('invalid');
+    return true;
+  }
+}
+
+function updateEvalVerdict(){
+  const chipA = document.getElementById('eval-a');
+  const chipB = document.getElementById('eval-b');
+  const out = document.getElementById('eval-verdict');
+  out.replaceChildren();
+  if(!solver){
+    chipA.textContent = 'eval —';
+    chipB.textContent = 'eval —';
+    const tag = Object.assign(document.createElement('span'), {className:'tag unknown', textContent: solverError ? 'NO ENGINE' : 'LOADING'});
+    const detail = Object.assign(document.createElement('span'), {className:'detail',
+      textContent: solverError ? `Could not load ../wasm/blokie-solver.js — ${solverError}` : 'Loading the WASM eval…'});
+    out.append(tag, detail);
+    return;
+  }
+  const full = !!(hasFullLine(boardA) || hasFullLine(boardB));
+  const ea = full ? null : evalBoard(boardA);
+  const eb = full ? null : evalBoard(boardB);
+  chipA.textContent = ea === null ? 'eval —' : `eval ${ea.toLocaleString()}`;
+  chipB.textContent = eb === null ? 'eval —' : `eval ${eb.toLocaleString()}`;
+  const pass = verdictFor(ea, eb);
+  const say = (cls, tag, detail) => out.append(
+    Object.assign(document.createElement('span'), {className:`tag ${cls}`, textContent: tag}),
+    Object.assign(document.createElement('span'), {className:'detail', textContent: detail}));
+  if(pass === null){
+    say('unknown', 'NO VERDICT', 'A board with a full line is not a position the game can be in, so its eval means nothing.');
+  } else if(boardToRows(boardA).join() === boardToRows(boardB).join()){
+    say('unknown', 'NO VERDICT', `Both boards are the same position — eval ${ea.toLocaleString()}.`);
+  } else if(ea === eb){
+    say('fail', 'EVAL TIE', `Both score ${ea.toLocaleString()} — the eval cannot tell these apart, and a pair needs A strictly lower.`);
+  } else {
+    say(pass ? 'pass' : 'fail', pass ? 'EVAL PASS' : 'EVAL FAIL',
+      `A ${ea.toLocaleString()} ${pass ? '<' : '>'} B ${eb.toLocaleString()} — delta ${(eb - ea).toLocaleString()}${pass ? '' : ' (the eval prefers B)'}`);
+  }
+}
+
+document.querySelectorAll('.board-actions button[data-action]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const act = btn.dataset.action, which = btn.dataset.board;
+    const board = which==='a' ? boardA : boardB;
+    const other = which==='a' ? boardB : boardA;
+    const table = document.getElementById(which==='a'?'board-a':'board-b');
+    const otherTable = document.getElementById(which==='a'?'board-b':'board-a');
+    if (act==='clear') clearBoard(board);
+    if (act==='fill') fillBoard(board);
+    if (act==='copy') { for(let r=0;r<N;r++) for(let c=0;c<N;c++) other[r][c]=board[r][c]; renderBoard(otherTable, other); }
+    renderBoard(table, board);
+    updateCounts(); liveValidation();
+  });
+});
+
+document.getElementById('btn-add').addEventListener('click', ()=>{
+  if(!liveValidation()){
+    document.getElementById('copy-status').textContent='⚠ Fix invalid board — full row/col/cube would have been cleared. Remove the full line before adding.';
+    document.getElementById('copy-status').style.color='#b42318';
+    setTimeout(()=>{ document.getElementById('copy-status').textContent=''; document.getElementById('copy-status').style.color=''; }, 4000);
+    return;
+  }
+  const cur = currentPair();
+  const hasContent = cur.id !== 'my-new-pair' || cur.description !== 'One-sentence why A is better.' || boardA.flat().some(Boolean) || boardB.flat().some(Boolean);
+  if (!hasContent) {
+    document.getElementById('copy-status').textContent='Set id, description or place some squares first.';
+    setTimeout(()=> document.getElementById('copy-status').textContent='', 3000);
+    return;
+  }
+  const before = allPairs.length;
+  const corpus = getCorpus();
+  allPairs = corpus;
+  editingId = cur.id;
+  renderFinder();
+  // highlight the just-added pair (now at top because list is reversed) and scroll it into view
+  try{
+    const cards = [...document.querySelectorAll('#existing-list .pair-card')];
+    const hit = cards.find(c => (c.querySelector('h3')?.firstChild?.textContent||'').trim() === cur.id);
+    if(hit){
+      document.querySelectorAll('.pair-card').forEach(x=>x.classList.remove('active'));
+      hit.classList.add('active');
+      hit.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+    document.getElementById('existing-list').scrollTop = 0;
+  }catch{}
+  const action = corpus.length > before ? 'Added' : 'Updated';
+  document.getElementById('copy-status').textContent=`${action} ${cur.id} — corpus now ${corpus.length} pairs (shown at top); clear boards for next or keep editing.`;
+  setTimeout(()=> document.getElementById('copy-status').textContent='', 4000);
+});
+
+document.getElementById('btn-copy-json').addEventListener('click', async ()=>{
+  const valid = liveValidation();
+  const corpus = valid ? getCorpus() : [...allPairs];
+  if(!valid){
+    document.getElementById('copy-status').textContent=`Current boards invalid — copied existing corpus (${corpus.length} pairs) without invalid current. Fix before adding.`;
+    document.getElementById('copy-status').style.color='#b42318';
+  }
+  allPairs = corpus;
+  if(valid) editingId = currentPair().id;
+  renderFinder();
+  const txt = JSON.stringify(corpus, null, 2);
+  try{
+    await navigator.clipboard.writeText(txt);
+    if(valid) document.getElementById('copy-status').textContent=`Copied entire corpus (${corpus.length} pairs) — paste to engine/golden/golden.json (overwrites)`;
+    else { /* keep invalid warning, just schedule color reset */ setTimeout(()=>{ document.getElementById('copy-status').style.color=''; },4000); }
+  }
+  catch{
+    const ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    if(valid) document.getElementById('copy-status').textContent='Copied entire corpus (fallback).';
+    else document.getElementById('copy-status').textContent=`Current boards invalid — copied existing corpus (${corpus.length} pairs) without invalid current. (fallback)`;
+  }
+  if(valid) setTimeout(()=> document.getElementById('copy-status').textContent='', 4000);
+  else setTimeout(()=>{ document.getElementById('copy-status').textContent=''; document.getElementById('copy-status').style.color=''; }, 4000);
+});
+
+document.getElementById('btn-download').addEventListener('click', async ()=>{
+  const valid = liveValidation();
+  const corpus = valid ? getCorpus() : [...allPairs];
+  if(!valid){
+    document.getElementById('copy-status').textContent=`Current boards invalid — downloaded existing corpus (${corpus.length} pairs) without invalid current.`;
+    document.getElementById('copy-status').style.color='#b42318';
+  }
+  allPairs = corpus;
+  if(valid) editingId = currentPair().id;
+  renderFinder();
+  const blob = new Blob([JSON.stringify(corpus,null,2)+"\n"], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='golden.json'; a.click();
+  URL.revokeObjectURL(url);
+  if(valid) document.getElementById('copy-status').textContent=`Downloaded golden.json (${corpus.length} pairs) — replace engine/golden/golden.json locally. Overwrites entire file.`;
+  setTimeout(()=>{ document.getElementById('copy-status').textContent=''; document.getElementById('copy-status').style.color=''; }, 5000);
+});
+
+// Finder
+let allPairs = [];
+async function loadGolden(){
+  const meta = document.getElementById('finder-meta');
+  try{
+    const r = await fetch('./golden.json', {cache:'no-store'});
+    if(!r.ok) throw new Error(r.statusText);
+    allPairs = await r.json();
+    meta.textContent = `${allPairs.length} pairs in golden.json — click to load, Delete removes via override`;
+    renderFinder();
+  }catch(e){
+    meta.textContent = `Could not fetch ./golden.json — serve via http (file:// blocks fetch): ${e.message}`;
+  }
+}
+function miniBoard(rows){
+  const table=document.createElement('table');
+  for(let r=0;r<N;r++){
+    const tr=document.createElement('tr');
+    for(let c=0;c<N;c++){
+      const td=document.createElement('td');
+      if(rows[r][c]==='#') td.classList.add('has-piece');
+      tr.appendChild(td);
+    }
+    table.appendChild(tr);
+  }
+  return table;
+}
+function renderFinder(){
+  const list=document.getElementById('existing-list');
+  const q=(document.getElementById('search').value||'').toLowerCase();
+  list.replaceChildren();
+  const filtered = allPairs.filter(p=>{
+    if(!q) return true;
+    return p.id.toLowerCase().includes(q) || (p.description||'').toLowerCase().includes(q);
+  });
+  // show in reverse file order so newest (appended) appears at top
+  const toRender = [...filtered].reverse();
+  let passCount = 0, scored = 0;
+  for(const p of allPairs){
+    const v = verdictFor(evalRows(p.a), evalRows(p.b));
+    if(v === null) continue;
+    ++scored;
+    if(v) ++passCount;
+  }
+  let summary = `${filtered.length} / ${allPairs.length} shown` + (q? ` for "${q}"` : '');
+  if(solver){
+    summary += ` — ${passCount} / ${scored} pass the current eval`;
+    const unscorable = allPairs.length - scored;
+    if(unscorable) summary += `, ${unscorable} unscorable (full line)`;
+  } else if(solverError) summary += ' — eval unavailable';
+  document.getElementById('finder-meta').textContent = summary;
+  for(const p of toRender){
+    const invA = hasFullLineRows(p.a), invB = hasFullLineRows(p.b);
+    const isInvalid = !!(invA||invB);
+    const evalA = evalRows(p.a), evalB = evalRows(p.b);
+    const pass = verdictFor(evalA, evalB);
+    const card=document.createElement('div'); card.className='pair-card' + (isInvalid?' invalid':'') + (pass===false?' eval-fail':'');
+    card.tabIndex=0;
+    card.addEventListener('click', ()=>{
+      setBoardsAndEdit(p.a,p.b,p.id,p.description||'');
+      document.querySelectorAll('.pair-card').forEach(x=>x.classList.remove('active'));
+      card.classList.add('active');
+      window.scrollTo({top:0, behavior:'smooth'});
+    });
+    const info=document.createElement('div');
+    const h=document.createElement('h3'); h.textContent=p.id;
+    if(isInvalid){
+      const badge=document.createElement('span');
+      badge.textContent='⚠ invalid';
+      badge.title=[invA?`A: ${invA}`:'', invB?`B: ${invB}`:''].filter(Boolean).join(' · ');
+      badge.style.cssText='font-size:11px;font-weight:700;color:#b42318;border:1px solid #fecaca;background:#fef2f2;padding:1px 6px;border-radius:999px;';
+      h.append(badge);
+    }
+    if(pass !== null){
+      const tag=document.createElement('span');
+      tag.className = `tag ${pass?'pass':'fail'}`;
+      tag.textContent = pass ? 'PASS' : (evalA === evalB ? 'TIE' : 'FAIL');
+      tag.title = `eval A ${evalA} vs B ${evalB} — ${pass ? 'A is lower, as the pair claims' : (evalA === evalB ? 'the eval cannot tell them apart' : 'the eval prefers B')}`;
+      const nums=document.createElement('span');
+      nums.className='eval-detail';
+      nums.textContent = `${evalA.toLocaleString()} / ${evalB.toLocaleString()} · Δ ${(evalB-evalA).toLocaleString()}`;
+      h.append(tag, nums);
+    }
+    const del=document.createElement('button'); del.textContent='Delete'; del.className='delete-btn'; del.type='button';
+    del.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      if (!confirm(`Delete "${p.id}"? This removes it from the corpus — copy/download will then override the entire file without it.`)) return;
+      allPairs = allPairs.filter(x => x.id !== p.id);
+      if (editingId === p.id) editingId = null;
+      renderFinder();
+      document.getElementById('copy-status').textContent=`Deleted ${p.id} — corpus now ${allPairs.length} pairs; copy/download will override entire file.`;
+      setTimeout(()=> document.getElementById('copy-status').textContent='', 4000);
+    });
+    h.append(del);
+    const desc=document.createElement('p'); desc.textContent=p.description||'';
+    info.append(h,desc);
+    const tableA=miniBoard(p.a); if(invA) tableA.classList.add('invalid');
+    const tableB=miniBoard(p.b); if(invB) tableB.classList.add('invalid');
+    const wrapA=document.createElement('div');
+    wrapA.append(tableA, Object.assign(document.createElement('div'),{className:'label',textContent:'A preferred'}));
+    if(invA){ const bad=document.createElement('div'); bad.className='invalid-badge'; bad.textContent=`⚠ ${invA}`; wrapA.append(bad); }
+    const wrapB=document.createElement('div');
+    wrapB.append(tableB, Object.assign(document.createElement('div'),{className:'label',textContent:'B other'}));
+    if(invB){ const bad=document.createElement('div'); bad.className='invalid-badge'; bad.textContent=`⚠ ${invB}`; wrapB.append(bad); }
+    const boards=document.createElement('div'); boards.className='boards'; boards.append(wrapA, wrapB);
+    card.append(info, boards);
+    list.appendChild(card);
+  }
+  if(filtered.length===0){
+    const empty=document.createElement('div'); empty.style.cssText='font-size:13px;color:#6b7280;padding:12px;text-align:center;border:1px dashed #d1d5db;border-radius:8px';
+    empty.textContent='No matches.';
+    list.appendChild(empty);
+  }
+}
+document.getElementById('search').addEventListener('input', renderFinder);
+document.getElementById('btn-reload').addEventListener('click', loadGolden);
+
+// init
+makeBoard(document.getElementById('board-a'), boardA);
+makeBoard(document.getElementById('board-b'), boardB);
+updateCounts(); updatePreview(); liveValidation();
+loadGolden();
+loadSolver();
+</script>
+</body>
+</html>

@@ -206,6 +206,14 @@ else()
 	add_executable(search-stats search-stats.cpp)
 	target_link_libraries(search-stats PRIVATE solver)
 
+	add_executable(golden ../golden/golden.cpp)
+	target_link_libraries(golden PRIVATE solver)
+	target_include_directories(golden PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../golden ${CMAKE_CURRENT_SOURCE_DIR})
+
+	add_executable(golden_verify ../golden/golden_verify.cpp)
+	target_link_libraries(golden_verify PRIVATE solver Threads::Threads)
+	target_include_directories(golden_verify PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../golden ${CMAKE_CURRENT_SOURCE_DIR})
+
 	if(BUILD_TESTING)
 		add_executable(eval-test tests/eval-test.cpp)
 		target_link_libraries(eval-test PRIVATE solver)
@@ -235,6 +243,10 @@ else()
 		add_test(NAME fitness-probe-rng COMMAND ${CMAKE_COMMAND}
 			-DFITNESS=$<TARGET_FILE:fitness>
 			-P ${CMAKE_CURRENT_SOURCE_DIR}/fitness-probe-test.cmake)
+
+		add_test(NAME golden COMMAND golden --file ${CMAKE_CURRENT_SOURCE_DIR}/../golden/golden.json)
+		add_test(NAME golden-verify-probe COMMAND golden_verify --file ${CMAKE_CURRENT_SOURCE_DIR}/../golden/golden.json --trials 20 --horizon 300 --probe 200)
+		set_tests_properties(golden-verify-probe PROPERTIES LABELS quick)
 	endif()
 
 	# Release builds are -flto, so codegen happens at link and every target
@@ -245,6 +257,8 @@ else()
 	target_enable_native_isa(benchmark)
 	target_enable_native_isa(fitness)
 	target_enable_native_isa(search-stats)
+	target_enable_native_isa(golden)
+	target_enable_native_isa(golden_verify)
 	if(BUILD_TESTING)
 		target_enable_native_isa(eval-test)
 		target_enable_native_isa(bitboard-test)
