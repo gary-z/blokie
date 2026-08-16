@@ -196,6 +196,44 @@ make golden golden_measure -j
 * **deaths A/B** — counted over every trial, including the ones a side did not
   survive. Conditioning those away is what makes a board that wins by dying
   look good.
+* **eval now / eval later / self-consistent** — the same window read on the
+  eval's own scale. See below.
+
+### Does the eval agree with itself?
+
+A good eval should predict its own future: if it scores A below B, then after a
+few sets of play under the policy it induces, A's descendants should still
+score below B's. `eval now` is what `golden` compares; `eval later` is that same
+difference after the window. The column says whether the second still says what
+the first said:
+
+* **REVERSES** — the sign flipped. The eval contradicts itself.
+* **BREAKS TIE** — it could not separate the boards at all, then separated them
+  decisively one move later.
+* **fades to N%** — it was confident and now has almost no opinion. Loudness
+  that does not survive a move.
+* **holds N%** — consistent.
+
+This is circular by construction and **cannot say which side is right**. What it
+can say is that the eval is internally inconsistent, and inconsistency is a
+defect whichever end of it is wrong. It is also the cheap half: the eval is a
+dense readout where cleared squares are a sparse one, so it separates pairs at
+`t` in the tens where clearing manages single digits, and it needs no human
+label at all — which is what would make it minable automatically from real play.
+
+The limit is worth stating plainly, because it decides how much to trust it.
+Self-consistency is a fixed-point property: any eval that is a fixed point of
+its own policy satisfies it, including a wrong one. A bias applied uniformly at
+every step is inherited by the rolled-out boards, which then dutifully confirm
+the original verdict. `2x2-prefer-middle` is exactly that — `holds 37%`, an eval
+perfectly consistent with itself and, by the clearing measure, backwards. It is
+the same reason value iteration needs a reward and not only a Bellman residual.
+
+So: **necessary, not sufficient.** Use it to decide where to look; use cleared
+squares to decide who is right. On the corpus today it flags five pairs and
+catches four of the five the eval gets wrong, missing only the uniformly biased
+one — and it additionally flags `aligned-on-cube-edge`, which the eval passes by
+56,242 and which turns out to be worth nothing at all.
 
 It stops each pair as soon as the answer is clear, so a decisive pair costs a
 thousand rollouts and only a close one costs sixteen thousand. The whole
