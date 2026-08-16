@@ -54,6 +54,12 @@ void printUsage(const char *prog) {
               << "expected squares cleared by the next set, and how the two boards compare\n"
               << "over a few sets of real play. Positive numbers favour board A.\n"
               << "\n"
+              << "It also reads the same window on the eval's own scale, as 'eval now' and\n"
+              << "'eval later'. That comparison is circular and cannot say which side is\n"
+              << "right; what it catches is the eval disagreeing with itself -- REVERSES,\n"
+              << "BREAKS TIE, or fading to nothing from a confident start. A pair it flags\n"
+              << "is worth a look even when the clearing verdict is unresolved.\n"
+              << "\n"
               << "Options:\n"
               << "  --file PATH      Golden file (default: auto-detected)\n"
               << "  --window LO HI   Sets averaged into the decision (default 3 6). A pair\n"
@@ -88,6 +94,11 @@ struct PairState {
     double noFitB = 0;
     int horizon = 0;
     std::vector<double> stats;
+    // The same window, read on the eval's own scale rather than on squares.
+    std::vector<double> evalStats;
+    double staticDelta = 0;
+    double evalMean = 0;
+    double evalT = 0;
     long deathsA = 0;
     long deathsB = 0;
     double mean = 0;
@@ -120,9 +131,28 @@ struct TrialJob {
 
 struct TrialResult {
     double stat = 0;
+    double evalStat = 0;
     bool diedA = false;
     bool diedB = false;
 };
+
+// Mean of a set of paired differences, and how many standard errors it sits
+// from zero.
+struct MeanAndT { double mean = 0, t = 0, se = 0; };
+
+MeanAndT meanAndT(const std::vector<double> &v) {
+    MeanAndT r;
+    if (v.size() < 2) return r;
+    const double n = (double)v.size();
+    for (double x : v) r.mean += x;
+    r.mean /= n;
+    double variance = 0;
+    for (double x : v) { const double d = x - r.mean; variance += d * d; }
+    variance /= (n - 1);
+    r.se = std::sqrt(variance / n);
+    r.t = r.se > 0 ? r.mean / r.se : 0;
+    return r;
+}
 
 // Pull items off one counter until they run out. Every stage here is a flat
 // list spanning every pair, so a thread that finishes one pair's work picks up
@@ -156,6 +186,7 @@ TrialResult runTrial(BitBoard a, BitBoard b, uint64_t seed, int horizon) {
     bool alive_a = true;
     bool alive_b = true;
     double total = 0;
+    double evalTotal = 0;
     int counted = 0;
     for (int set = 1; set <= horizon; ++set) {
         const PieceSet dealt(Piece::byIndex(piece_dist(rng)),
@@ -172,12 +203,19 @@ TrialResult runTrial(BitBoard a, BitBoard b, uint64_t seed, int horizon) {
         if (set >= windowLow && set <= windowHigh && alive_a && alive_b) {
             total += (double)(game_b.getBitBoard().count() - start_b)
                    - (double)(game_a.getBitBoard().count() - start_a);
+            // The same comparison on the eval's own scale. Circular by
+            // construction, which is the point: what it detects is the eval
+            // disagreeing with itself a few moves later, and no board can be
+            // said to disagree with itself by accident.
+            evalTotal += (double)game_b.simpleEvalDefault()
+                       - (double)game_a.simpleEvalDefault();
             ++counted;
         }
         if (!alive_a && !alive_b) break;
     }
     TrialResult result;
     result.stat = counted ? total / counted : 0.0;
+    result.evalStat = counted ? evalTotal / counted : 0.0;
     result.diedA = !alive_a;
     result.diedB = !alive_b;
     return result;
@@ -235,6 +273,10 @@ int main(int argc, char **argv) {
         pairs[i].id = parsed[i].id;
         pairs[i].a = golden::boardFromLines(parsed[i].boardA);
         pairs[i].b = golden::boardFromLines(parsed[i].boardB);
+        // What `golden` compares, kept so the rolled-out eval has a baseline to
+        // be consistent with.
+        pairs[i].staticDelta = (double)GameState(pairs[i].b).simpleEvalDefault()
+                             - (double)GameState(pairs[i].a).simpleEvalDefault();
     }
 
     // Every hand the game can deal, for every board, in one list.
@@ -320,21 +362,20 @@ int main(int argc, char **argv) {
         for (size_t index = 0; index < jobs.size(); ++index) {
             PairState &pair = pairs[jobs[index].pair];
             pair.stats.push_back(results[index].stat);
+            pair.evalStats.push_back(results[index].evalStat);
             if (results[index].diedA) ++pair.deathsA;
             if (results[index].diedB) ++pair.deathsB;
         }
         for (auto &pair : pairs) {
             if (pair.decided || pair.stats.size() < 2) continue;
-            const double n = (double)pair.stats.size();
-            double mean = 0;
-            for (double v : pair.stats) mean += v;
-            mean /= n;
-            double variance = 0;
-            for (double v : pair.stats) { const double d = v - mean; variance += d * d; }
-            variance /= (n - 1);
-            const double se = std::sqrt(variance / n);
+            const MeanAndT clears = meanAndT(pair.stats);
+            const MeanAndT evals = meanAndT(pair.evalStats);
+            const double mean = clears.mean;
+            const double se = clears.se;
             pair.mean = mean;
-            pair.t = se > 0 ? mean / se : 0;
+            pair.t = clears.t;
+            pair.evalMean = evals.mean;
+            pair.evalT = evals.t;
             // Stop early only on a statistic large enough that looking
             // repeatedly cannot account for it; the final look is judged on the
             // ordinary bar. Or stop the other way, once the interval is small
@@ -359,12 +400,15 @@ int main(int argc, char **argv) {
               << std::setw(11) << "P(no fit)"
               << std::setw(11) << "window"
               << std::setw(8) << "t"
+              << std::setw(11) << "eval now"
+              << std::setw(11) << "eval later"
+              << std::setw(16) << "self-consistent"
               << std::setw(9) << "trials"
               << std::setw(11) << "deaths A/B"
               << "verdict\n";
-    std::cout << std::string(112, '-') << "\n";
+    std::cout << std::string(150, '-') << "\n";
 
-    int keep = 0, drop = 0, unresolved = 0, dangerous = 0;
+    int keep = 0, drop = 0, unresolved = 0, dangerous = 0, inconsistent = 0;
     for (const auto &pair : pairs) {
         const double no_fit = std::max(pair.noFitA, pair.noFitB);
         std::string verdict;
@@ -385,12 +429,53 @@ int main(int argc, char **argv) {
         else if (pair.negligible) { verdict = "negligible -- no measurable difference"; ++unresolved; }
         else { verdict = "unresolved -- weak pair"; ++unresolved; }
 
+        // Does the eval still say later what it says now? A sign it reverses is
+        // the eval contradicting itself; a magnitude that all but vanishes is
+        // the eval being loud about something that does not survive a move.
+        // Neither says which side is right -- an eval can be wrong in a
+        // perfectly self-consistent way, and two of these pairs are -- but a
+        // pair that trips either one is worth looking at.
+        std::string consistency = "-";
+        if (pair.evalStats.size() >= 2) {
+            // A reversal is only a reversal if the later opinion is real, so
+            // that branch needs significance. Fading does not: an eval that was
+            // certain and now has no opinion worth measuring has faded to
+            // nothing, and demanding significance there would throw away the
+            // strongest case -- which is what aligned-on-cube-edge, loud at
+            // 56,242 and down to 76, would otherwise have been.
+            const bool later_is_real = std::fabs(pair.evalT) >= decide_at;
+            const bool now_favours_a = pair.staticDelta > 0;
+            const bool later_favours_a = pair.evalMean > 0;
+            std::ostringstream c;
+            c << std::fixed << std::setprecision(0);
+            if (pair.staticDelta == 0) {
+                if (later_is_real) { consistency = "BREAKS TIE"; ++inconsistent; }
+            } else {
+                const double kept = pair.evalMean / pair.staticDelta;
+                if (later_is_real && now_favours_a != later_favours_a) {
+                    consistency = "REVERSES";
+                    ++inconsistent;
+                } else if (kept < 0.25) {
+                    if (std::fabs(kept) < 0.005) c << "fades to ~0%";
+                    else c << "fades to " << (kept * 100) << "%";
+                    consistency = c.str();
+                    ++inconsistent;
+                } else {
+                    c << "holds " << (kept * 100) << "%";
+                    consistency = c.str();
+                }
+            }
+        }
+
         std::cout << std::left << std::setw(28) << pair.id
                   << std::showpos << std::fixed << std::setprecision(5)
                   << std::setw(12) << (pair.clearedA - pair.clearedB)
                   << std::noshowpos << std::setprecision(5) << std::setw(11) << no_fit
                   << std::showpos << std::setprecision(3) << std::setw(11) << pair.mean
-                  << std::setprecision(1) << std::setw(8) << pair.t << std::noshowpos
+                  << std::setprecision(1) << std::setw(8) << pair.t
+                  << std::setprecision(0) << std::setw(11) << pair.staticDelta
+                  << std::setw(11) << pair.evalMean << std::noshowpos
+                  << std::setw(16) << consistency
                   << std::setw(9) << pair.stats.size()
                   << std::setw(11) << (std::to_string(pair.deathsA) + "/" + std::to_string(pair.deathsB))
                   << verdict << "\n";
@@ -399,12 +484,14 @@ int main(int argc, char **argv) {
     const auto seconds = [](auto from, auto to) {
         return std::chrono::duration_cast<std::chrono::milliseconds>(to - from).count() / 1000.0;
     };
-    std::cout << std::string(112, '-') << "\n";
+    std::cout << std::string(150, '-') << "\n";
     std::cout << "Summary: " << keep << " keep, " << drop << " to drop or flip, "
               << unresolved << " unresolved";
     if (dangerous) std::cout << ", " << dangerous << " that can die";
-    std::cout << "\n";
+    std::cout << ";  " << inconsistent << " where the eval does not agree with itself\n";
     std::cout << "cleared and window are A minus B, in squares; positive favours A.\n";
+    std::cout << "eval now is what golden compares; eval later is the same difference after the\n"
+                 "window of play, so self-consistent means the eval still says what it said.\n";
     std::cout << "Exact pass: " << total_searches << " searches ("
               << (long)pairs.size() * 2 * 103823 << " if hands were ordered), "
               << std::setprecision(1) << seconds(started, exact_done) << "s. Rollouts: "
