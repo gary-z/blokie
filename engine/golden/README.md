@@ -108,22 +108,30 @@ is still parsed for backwards compatibility, but `golden.json` is canonical.
 
 ### Validating a new pair
 
-The check that works is a short paired rollout from both boards on the **same
-piece stream**, reading **squares cleared** rather than the eval:
+`golden_measure` does this. It is a short paired rollout from both boards on
+the **same piece stream**, reading **squares cleared** rather than the eval:
+
+```bash
+make golden_measure -j && ./golden_measure
+```
+
+Steps 2 to 4 below are what it runs; the rest is what to do with the answer.
 
 1. **Equal occupancy on both sides**, and no full row, column or cube. The
    editor enforces both.
 2. **Compute the exhaustive next-set numbers** — expected squares cleared, and
-   `P(no fit)`, over all 103,823 triples. Exact, about seven seconds a board.
+   `P(no fit)`. Every hand the game can deal, so the numbers are exact.
 3. **If `P(no fit)` > 0 the board can die, and deaths are the measure.**
-   Otherwise roll forward N = 1..8 with common random numbers and read clears.
-4. **Accept if A leads somewhere in N = 2..6.** Not N = 1: a pair that sets up
+   Otherwise roll forward with common random numbers and read clears. Crowded
+   boards clear more easily whatever else is true of them, so on a board that
+   can die the clearing number will happily point at the worse side.
+4. **Accept if A leads over sets 3 to 6.** Not at one set: a pair that sets up
    a combo declines a clear now to take a bigger one later, and
    `combo-potential-1` does exactly that — behind by 0.258 squares at one move,
    ahead from three moves on. Above N ≈ 8 the signal decays as the boards mix.
-5. **Drop or flip a pair that loses at every N.** `clearing-planning-1` was
-   removed this way: B won on the exhaustive measure, on clears at every N, and
-   on the eval.
+5. **Drop or flip a pair the tool reports as `DROP or FLIP`.**
+   `clearing-planning-1` was removed this way: B won on the exhaustive measure,
+   on clears at every horizon, and on the eval.
 6. **Never condition a death away.** Count deaths across all trials, not only
    the ones a side survived — dropping them is what makes a board that wins by
    dying look good. A side that scores better *and* dies more is contradictory,
@@ -160,11 +168,17 @@ Built from `engine/cpp/CMakeLists.txt`:
 
 ```bash
 # after cmake configure
-make golden golden_verify -j
+make golden golden_measure golden_verify -j
 ./golden               # check eval vs human, quick
 ./golden --verbose     # show evals + boards
 ./golden --json        # machine-readable
 ./golden --strict      # exit 1 if any pair fails (CI)
+
+# what the GAME does with each board -- the check that decides whether to keep
+# a pair. Run this on a new pair before committing it.
+./golden_measure
+./golden_measure --window 5 8       # a pair whose payoff lands later
+./golden_measure --max-trials 64000 # spend longer on a close one
 
 # verify intuition vs simulation (common random numbers, 50 rollouts each)
 ./golden_verify
@@ -172,6 +186,26 @@ make golden golden_verify -j
 ./golden_verify --probe 2000          # immediate triple-fit risk only, fast
 ./golden_verify --file engine/golden/golden.json --verbose
 ```
+
+`golden_measure` is the one to run on a new pair. It reports, per pair:
+
+* **cleared** — expected squares cleared by the next set, A minus B, computed
+  over *every* hand the game can deal rather than a sample of them, so it
+  carries no error bar at all. Positive favours A.
+* **P(no fit)** — the chance the board ends the game on the very next set, also
+  exact. Zero means the pair is decided on clearing; above zero the pair is
+  decided on which side dies less, and the verdict says which.
+* **window / t** — squares cleared over sets 3 to 6 of real play, both boards
+  on one shared piece stream. Not circular: the same pieces land on both, so
+  fewer squares held means more squares cleared, and the eval never scores its
+  own test.
+* **deaths A/B** — counted over every trial, including the ones a side did not
+  survive. Conditioning those away is what makes a board that wins by dying
+  look good.
+
+It stops each pair as soon as the answer is clear, so a decisive pair costs a
+thousand rollouts and only a close one costs sixteen thousand. The whole
+eight-pair corpus takes about a minute on 32 cores.
 
 `golden_verify` reports three agreements:
 
