@@ -235,6 +235,13 @@ python3 -m http.server 8000    # from the repo root
 # open http://localhost:8000/engine/golden/editor.html
 ```
 
+Serve the repo root, not this folder. The editor imports the solver as
+`../wasm/blokie-solver.js`, and a server rooted here clamps that `..` to
+`/wasm/blokie-solver.js`, which is outside what it can reach — so the page
+loads, the engine does not, and every pair shows no verdict. Any root that
+contains `engine/` works: the repo root, `engine/` itself, or the folder above
+the repo.
+
 ## Adding a pair
 
 1. Pick a parent board and a piece, place it two ways, clear lines, and copy

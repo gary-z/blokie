@@ -342,7 +342,7 @@
     <div id="existing-list"></div>
   </div>
 
-  <p style="font-size:12px;color:#6b7280;margin:14px 2px 0">Runs locally only. Serve with <kbd>python3 -m http.server 8000</kbd> from repo root and open <kbd>/blokie/engine/golden/editor.html</kbd>. It reads <code>./golden.json</code> and <code>../wasm/blokie-solver.js</code> — <code>file://</code> blocks both.</p>
+  <p style="font-size:12px;color:#6b7280;margin:14px 2px 0">Runs locally only. Serve <strong>the repo root</strong> — <kbd>cd blokie &amp;&amp; python3 -m http.server 8000</kbd> — and open <kbd>/engine/golden/editor.html</kbd>. Serving <em>this</em> folder instead puts <code>../wasm/blokie-solver.js</code> outside the document root, so the engine cannot load and every pair loses its verdict. <code>file://</code> blocks both files.</p>
 </div>
 
 <script>
@@ -386,6 +386,12 @@ function verdictFor(evalA, evalB) {
   if (evalA === null || evalB === null) return null;
   return evalA < evalB;
 }
+// The import is relative to this page, so it resolves correctly from any
+// document root that contains engine/ -- the repo root, engine/ itself, or the
+// folder above the repo. The one root that cannot work is this very directory:
+// a server rooted here clamps the '..' and asks for /wasm/blokie-solver.js,
+// which is outside what it can serve. No URL reaches the file from there, so
+// the failure path spends its words on the fix rather than on more candidates.
 async function loadSolver() {
   try {
     const mod = await import('../wasm/blokie-solver.js');
@@ -563,8 +569,22 @@ function updateEvalVerdict(){
     chipA.textContent = 'eval —';
     chipB.textContent = 'eval —';
     const tag = Object.assign(document.createElement('span'), {className:'tag unknown', textContent: solverError ? 'NO ENGINE' : 'LOADING'});
-    const detail = Object.assign(document.createElement('span'), {className:'detail',
-      textContent: solverError ? `Could not load ../wasm/blokie-solver.js — ${solverError}` : 'Loading the WASM eval…'});
+    const detail = Object.assign(document.createElement('span'), {className:'detail'});
+    if (solverError) {
+      detail.append('Serve the repo root, not this folder — ');
+      const cmd = document.createElement('code');
+      cmd.textContent = 'cd blokie && python3 -m http.server 8000';
+      detail.append(cmd, ' then open ');
+      const path = document.createElement('code');
+      path.textContent = '/engine/golden/editor.html';
+      detail.append(path, '. ');
+      const why = document.createElement('span');
+      why.style.opacity = '0.75';
+      why.textContent = `(${solverError})`;
+      detail.append(why);
+    } else {
+      detail.textContent = 'Loading the WASM eval…';
+    }
     out.append(tag, detail);
     return;
   }
