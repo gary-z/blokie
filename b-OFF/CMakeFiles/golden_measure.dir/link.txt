@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -Wextra -Werror -O3 -DNDEBUG -O3 -flto -DNDEBUG "CMakeFiles/golden_measure.dir/tmp/claude-1000/-workspaces-blockudoku/91612a82-a0b0-4c7e-973b-25ae2a18aa38/scratchpad/wt/engine/golden/golden_measure.cpp.o" -o golden_measure  libsolver.a 

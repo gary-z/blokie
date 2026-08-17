@@ -1,0 +1,1 @@
+/usr/bin/c++  -Wall -Wextra -Werror -O3 -DNDEBUG -O3 -flto -DNDEBUG "CMakeFiles/bitboard-test.dir/tests/bitboard-test.cpp.o" -o bitboard-test  libsolver.a 

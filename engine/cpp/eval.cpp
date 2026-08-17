@@ -35,27 +35,6 @@ using namespace bitboard_detail;
 // which is what makes it affordable: the mean board carries 18 squares, so the
 // enumeration almost never runs, and measured throughput is within about 5% of
 // leaving it out.
-#ifndef BLOKIE_CLEAR_OPPORTUNITY
-#define BLOKIE_CLEAR_OPPORTUNITY 0
-#endif
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_WEIGHT
-#define BLOKIE_CLEAR_OPPORTUNITY_WEIGHT 150
-#endif
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
-#define BLOKIE_CLEAR_OPPORTUNITY_GATE 30
-#endif
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP
-#define BLOKIE_CLEAR_OPPORTUNITY_CAP 30
-#endif
-// Which pieces are asked whether they could clear. Small pieces fit almost
-// anywhere, so counting them says more about the board being open than about a
-// clear being available; the largest are rare enough to be poor evidence.
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES
-#define BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES 3
-#endif
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES
-#define BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES 5
-#endif
 
 uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t max) {
 	uint64_t result = 0;
@@ -273,7 +252,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			}
 			const int missing = std::max(0, BLOKIE_CLEAR_OPPORTUNITY_CAP - ways);
 			result += (uint64_t)missing * crowded_blocks
-				* BLOKIE_CLEAR_OPPORTUNITY_WEIGHT;
+				* weights.getClearOpportunity();
 		}
 #endif
 	}

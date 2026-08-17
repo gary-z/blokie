@@ -119,8 +119,13 @@ if(NOT EMSCRIPTEN AND NOT MSVC)
 	endif()
 endif()
 
+# Defined either way rather than only when on. eval.h defaults the macro to 0
+# when nothing defines it, so leaving it undefined here would work today -- but it
+# would silently make OFF a no-op the moment that default changed.
 if(BLOKIE_CLEAR_OPPORTUNITY)
 	add_compile_definitions(BLOKIE_CLEAR_OPPORTUNITY=1)
+else()
+	add_compile_definitions(BLOKIE_CLEAR_OPPORTUNITY=0)
 endif()
 
 include(CheckCXXCompilerFlag)

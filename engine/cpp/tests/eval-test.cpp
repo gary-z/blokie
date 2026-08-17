@@ -241,7 +241,7 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 		const int missing = std::max(0,
 			BLOKIE_CLEAR_OPPORTUNITY_CAP - ways);
 		result += static_cast<uint64_t>(missing) * crowded_blocks *
-			BLOKIE_CLEAR_OPPORTUNITY_WEIGHT;
+			weights.getClearOpportunity();
 	}
 #endif
 	return result;
@@ -271,12 +271,14 @@ void testWeightMapping() {
 	test::require(weights.getOccupiedCenterSquare() == weights.weights[10], "center square");
 	test::require(weights.getOccupiedCornerSquare() == weights.weights[11], "corner square");
 	test::require(weights.getCrowdedPieceScarcity() == weights.weights[12], "crowding");
+	test::require(weights.getClearOpportunity() == weights.weights[13],
+		"clear opportunity");
 }
 
 void testDefaultWeights() {
 	const std::array<int, EvalWeights::NUM_WEIGHTS> expected = {
 		1358, 524, 6540, 4450, 18185, 2665, 204,
-		908, 1776, 3386, 1607, 3067, 200,
+		908, 1776, 3386, 1607, 3067, 200, 200,
 	};
 	const auto actual = EvalWeights::getDefault();
 	for (int index = 0; index < EvalWeights::NUM_WEIGHTS; ++index) {

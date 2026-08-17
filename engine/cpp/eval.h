@@ -6,15 +6,12 @@
 // below both describe an engine without it. See docs/clear-opportunity.md.
 //
 // These live in the header rather than in eval.cpp so that the reference
-// evaluation in tests/eval-test.cpp is checked against the same numbers. All
-// four are overridable from the compiler command line, which is how they were
-// swept.
+// evaluation in tests/eval-test.cpp is checked against the same numbers, and are
+// overridable from the compiler command line, which is how they were swept. The
+// charge itself is not here: it is weights[13], so the fitness tooling can tune
+// it like any other.
 #ifndef BLOKIE_CLEAR_OPPORTUNITY
 #define BLOKIE_CLEAR_OPPORTUNITY 0
-#endif
-// Charge per missing way to clear, per square of crowding.
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_WEIGHT
-#define BLOKIE_CLEAR_OPPORTUNITY_WEIGHT 150
 #endif
 // Occupancy at which the term switches on. It pays for the enumeration.
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
@@ -24,11 +21,12 @@
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP
 #define BLOKIE_CLEAR_OPPORTUNITY_CAP 30
 #endif
-// Which pieces are asked whether they could clear. Small pieces fit almost
-// anywhere, so counting them says more about the board being open than about a
-// clear being available; the largest are rare enough to be poor evidence.
+// Which pieces are asked whether they could clear. This is not really a
+// statement about pieces: it sets the median of the count, and so the fraction of
+// boards the cap charges. Four-to-five measured 74,085 against 67,699 for
+// three-to-five and 65,166 for three-to-four, at 1200 deaths an arm.
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES
-#define BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES 3
+#define BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES 4
 #endif
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES
 #define BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES 5
@@ -36,7 +34,7 @@
 
 class EvalWeights {
 public:
-	static constexpr int NUM_WEIGHTS = 13;
+	static constexpr int NUM_WEIGHTS = 14;
 	static constexpr int MAX_WEIGHT = 40000;
 
 	int weights[NUM_WEIGHTS] = {0};
@@ -58,6 +56,10 @@ public:
 	constexpr int getOccupiedCenterSquare() const { return weights[10]; }
 	// Nonlinear penalty for scarce hard-piece placements on crowded boards.
 	constexpr int getCrowdedPieceScarcity() const { return weights[12]; }
+	// Charge per missing way to clear, per square of crowding. Read only when
+	// BLOKIE_CLEAR_OPPORTUNITY is on; kept in the vector either way so the
+	// fitness tooling can reach it and so the slot does not move when it is.
+	constexpr int getClearOpportunity() const { return weights[13]; }
 
 	static constexpr EvalWeights getDefault();
 };
@@ -81,5 +83,6 @@ constexpr EvalWeights EvalWeights::getDefault() {
 	result.weights[10] = 1607; // occupied center square
 	result.weights[11] = 3067; // occupied corner square
 	result.weights[12] = 200;  // crowded-piece scarcity
+	result.weights[13] = 200;  // clear opportunity
 	return result;
 }
