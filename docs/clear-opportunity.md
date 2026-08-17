@@ -184,6 +184,21 @@ found. Head to head, 1200 deaths an arm, both on seed base 20260819:
 Hazard ratio 0.895, **z = 2.7**. It replicates: 81,131 here and 81,739 at 800
 deaths on seed base 20260818.
 
+The percentage itself has a plateau, measured at 800 deaths an arm on seed base
+20260818:
+
+| cap as a percentage of occupancy | mean game |
+|---|---:|
+| 80 | 80,000 |
+| **100** | **81,739** |
+| 130 | 75,510 |
+| a fixed 30, for comparison | 74,682 |
+
+Eighty and a hundred are indistinguishable (z = 0.4) and a hundred and thirty is
+worse, so the default sits inside the flat region rather than on a peak found by
+searching -- which, after the gate and the cap and the weight all turned out flat,
+is what should have been expected.
+
 Pooled against pooled controls, the term as it now stands is worth **+74%**:
 
 | | deaths | exposure | hazard | mean length |
