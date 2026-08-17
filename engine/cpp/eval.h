@@ -17,9 +17,14 @@
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
 #define BLOKIE_CLEAR_OPPORTUNITY_GATE 30
 #endif
-// Ways to clear counted as enough; beyond it the board is not charged.
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP
-#define BLOKIE_CLEAR_OPPORTUNITY_CAP 30
+// Ways to clear counted as enough; beyond it the board is not charged. It is set
+// as a percentage of occupancy rather than as a constant, because the number of
+// clearing placements RISES with occupancy -- a median of 36 above thirty squares
+// and about 47 above thirty-five -- so a constant cap charges the fullest and most
+// dangerous boards least. At 100 the cap is the occupancy, which holds the
+// fraction of boards charged roughly constant as the board fills.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT
+#define BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT 100
 #endif
 // Which pieces are asked whether they could clear. This is not really a
 // statement about pieces: it sets the median of the count, and so the fraction of

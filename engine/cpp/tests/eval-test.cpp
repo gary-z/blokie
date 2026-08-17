@@ -238,8 +238,9 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 				}
 			}
 		}
-		const int missing = std::max(0,
-			BLOKIE_CLEAR_OPPORTUNITY_CAP - ways);
+		const int cap = bit_board.count() *
+			BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT / 100;
+		const int missing = std::max(0, cap - ways);
 		result += static_cast<uint64_t>(missing) * crowded_blocks *
 			weights.getClearOpportunity();
 	}

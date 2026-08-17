@@ -352,7 +352,9 @@ void testSearchPruningOnOpenBoards() {
 	// because every board it could drop was worse than one it kept anyway.
 	test::require(decided_by_a_board_no_clear_can_move >= 5,
 		"open board sweep should include hands that could have cleared early but "
-		"whose best board no clear can move");
+		"whose best board no clear can move -- counted " +
+		std::to_string(decided_by_a_board_no_clear_can_move) + " of " +
+		std::to_string(playable) + " playable");
 }
 
 // Boards where a line is nearly full, which is where the two rules that let a

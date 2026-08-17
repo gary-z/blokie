@@ -250,7 +250,9 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 					}
 				}
 			}
-			const int missing = std::max(0, BLOKIE_CLEAR_OPPORTUNITY_CAP - ways);
+			const int cap = bb.count()
+				* BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT / 100;
+			const int missing = std::max(0, cap - ways);
 			result += (uint64_t)missing * crowded_blocks
 				* weights.getClearOpportunity();
 		}
