@@ -10,6 +10,44 @@
 
 using namespace bitboard_detail;
 
+// How many ways are left to clear.
+//
+// Off by default: turning it on changes what the engine plays, which means the
+// committed WASM and the reference evaluation in tests/eval-test.cpp both have
+// to be regenerated, and the numbers below were measured with the other weights
+// left at values tuned without it. See docs/clear-opportunity.md.
+//
+// The evaluation knows which pieces have nowhere left to go -- that is the
+// deadly-piece term -- but nothing about how near a row, column or cube is to
+// completing. On a crowded board those are different questions: a position can
+// have room for every piece and still have no way to clear, and a position with
+// no way to clear is a position that only gets fuller.
+//
+// Measured at 41% longer games, replicated on two seeds, hazard ratio 0.710 with
+// 631 deaths against 634 (p about 1e-9). The same penalty made blind to clears
+// -- a flat charge for being past the gate -- is 27% *worse* than not having it,
+// so the gain is the clear counting and not the extra crowding aversion.
+//
+// Two things about the shape of it. It is a penalty for the ways that are
+// missing rather than a bonus for the ways that exist, because the search prunes
+// against a running maximum and a negative term would let a candidate that has
+// already exceeded the bound come back under it. And it is gated on occupancy,
+// which is what makes it affordable: the mean board carries 18 squares, so the
+// enumeration almost never runs, and measured throughput is within about 5% of
+// leaving it out.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY
+#define BLOKIE_CLEAR_OPPORTUNITY 0
+#endif
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_WEIGHT
+#define BLOKIE_CLEAR_OPPORTUNITY_WEIGHT 150
+#endif
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
+#define BLOKIE_CLEAR_OPPORTUNITY_GATE 30
+#endif
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP
+#define BLOKIE_CLEAR_OPPORTUNITY_CAP 30
+#endif
+
 uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t max) {
 	uint64_t result = 0;
 
@@ -198,6 +236,36 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			result += (uint64_t)scarce_deadly_placements * crowded_blocks
 				* weights.getCrowdedPieceScarcity();
 		}
+
+#if BLOKIE_CLEAR_OPPORTUNITY
+		// Ways left to clear, counted where a mid-sized piece would complete a
+		// line. Of everything tried against the crowded pairs in
+		// engine/golden/golden.json, every static statistic over how full the
+		// lines are ordered at most two of the six correctly; this orders five.
+		// The quantity is a one-ply lookahead and not a property of the board,
+		// which is why nothing already here could stand in for it.
+		if (bb.count() >= BLOKIE_CLEAR_OPPORTUNITY_GATE) {
+			const GameState here(bb);
+			int ways = 0;
+			for (int index = 0; index < Piece::NUM_PIECES; ++index) {
+				const Piece piece = Piece::byIndex(index);
+				const int squares = piece.count();
+				if (squares < 3 || squares > 5) {
+					continue;
+				}
+				for (auto it = here.nextStates(piece).begin();
+					it != here.nextStates(piece).end(); ++it) {
+					(void)*it;
+					if (it.didClear()) {
+						++ways;
+					}
+				}
+			}
+			const int missing = std::max(0, BLOKIE_CLEAR_OPPORTUNITY_CAP - ways);
+			result += (uint64_t)missing * crowded_blocks
+				* BLOKIE_CLEAR_OPPORTUNITY_WEIGHT;
+		}
+#endif
 	}
 
 	return std::min(result, max);

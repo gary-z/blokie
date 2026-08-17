@@ -17,6 +17,12 @@ option(BLOKIE_REQUIRE_GCC16
 	"Fail configuration unless the native build uses GCC 16 or newer" OFF)
 set(BLOKIE_PROBE_TEST_PAIRS 10000 CACHE STRING
 	"Board/triple pairs checked by the routine probe-equivalence ctest")
+# Experimental, and off because turning it on changes what the engine plays:
+# the committed WASM and the reference evaluation in tests/eval-test.cpp would
+# both need regenerating. docs/clear-opportunity.md has the measurements.
+option(BLOKIE_CLEAR_OPPORTUNITY
+	"Charge a crowded board for having few ways left to clear (experimental)" OFF)
+
 option(BLOKIE_ENABLE_LONG_TESTS
 	"Add long-running statistical and exhaustive validation tests" OFF)
 
@@ -111,6 +117,10 @@ if(NOT EMSCRIPTEN AND NOT MSVC)
 	if(CMAKE_CXX_COMPILER_RANLIB)
 		set(CMAKE_RANLIB "${CMAKE_CXX_COMPILER_RANLIB}")
 	endif()
+endif()
+
+if(BLOKIE_CLEAR_OPPORTUNITY)
+	add_compile_definitions(BLOKIE_CLEAR_OPPORTUNITY=1)
 endif()
 
 include(CheckCXXCompilerFlag)
