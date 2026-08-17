@@ -77,6 +77,15 @@ is still parsed for backwards compatibility, but `golden.json` is canonical.
 
 ## How to use these pairs
 
+> **Measured caveat, 2026-08-17.** The twenty `mined-*` pairs label a board
+> better when the engine clears more squares from it, and clearing rate turns
+> out to be conserved — every policy measured clears 11.74 squares a move,
+> including ones that die a hundred times sooner. An attempt to fix the
+> evaluation against this corpus made the engine worse at every setting tried,
+> the best-scoring weights by 164×. Read
+> [`../../docs/eval-rework-probe.md`](../../docs/eval-rework-probe.md) before
+> treating any of it as an optimisation target.
+
 ### What a pair can tell you
 
 * **Which side is better, directionally.** And it can be checked: for any
