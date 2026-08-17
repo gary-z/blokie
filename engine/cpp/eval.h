@@ -1,6 +1,39 @@
 #pragma once
 #include <cstdint>
 
+// Charging a crowded board for having no way to clear. Off by default: turning
+// it on changes what the engine plays, so the committed WASM and the weights
+// below both describe an engine without it. See docs/clear-opportunity.md.
+//
+// These live in the header rather than in eval.cpp so that the reference
+// evaluation in tests/eval-test.cpp is checked against the same numbers. All
+// four are overridable from the compiler command line, which is how they were
+// swept.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY
+#define BLOKIE_CLEAR_OPPORTUNITY 0
+#endif
+// Charge per missing way to clear, per square of crowding.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_WEIGHT
+#define BLOKIE_CLEAR_OPPORTUNITY_WEIGHT 150
+#endif
+// Occupancy at which the term switches on. It pays for the enumeration.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
+#define BLOKIE_CLEAR_OPPORTUNITY_GATE 30
+#endif
+// Ways to clear counted as enough; beyond it the board is not charged.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP
+#define BLOKIE_CLEAR_OPPORTUNITY_CAP 30
+#endif
+// Which pieces are asked whether they could clear. Small pieces fit almost
+// anywhere, so counting them says more about the board being open than about a
+// clear being available; the largest are rare enough to be poor evidence.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES
+#define BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES 3
+#endif
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES
+#define BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES 5
+#endif
+
 class EvalWeights {
 public:
 	static constexpr int NUM_WEIGHTS = 13;

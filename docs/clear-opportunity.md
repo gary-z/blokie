@@ -1,7 +1,7 @@
 # Charging a crowded board for having no way to clear
 
-A new evaluation term, measured at **41% longer games**, replicated on two
-independent seeds. It is committed behind `BLOKIE_CLEAR_OPPORTUNITY`, off by
+A new evaluation term, measured at **62% longer games**, confirmed on a seed base
+no parameter was chosen on. It is committed behind `BLOKIE_CLEAR_OPPORTUNITY`, off by
 default, because turning it on changes what the engine plays: the committed WASM
 and the reference evaluation in `engine/cpp/tests/eval-test.cpp` both have to be
 regenerated, and the other twelve weights were tuned without it.
@@ -14,12 +14,12 @@ completing. On a crowded board those are different questions. A position can
 have room for every piece in the game and still have no way to clear, and a
 position with no way to clear is a position that only gets fuller.
 
-So: count the placements, over pieces of three to five squares, that would
+So: count the placements, over pieces of four or five squares, that would
 complete a line. Charge the board for the ones that are **missing**.
 
 ```
 if occupied >= 30:
-    ways = placements of any 3..5 square piece that complete a row, column or cube
+    ways = placements of any 4..5 square piece that complete a row, column or cube
     result += max(0, 30 - ways) * (occupied - 20) * weight
 ```
 
@@ -31,30 +31,63 @@ board carries 18.2 squares, so the enumeration almost never runs.
 
 ## What it is worth
 
-Fixed-exposure chains, 25-move burn-in excluded, both arms on the same piece
-streams. `weight = 0` is an exact control — the same code path with the term
-multiplied out.
+Fixed-exposure chains, 25-move burn-in excluded, `weight = 0` as an exact control
+— the same code path with the term multiplied out.
 
-| weight | seed 555 | seed 999 |
-|---:|---:|---:|
-| 0 (control) | 47,036 | 47,584 |
-| 100 | **68,589** | — |
-| **200** | **68,230** | **65,061** |
-| 350 | 62,036 | — |
-| 600 | 46,799 | — |
+Confirmed at 1200 deaths an arm on seed base 20260817, a seed base no parameter
+was chosen on:
 
-Pooled across both seeds:
+| arm | deaths | exposure | hazard | mean length | 95% CI |
+|---|---:|---:|---:|---:|---|
+| control | 1205 | 55.1M | 2.188e-05 | 45,701 | 43,192–48,355 |
+| pieces 3-5 | 1204 | 81.5M | 1.477e-05 | 67,699 | 63,981–71,633 |
+| **pieces 4-5** | 1202 | 89.1M | 1.350e-05 | **74,085** | 70,012–78,393 |
+| pieces 3-4 | 1202 | 78.3M | 1.535e-05 | 65,166 | 61,584–68,956 |
 
-| | deaths | exposure | hazard | mean length |
-|---|---:|---:|---:|---:|
-| control | 634 | 30.0M | 2.113e-05 | 47,325 |
-| weight 200 | 631 | 42.0M | 1.501e-05 | **66,613** |
+Against the control, pieces 4-5 is a hazard ratio of **0.617**, **z = 11.8**, a
+game-length ratio of **1.62**. Pieces 3-5, which is what the first version of this
+term shipped with, is **1.48, 95% CI 1.37 to 1.61**. So the term is worth **+48%**
+as first written and **+62%** with the piece filter corrected.
 
-Hazard ratio **0.710**, log-ratio standard error 0.056, **z = 6.1**, p ≈ 1e-9.
-The confidence intervals are disjoint on each seed separately.
+Throughput is 39,348 moves a second against 39,911 for the control, so under 2%.
+That is the gate doing its job.
 
-Throughput is 38,311 moves a second against 40,848 for the stock evaluation, so
-about 5%. That is the gate doing its job.
+## The cap is a quantile, not a threshold
+
+The filter looked at first like a statement about which pieces are informative. It
+is not. Measured on positions that arise in play, above the gate, the median
+number of clearing placements is:
+
+| pieces counted | median placements | fraction of boards the cap of 30 charges |
+|---|---:|---:|
+| 3-5 | 36 | ~45% |
+| 4-5 | 31 | ~50% |
+| 3-4 | 22 | ~70% |
+| 4-4 | 15 | ~85% |
+
+`max(0, 30 - ways)` is zero whenever a board has thirty ways or more, which is
+half of them. The term never charged crowded boards; it charged boards in the
+scarce **tail**, and changing the piece filter changes the statistic's median,
+which slides the cap along its own distribution. The measured ordering follows
+that fraction rather than the pieces:
+
+| config | fraction charged | mean length |
+|---|---:|---:|
+| pieces 3-5, cap 15 | ~8% | 51,117 |
+| pieces 3-5, cap 30 | ~45% | 67,699 |
+| pieces 4-5, cap 30 | ~50% | **74,085** |
+| pieces 3-4, cap 30 | ~70% | 65,166 |
+| pieces 3-5, cap 60 | ~80% | 58,488 |
+
+Charge too few boards and the term is off — cap 15 lands near the control.
+Charge too many and it degenerates towards the flat crowding penalty that
+measures 27% worse than not having the term at all. The optimum is the scarcest
+half, and the cap and the filter are two ways of setting the same one number.
+
+This also disposes of a variant that looked promising: placements that clear two
+lines at once. Above the gate that count is zero on 79% of boards and on 96% at
+lower occupancy, so charging its absence would have been a flat penalty wearing a
+combo signal's clothes.
 
 ## The control that says what the gain is
 
@@ -97,6 +130,50 @@ enumeration orders five. A first attempt at the cheap version — charge a crowd
 board when nothing is within two squares of clearing — fixed one of six and is
 not in this branch.
 
+## The three numbers, swept
+
+The gate, the cap and the piece filter were guesses, and the note here used to
+say that 41% was therefore more likely a floor than a ceiling. That was wrong,
+and the way it is wrong is worth more than a better number would have been.
+
+Eighteen arms, 200 deaths each, one axis at a time from the committed point,
+against a control of 47,366:
+
+| axis | arm | mean game |
+|---|---|---:|
+| gate | 20 / 24 / 27 | 76,798 / 68,019 / 76,368 |
+| gate | **30** / 33 / 36 | **64,030** / 63,645 / 68,284 |
+| cap | **15** | **51,117** |
+| cap | 20 / **30** / 40 / 60 | 63,689 / **64,030** / 60,529 / 58,488 |
+| pieces | 1-5 / **3-5** / 4-5 / 3-4 | 57,608 / **64,030** / 74,515 / 75,388 |
+| weight | 130 / **200** / 170 / 250 | 66,165 / **64,030** / 72,429 / 59,314 |
+
+Seventeen of the eighteen fall in one band around 67,000. At 200 deaths
+`sd(log ĥ)` is 1/√200 = 7.1%, so a pair of arms is separated only past about 20%,
+and the whole 58.5k-to-76.8k spread is about what two standard deviations buys.
+Every gate from 20 to 36, every cap from 20 to 60, every weight from 130 to 250
+and every piece filter is, on this evidence, the same point.
+
+The one arm that leaves the band is `cap 15`, at 51,117, and it leaves for a
+mechanical reason rather than a tuning one: a crowded board typically already has
+fifteen or more ways to clear, so a cap there charges almost nothing and the term
+is switched off. It lands near the control, which is what being switched off
+looks like.
+
+So the term is insensitive to how it is parameterised over roughly a factor of
+two in every direction. The gain is carried by the mechanism, not by the numbers,
+which is a better property to ship than three values that had to be right. The
+gate stays at 30 on cost grounds alone -- gate 20 measured no better and cost 13%
+of throughput, 34,373 moves a second against 39,949.
+
+Two notes on method. `pieces 3-9` returned bit-identical to `pieces 3-5` -- same
+201 deaths, same exposure, same mean -- because the largest piece in the game is
+five squares, which incidentally confirms the harness is deterministic at a fixed
+seed base. And reading a ranking off a screen this coarse is a mistake that is
+easy to make twice: the gate looked monotone through three arms before arm four
+contradicted it, and both narrow piece filters looked like a real effect before
+the noise floor was worked out.
+
 ## What the corpus got right and wrong, again
 
 The pairs found the mechanism and were wrong about the magnitude, which is the
@@ -107,9 +184,6 @@ optimum. Use them to find the mechanism and the hazard to set the number.
 
 ## What is left before this can ship
 
-* **Sweep the three numbers that were guessed and never tuned**: the gate at 30
-  squares, the cap at 30 ways, and the three-to-five square piece filter. The
-  41% comes from untuned guesses, so it is more likely a floor than a ceiling.
 * **Make the weight tunable** — it is a compile-time constant here, and belongs
   in `EvalWeights` as a fourteenth slot so the fitness tooling can reach it.
 * **Re-tune the other twelve.** They were fitted without this term and the
@@ -117,9 +191,11 @@ optimum. Use them to find the mechanism and the hazard to set the number.
   describes an engine that does not include this.
 * **Regenerate the committed WASM**, which `check-wasm.yml` rebuilds and
   compares.
-* **Extend the reference evaluation** in `tests/eval-test.cpp`. Turning the
-  option on today fails exactly one test, `evaluation`, for that reason; the
-  other six pass.
+The reference evaluation in `tests/eval-test.cpp` now carries the term as well,
+written against a plain 9×9 array rather than through the placement iterator the
+evaluation uses, so the two implementations are independent. All seven tests pass
+with the option on. The four knobs moved to `eval.h` so both implementations read
+the same numbers.
 
 ## Reproducing
 

@@ -84,6 +84,21 @@ uint64_t splitMix64(uint64_t x) {
 int windowLow = 3;
 int windowHigh = 6;
 
+// Fewest deaths across both sides before the observed death counts are allowed
+// to decide a dangerous pair. Below it the counts are too small to order, and
+// the exact one-move P(no fit) is the better of the two available answers.
+constexpr long MIN_DEATHS_TO_JUDGE = 12;
+
+// How far apart two death counts are, in standard deviations, with a positive
+// value favouring A. The two sides are played on shared piece streams, which
+// correlates them positively, so treating the counts as independent Poisson
+// understates the evidence rather than manufacturing it.
+double survivalZ(long deathsA, long deathsB) {
+    const long total = deathsA + deathsB;
+    if (total == 0) return 0.0;
+    return (double)(deathsB - deathsA) / std::sqrt((double)total);
+}
+
 struct PairState {
     std::string id;
     BitBoard a = BitBoard::empty();
@@ -380,7 +395,19 @@ int main(int argc, char **argv) {
             // repeatedly cannot account for it; the final look is judged on the
             // ordinary bar. Or stop the other way, once the interval is small
             // enough that the pair has been measured as not mattering.
-            if (std::fabs(pair.t) >= stop_at) pair.decided = true;
+            //
+            // Which statistic that is depends on the pair. A board that can end
+            // the game is judged on deaths, so stopping it on the window would
+            // be stopping on the wrong number -- and a noisy one, since on these
+            // boards the window is mostly made of rollouts that ended early.
+            if (pair.noFitA > 0 || pair.noFitB > 0) {
+                const long total_deaths = pair.deathsA + pair.deathsB;
+                if (total_deaths >= MIN_DEATHS_TO_JUDGE &&
+                    std::fabs(survivalZ(pair.deathsA, pair.deathsB)) >= stop_at) {
+                    pair.decided = true;
+                }
+            }
+            else if (std::fabs(pair.t) >= stop_at) pair.decided = true;
             else if (std::fabs(mean) + 1.96 * se < equivalent) {
                 pair.decided = true;
                 pair.negligible = true;
@@ -413,16 +440,38 @@ int main(int argc, char **argv) {
         const double no_fit = std::max(pair.noFitA, pair.noFitB);
         std::string verdict;
         if (no_fit > 0) {
-            // Both boards can end the game outright, so the thing that decides
-            // the pair is which one does it less often -- and that number is
-            // already exact, from every hand rather than a sample of them.
-            std::ostringstream note;
-            note << std::fixed << std::setprecision(5);
-            if (pair.noFitA < pair.noFitB) note << "can die -- A is safer (" << pair.noFitA << " vs " << pair.noFitB << ")";
-            else if (pair.noFitB < pair.noFitA) note << "can die -- B IS SAFER (" << pair.noFitB << " vs " << pair.noFitA << ")";
-            else note << "can die -- equally often (" << pair.noFitA << ")";
-            verdict = note.str();
+            // The board can end the game outright, so the pair is about survival
+            // rather than about squares. Two numbers measure that. P(no fit) is
+            // exact but sees one set ahead, and one set is not where these pairs
+            // differ: a side can be likelier to die immediately and still be the
+            // side that lasts, because it is the side that can still clear. So
+            // judge on the deaths the longer rollout actually observed, and fall
+            // back to the exact number only when they are too few to order.
             ++dangerous;
+            const long total_deaths = pair.deathsA + pair.deathsB;
+            const double z = survivalZ(pair.deathsA, pair.deathsB);
+            std::ostringstream note;
+            if (total_deaths >= MIN_DEATHS_TO_JUDGE) {
+                note << std::fixed << std::setprecision(1);
+                if (z >= decide_at) {
+                    note << "keep -- A survives longer (z=" << z << ")";
+                    ++keep;
+                } else if (z <= -decide_at) {
+                    note << "DROP or FLIP -- B survives longer (z=" << z << ")";
+                    ++drop;
+                } else {
+                    note << "unresolved -- survival not separated (z=" << z << ")";
+                    ++unresolved;
+                }
+            } else {
+                note << std::fixed << std::setprecision(5);
+                note << "too few deaths (" << total_deaths << ") -- on one set only, ";
+                if (pair.noFitA < pair.noFitB) note << "A is safer (" << pair.noFitA << " vs " << pair.noFitB << ")";
+                else if (pair.noFitB < pair.noFitA) note << "B is safer (" << pair.noFitB << " vs " << pair.noFitA << ")";
+                else note << "equally safe (" << pair.noFitA << ")";
+                ++unresolved;
+            }
+            verdict = note.str();
         }
         else if (pair.t >= decide_at) { verdict = "keep"; ++keep; }
         else if (pair.t <= -decide_at) { verdict = "DROP or FLIP -- B is better"; ++drop; }
@@ -487,7 +536,7 @@ int main(int argc, char **argv) {
     std::cout << std::string(150, '-') << "\n";
     std::cout << "Summary: " << keep << " keep, " << drop << " to drop or flip, "
               << unresolved << " unresolved";
-    if (dangerous) std::cout << ", " << dangerous << " that can die";
+    if (dangerous) std::cout << " (of which " << dangerous << " judged on survival)";
     std::cout << ";  " << inconsistent << " where the eval does not agree with itself\n";
     std::cout << "cleared and window are A minus B, in squares; positive favours A.\n";
     std::cout << "eval now is what golden compares; eval later is the same difference after the\n"

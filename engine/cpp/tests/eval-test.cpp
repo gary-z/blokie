@@ -171,6 +171,79 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 	const int crowded_blocks = std::max(0, bit_board.count() - 20);
 	result += static_cast<uint64_t>(scarce_placements) * crowded_blocks *
 		weights.weights[12];
+
+#if BLOKIE_CLEAR_OPPORTUNITY
+	if (bit_board.count() >= BLOKIE_CLEAR_OPPORTUNITY_GATE) {
+		int ways = 0;
+		for (int index = 0; index < Piece::NUM_PIECES; ++index) {
+			const Piece piece = Piece::byIndex(index);
+			if (piece.count() < BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES ||
+				piece.count() > BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES) {
+				continue;
+			}
+			// The shape as a list of cells, so placements can be tried by
+			// hand rather than through the iterator the evaluation uses.
+			const BitBoard shape = piece.getBitBoard();
+			Shape cells;
+			for (int row = 0; row < 9; ++row) {
+				for (int column = 0; column < 9; ++column) {
+					if (shape.at(row, column)) {
+						cells.emplace_back(row, column);
+					}
+				}
+			}
+			for (int row_offset = 0; row_offset < 9; ++row_offset) {
+				for (int column_offset = 0; column_offset < 9;
+					++column_offset) {
+					ScalarBoard filled = board;
+					bool fits = true;
+					for (const auto &[row, column] : cells) {
+						const int r = row + row_offset;
+						const int c = column + column_offset;
+						if (!filled.open(r, c)) {
+							fits = false;
+							break;
+						}
+						filled.occupied[r][c] = true;
+					}
+					if (!fits) {
+						continue;
+					}
+					bool cleared = false;
+					for (int i = 0; i < 9 && !cleared; ++i) {
+						int in_row = 0;
+						int in_column = 0;
+						for (int k = 0; k < 9; ++k) {
+							in_row += filled.occupied[i][k] ? 1 : 0;
+							in_column += filled.occupied[k][i] ? 1 : 0;
+						}
+						cleared = in_row == 9 || in_column == 9;
+					}
+					for (int cube_row = 0; cube_row < 3 && !cleared;
+						++cube_row) {
+						for (int cube_column = 0; cube_column < 3 && !cleared;
+							++cube_column) {
+							int in_cube = 0;
+							for (int row = 0; row < 3; ++row) {
+								for (int column = 0; column < 3; ++column) {
+									in_cube += filled.occupied
+										[cube_row * 3 + row]
+										[cube_column * 3 + column] ? 1 : 0;
+								}
+							}
+							cleared = in_cube == 9;
+						}
+					}
+					ways += cleared ? 1 : 0;
+				}
+			}
+		}
+		const int missing = std::max(0,
+			BLOKIE_CLEAR_OPPORTUNITY_CAP - ways);
+		result += static_cast<uint64_t>(missing) * crowded_blocks *
+			BLOKIE_CLEAR_OPPORTUNITY_WEIGHT;
+	}
+#endif
 	return result;
 }
 

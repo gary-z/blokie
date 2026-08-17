@@ -47,6 +47,15 @@ using namespace bitboard_detail;
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP
 #define BLOKIE_CLEAR_OPPORTUNITY_CAP 30
 #endif
+// Which pieces are asked whether they could clear. Small pieces fit almost
+// anywhere, so counting them says more about the board being open than about a
+// clear being available; the largest are rare enough to be poor evidence.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES
+#define BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES 3
+#endif
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES
+#define BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES 5
+#endif
 
 uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t max) {
 	uint64_t result = 0;
@@ -250,7 +259,8 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			for (int index = 0; index < Piece::NUM_PIECES; ++index) {
 				const Piece piece = Piece::byIndex(index);
 				const int squares = piece.count();
-				if (squares < 3 || squares > 5) {
+				if (squares < BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES ||
+					squares > BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES) {
 					continue;
 				}
 				for (auto it = here.nextStates(piece).begin();
