@@ -151,8 +151,14 @@ against a control of 47,366:
 Seventeen of the eighteen fall in one band around 67,000. At 200 deaths
 `sd(log ĥ)` is 1/√200 = 7.1%, so a pair of arms is separated only past about 20%,
 and the whole 58.5k-to-76.8k spread is about what two standard deviations buys.
-Every gate from 20 to 36, every cap from 20 to 60, every weight from 130 to 250
-and every piece filter is, on this evidence, the same point.
+Every gate from 20 to 36, every cap from 20 to 60 and every weight from 130 to
+250 is, on this evidence, the same point.
+
+The piece filter is the exception, and only because it was followed up. On this
+screen it looked like noise too — the three-to-four filter was the *highest* arm
+here at 75,388 and confirmed as the *worst* of the three at 1200 deaths. Four-to-
+five was the one that replicated. Nothing in this table could have told them
+apart; the section above did that, at six times the exposure.
 
 The one arm that leaves the band is `cap 15`, at 51,117, and it leaves for a
 mechanical reason rather than a tuning one: a crowded board typically already has
