@@ -1,6 +1,6 @@
 # Charging a crowded board for having no way to clear
 
-A new evaluation term, measured at **62% longer games**, confirmed on a seed base
+A new evaluation term, measured at **74% longer games**, confirmed on seed bases
 no parameter was chosen on. It is committed behind `BLOKIE_CLEAR_OPPORTUNITY`, off by
 default, because turning it on changes what the engine plays: the committed WASM
 and the reference evaluation in `engine/cpp/tests/eval-test.cpp` both have to be
@@ -20,7 +20,7 @@ complete a line. Charge the board for the ones that are **missing**.
 ```
 if occupied >= 30:
     ways = placements of any 4..5 square piece that complete a row, column or cube
-    result += max(0, 30 - ways) * (occupied - 20) * weight
+    result += max(0, occupied - ways) * (occupied - 20) * weight
 ```
 
 Two details about the shape. It is a penalty for absence rather than a bonus for
@@ -82,7 +82,9 @@ that fraction rather than the pieces:
 Charge too few boards and the term is off — cap 15 lands near the control.
 Charge too many and it degenerates towards the flat crowding penalty that
 measures 27% worse than not having the term at all. The optimum is the scarcest
-half, and the cap and the filter are two ways of setting the same one number.
+half, and the cap and the filter are two ways of setting the same one number --
+though see below: the right cap is not a constant at all, because the statistic's
+own median climbs as the board fills.
 
 This also disposes of a variant that looked promising: placements that clear two
 lines at once. Above the gate that count is zero on 79% of boards and on 96% at
@@ -162,6 +164,56 @@ general; it is asked to rank the siblings the search is choosing between, and
 these are different questions. The same lesson came out of the n-tuple work, where
 sibling ordering accuracy predicted play strength and neither R-squared nor
 agreement on random pairs did.
+
+## The cap belongs on a sliding scale
+
+The cap was a constant, and it should not have been. A fuller board has more
+nearly-complete lines, so it has **more** ways to clear, not fewer: the median
+above thirty squares is 36 clearing placements, and above thirty-five about 47. A
+constant cap of 30 therefore charges the fullest and most dangerous boards
+*least*, which is backwards from what the term is for.
+
+Making the cap the occupancy fixes it, and it is the largest single improvement
+found. Head to head, 1200 deaths an arm, both on seed base 20260819:
+
+| cap | deaths | hazard | mean game | 95% CI |
+|---|---:|---:|---:|---|
+| **occupancy** | 1203 | 1.233e-05 | **81,131** | 76,672–85,847 |
+| fixed at 30 | 1210 | 1.377e-05 | 72,603 | 68,625–76,811 |
+
+Hazard ratio 0.895, **z = 2.7**. It replicates: 81,131 here and 81,739 at 800
+deaths on seed base 20260818.
+
+Pooled against pooled controls, the term as it now stands is worth **+74%**:
+
+| | deaths | exposure | hazard | mean length |
+|---|---:|---:|---:|---:|
+| control | 2011 | 94.0M | 2.141e-05 | 46,708 |
+| **occupancy-scaled cap** | 2008 | 163.4M | 1.229e-05 | **81,367** |
+
+Hazard ratio **0.574**, **z = 17.6**.
+
+This is also the one hypothesis in this whole investigation that came from a
+measured distribution rather than from a guess about mechanism, and it is the one
+that produced an improvement. Three guesses about why the piece filter mattered
+all failed; one measurement of where the statistic actually sits paid 12%.
+
+## A test caveat when the option is on
+
+With `BLOKIE_CLEAR_OPPORTUNITY=ON`, every correctness assertion passes -- including
+the one that matters most here, the pruned search agreeing with an unpruned
+reference on all 240 open-board samples. One *coverage* guard in `search-test`
+falls short: it wants at least five samples where the best board is one no clear
+can move, and counts four.
+
+Those positions occur at about 1.7%, and the term makes them rarer by changing leaf
+ordering above the gate -- open-board samples start near twenty squares and three
+pieces of four or five squares push the leaves past the gate. Reaching five
+reliably would take roughly 600 samples and two and a half times the runtime of
+what is already the slowest test. Shopping for a seed or lowering the threshold
+would hide exactly what the guard exists to catch, so neither was done; the
+assertion now reports its own count instead. With the option off, which is the
+default, all seven tests pass.
 
 ## The control that says what the gain is
 
