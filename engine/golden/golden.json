@@ -830,5 +830,161 @@
       "...#.....",
       "...#....."
     ]
+  },
+  {
+    "id": "deadly-47-1",
+    "description": "Crowded board, 47 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 4.3% of the time against 1.4% for A, a gap of 2.9 points. The search plays B, preferring it by 1248. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "a": [
+      "#######..",
+      "###.#####",
+      ".###.####",
+      ".#####...",
+      "..##...##",
+      "..##...##",
+      "..##.....",
+      "#.####..#",
+      "#..###..."
+    ],
+    "b": [
+      "#######..",
+      "###.#####",
+      ".###.####",
+      "######...",
+      "####...##",
+      ".#.#...##",
+      ".........",
+      "#.#.##..#",
+      "#..###..."
+    ]
+  },
+  {
+    "id": "deadly-42-2",
+    "description": "Crowded board, 42 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 9.7% of the time against 3.8% for A, a gap of 5.9 points. The search plays B, preferring it by 34247. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "a": [
+      "######..#",
+      ".#..##...",
+      ".##.##.#.",
+      ".....####",
+      "...#.#.##",
+      ".....####",
+      "###......",
+      "##.#..##.",
+      "#..######"
+    ],
+    "b": [
+      "######..#",
+      ".#..##...",
+      ".##.##...",
+      ".....#...",
+      "...#.#..#",
+      "....#####",
+      "######...",
+      "##.##.##.",
+      "#..######"
+    ]
+  },
+  {
+    "id": "deadly-42-3",
+    "description": "Crowded board, 42 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 11.2% of the time against 5.7% for A, a gap of 5.5 points. The search plays B, preferring it by 16885. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "a": [
+      "#######.#",
+      ".#..#####",
+      ".##.###..",
+      ".....#...",
+      "...#.#..#",
+      ".....####",
+      "###......",
+      "##.#..##.",
+      "#..######"
+    ],
+    "b": [
+      "######..#",
+      ".#..##...",
+      ".##.##...",
+      ".....#...",
+      "...#.#..#",
+      "....#####",
+      "###.###..",
+      "##.##.##.",
+      "#..######"
+    ]
+  },
+  {
+    "id": "deadly-38-4",
+    "description": "Crowded board, 38 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 4.8% of the time against 0.4% for A, a gap of 4.5 points. The search plays B, preferring it by 69016. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "a": [
+      "######...",
+      "##...####",
+      "##.######",
+      ".........",
+      ".#.##...#",
+      ".#......#",
+      "#######..",
+      "#.#..##..",
+      ".....#..."
+    ],
+    "b": [
+      "######...",
+      "##...####",
+      "##.######",
+      "###......",
+      ".####...#",
+      ".##.....#",
+      "###...#..",
+      "#.#...#..",
+      "........."
+    ]
+  },
+  {
+    "id": "deadly-36-5",
+    "description": "Crowded board, 36 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 3.8% of the time against 1.5% for A, a gap of 2.3 points. The search plays B, preferring it by 12369. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "a": [
+      "##...#..#",
+      "#....#...",
+      "##.###...",
+      "##..##...",
+      "#..####..",
+      ".......##",
+      "...######",
+      "...#####.",
+      "...#..#.#"
+    ],
+    "b": [
+      "##...#.##",
+      ".....#.##",
+      "...###..#",
+      "#...##...",
+      "#..####..",
+      ".......##",
+      "...######",
+      "...#####.",
+      "...#..#.#"
+    ]
+  },
+  {
+    "id": "deadly-36-6",
+    "description": "Crowded board, 36 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 2.1% of the time against 0.4% for A, a gap of 1.7 points. The search plays B, preferring it by 26290. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "a": [
+      ".....#...",
+      ".#.......",
+      "##...#...",
+      "#.#.##...",
+      "##..####.",
+      "###..####",
+      "......###",
+      "####...##",
+      "..##..###"
+    ],
+    "b": [
+      ".....#...",
+      ".........",
+      ".....#...",
+      "..#.##...",
+      "##..####.",
+      "###..####",
+      ".....####",
+      "######.##",
+      "..###.###"
+    ]
   }
 ]
