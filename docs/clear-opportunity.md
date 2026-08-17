@@ -89,6 +89,80 @@ lines at once. Above the gate that count is zero on 79% of boards and on 96% at
 lower occupancy, so charging its absence would have been a flat penalty wearing a
 combo signal's clothes.
 
+## Iterating on the shape
+
+Eight arms, 800 deaths each, seed base 20260818, control 48,238. Five statistics
+were tried, not just five parameterisations: placements of a piece-size range,
+distinct pieces that can clear at all, and the exact probability that none of the
+next three dealt pieces can clear -- which is computable, because pieces are dealt
+uniformly and independently from the 47, so it is `((47 - reach) / 47)` cubed.
+
+| form | mean game |
+|---|---:|
+| **placements, pieces 4-5, cap 30, weight 200** | **74,682** |
+| P(none of the next three can clear), weight 12000 | 72,163 |
+| placements, pieces 5-5, cap 16, weight 200 | 69,004 |
+| placements, pieces 3-5, cap 36, weight 200 | 67,478 |
+| placements, pieces 3-5, cap 36, weight 167 | 67,793 |
+| distinct pieces that can clear, cap 25, weight 240 | 67,587 |
+| placements, pieces 4-4, cap 15, weight 400 | 67,152 |
+| placements, pieces 5-5, cap 16, weight 375 | 66,535 |
+| P(none of the next three can clear), weight 6000 | 66,301 |
+
+Two things come out of this, one of them a correction.
+
+**Magnitude dominates the choice of statistic.** The probability form moved from
+66,301 to 72,163 on nothing but a doubling of its weight -- a larger swing than
+any difference between statistics in the table. The weights above were first
+picked to hold each form's charge at zero ways equal to the shipped form's, which
+is its *maximum* charge and says little about what it charges on the boards that
+occur; that systematically under-weighted every alternative. Comparisons between
+statistics in the earlier version of this section were substantially comparisons
+between magnitudes.
+
+**The piece filter is real and remains unexplained.** Pooling every measurement of
+each, pieces 4-5 is 2003 deaths over 148.9M moves (hazard 1.346e-05) against
+pieces 3-5 at 2811 deaths over 190.2M (1.478e-05): a hazard ratio of 0.910, SE
+0.029, **z = 3.2**. Three explanations were offered and all three failed:
+
+* *The five-square pieces carry the signal.* Then pieces 5-5 alone should be
+  strong. It is 69,004, no better than 3-5.
+* *It is a quantile -- the filter sets the statistic's median and so the fraction
+  of boards the cap charges.* Then capping each filter at its own median should
+  make them equal. It made the three median-scaled filters equal to each other,
+  at 66.5k, 67.2k and 67.8k, and left all three below 4-5.
+* *It is the slope -- holding cap times weight constant forced slopes from 167 to
+  400.* Then matching slopes should close the gap. At slope 200 for both, 3-5 is
+  67,478 against 74,682.
+
+So pieces 4-5 is an empirically fitted parameter, not a principled one. It is
+worth roughly 10% and nobody should read a mechanism into it.
+
+## Predicting death is not the same as being useful
+
+A cheap diagnostic, meant to rank candidate statistics without a game arm each:
+sample positions from play, estimate each one's true near-term death probability
+by rollout, and score each statistic by how well it orders those positions. AUC is
+invariant under monotone transforms, so it scores the *statistic* and says nothing
+about the cap or the weight -- and it predicts that two candidates related by a
+monotone map must tie, which is why counting the pieces that can clear and
+computing the probability that none of three can are the same candidate here.
+
+Read with the power it has, it makes one point rather than a ranking. Above 28
+squares the death rate over twelve sets is 0.2%, so 500 positions at 32 rollouts
+buy about 35 deaths and `sd(AUC)` near 0.07 -- the whole observed spread, 0.73 to
+0.90, is one standard error wide and the ordering within it is not resolvable.
+
+What is larger than that: the **shipped evaluation scores 0.90 and plain occupancy
+0.83**, at or above every clear statistic tried. Yet a flat charge on occupancy,
+with the same gate and magnitude, measures 27% *worse* than not having the term at
+all. Whatever the clear-opportunity term is contributing, it is not a better
+forecast of death. An evaluation inside a search is not asked to rank positions in
+general; it is asked to rank the siblings the search is choosing between, and
+these are different questions. The same lesson came out of the n-tuple work, where
+sibling ordering accuracy predicted play strength and neither R-squared nor
+agreement on random pairs did.
+
 ## The control that says what the gain is
 
 A penalty is a penalty, and a term that only fires above thirty squares could
