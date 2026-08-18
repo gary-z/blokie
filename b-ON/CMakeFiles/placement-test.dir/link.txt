@@ -1,1 +1,0 @@
-/usr/bin/c++  -Wall -Wextra -Werror -O3 -DNDEBUG -O3 -flto -DNDEBUG "CMakeFiles/placement-test.dir/tests/placement-test.cpp.o" -o placement-test  libsolver.a 

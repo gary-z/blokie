@@ -4,3 +4,23 @@ engine/cpp/build-release/
 node_modules/
 emsdk/
 .devcontainer/
+
+# CMake build trees, wherever they are put. b-ON/ and b-OFF/ were committed by
+# accident in #104 -- 675 files of object code, static libraries and a
+# CMakeCache.txt full of one machine's absolute paths. The three build
+# directories above are the ones the scripts use, but an A/B run makes up a
+# name on the spot, so ignore what CMake writes as well as where it writes it.
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+cmake_install.cmake
+DartConfiguration.tcl
+Testing/
+*.o
+*.a
+
+# Ad-hoc build directories at the repository root, which is where a one-off
+# `cmake -B <name>` lands when it is run from the top of the tree.
+/b-*/
+/build/
+/build-*/

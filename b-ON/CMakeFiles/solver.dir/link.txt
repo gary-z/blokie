@@ -1,2 +1,0 @@
-/usr/bin/gcc-ar-12 qc libsolver.a CMakeFiles/solver.dir/Unity/unity_0_cxx.cxx.o
-/usr/bin/gcc-ranlib-12 libsolver.a
