@@ -203,6 +203,9 @@ else()
 	add_executable(fitness fitness.cpp)
 	target_link_libraries(fitness PRIVATE solver Threads::Threads)
 
+	add_executable(weight-screen weight-screen.cpp)
+	target_link_libraries(weight-screen PRIVATE solver Threads::Threads)
+
 	add_executable(search-stats search-stats.cpp)
 	target_link_libraries(search-stats PRIVATE solver)
 
