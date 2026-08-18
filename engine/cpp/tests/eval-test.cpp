@@ -191,8 +191,12 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 					}
 				}
 			}
-			for (int row_offset = 0; row_offset < 9; ++row_offset) {
-				for (int column_offset = 0; column_offset < 9;
+			// One per piece, however many of its placements clear: two clearing
+			// placements that need the same piece are one opportunity.
+			bool piece_can_clear = false;
+			for (int row_offset = 0; row_offset < 9 && !piece_can_clear;
+				++row_offset) {
+				for (int column_offset = 0; column_offset < 9 && !piece_can_clear;
 					++column_offset) {
 					ScalarBoard filled = board;
 					bool fits = true;
@@ -233,9 +237,10 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 							cleared = in_cube == 9;
 						}
 					}
-					ways += cleared ? 1 : 0;
+					piece_can_clear = piece_can_clear || cleared;
 				}
 			}
+			ways += piece_can_clear ? 1 : 0;
 		}
 		const int cap = bit_board.count() *
 			BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT / 100;
@@ -277,7 +282,7 @@ void testWeightMapping() {
 void testDefaultWeights() {
 	const std::array<int, EvalWeights::NUM_WEIGHTS> expected = {
 		1358, 524, 6540, 4450, 18185, 2665, 204,
-		908, 1776, 3386, 1607, 3067, 200, 200,
+		908, 1776, 3386, 1607, 3067, 200, 335,
 	};
 	const auto actual = EvalWeights::getDefault();
 	for (int index = 0; index < EvalWeights::NUM_WEIGHTS; ++index) {

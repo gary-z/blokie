@@ -225,8 +225,11 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 				* weights.getCrowdedPieceScarcity();
 		}
 
-		// Ways left to clear, counted where a mid-sized piece would complete a
-		// line. Of everything tried against the crowded pairs in
+		// Pieces that could still clear a line, counted once each. Two placements
+		// that both need the same piece are one opportunity, not two: if that
+		// piece is not dealt, neither is available. Counting placements instead
+		// treats correlated options as independent and measures 8.7% shorter
+		// games. Of everything tried against the crowded pairs in
 		// engine/golden/golden.json, every static statistic over how full the
 		// lines are ordered at most two of the six correctly; this orders five.
 		// The quantity is a one-ply lookahead and not a property of the board,
@@ -246,6 +249,9 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 					(void)*it;
 					if (it.didClear()) {
 						++ways;
+						// One per piece: stopping here is the whole change, and
+						// it also makes the term cheaper than counting on.
+						break;
 					}
 				}
 			}

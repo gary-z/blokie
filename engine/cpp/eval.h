@@ -14,14 +14,14 @@
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
 #define BLOKIE_CLEAR_OPPORTUNITY_GATE 30
 #endif
-// Ways to clear counted as enough; beyond it the board is not charged. It is set
-// as a percentage of occupancy rather than as a constant, because the number of
-// clearing placements RISES with occupancy -- a median of 36 above thirty squares
-// and about 47 above thirty-five -- so a constant cap charges the fullest and most
-// dangerous boards least. At 100 the cap is the occupancy, which holds the
-// fraction of boards charged roughly constant as the board fills.
+// Pieces able to clear that count as enough; beyond it the board is not charged.
+// It is a percentage of occupancy rather than a constant because the count RISES
+// with occupancy -- a fuller board has more nearly-complete lines -- so a constant
+// cap charges the fullest and most dangerous boards least. 70 puts the cap just
+// below the median of 17 pieces on a leaf above the gate, which charges about 80%
+// of them, the same fraction the placement count charged at 100.
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT
-#define BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT 100
+#define BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT 70
 #endif
 // Which pieces are asked whether they could clear. This is not really a
 // statement about pieces: it sets the median of the count, and so the fraction of
@@ -66,9 +66,14 @@ public:
 };
 
 // Played out by makeMoveSimpleDefault, these weights last a measured
-// 81,367 sets of three pieces per game. From 2,008 deaths over 163.4M moves of
-// fixed-exposure chains, pooled across two seed bases, hazard 1.229e-05. Change a
-// weight below and the number no longer describes anything.
+// 91,670 sets of three pieces per game, 95% CI 87,150 to 96,423. From 1,503 deaths
+// over 137.8M moves of fixed-exposure chains on seed base 20260822, hazard
+// 1.091e-05. Change a weight below and the number no longer describes anything.
+//
+// Seed bases disagree by more than any one run's interval suggests: the previous
+// evaluation measured 81,367, 87,091, 82,642 and 84,361 on four of them. Compare
+// candidates against a baseline measured on the same seed, never against a
+// remembered number.
 //
 // The twelve above weights[12] were fitted before the clear-opportunity term
 // existed, against an engine that measured 46,962 (95% CI 46,148 to 47,805, from
@@ -90,6 +95,6 @@ constexpr EvalWeights EvalWeights::getDefault() {
 	result.weights[10] = 1607; // occupied center square
 	result.weights[11] = 3067; // occupied corner square
 	result.weights[12] = 200;  // crowded-piece scarcity
-	result.weights[13] = 200;  // clear opportunity
+	result.weights[13] = 335;  // clear opportunity
 	return result;
 }
