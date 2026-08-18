@@ -172,7 +172,6 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 	result += static_cast<uint64_t>(scarce_placements) * crowded_blocks *
 		weights.weights[12];
 
-#if BLOKIE_CLEAR_OPPORTUNITY
 	if (bit_board.count() >= BLOKIE_CLEAR_OPPORTUNITY_GATE) {
 		int ways = 0;
 		for (int index = 0; index < Piece::NUM_PIECES; ++index) {
@@ -244,7 +243,6 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 		result += static_cast<uint64_t>(missing) * crowded_blocks *
 			weights.getClearOpportunity();
 	}
-#endif
 	return result;
 }
 

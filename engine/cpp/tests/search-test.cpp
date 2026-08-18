@@ -313,12 +313,22 @@ UnprunedSearch searchWithoutPruning(BitBoard board, const PieceSet &pieces) {
 // can move never decide anything. On a quarter-full board a hand often plays
 // out without completing a line at all, and then the whole move rests on the
 // pruning agreeing with itself.
+//
+// The sample count is what it is because of the coverage guard at the bottom
+// rather than the correctness check. The two conditions a hand has to meet to
+// exercise the pruning are anti-correlated -- of 960 hands, 682 can clear inside
+// two pieces and 125 have an untouched best board, but only 25 do both, because
+// a hand that can clear early usually should. The clear-opportunity term sharpens
+// that, since it charges a board for not clearing. 960 samples leave the guard
+// five times its threshold; 240 left it one under.
 void testSearchPruningOnOpenBoards() {
 	const auto weights = EvalWeights::getDefault();
 	test::Random random(0xF1B5C0DEULL);
 	int playable = 0;
 	int decided_by_a_board_no_clear_can_move = 0;
-	for (int sample = 0; sample < 240; ++sample) {
+	int could_clear_early = 0;
+	int best_was_a_board_no_clear_can_move = 0;
+	for (int sample = 0; sample < 960; ++sample) {
 		const auto board = test::clearCompletedLines(random.board(2));
 		// The smallest pieces fit almost everywhere on a board this open, which
 		// costs the unpruned reference a great deal and tests nothing extra.
@@ -336,8 +346,12 @@ void testSearchPruningOnOpenBoards() {
 			continue;
 		}
 		++playable;
-		if (reference.best_no_clear_can_move == reference.best &&
-			AI::canClearWith2PiecesOrFewer(GameState(board), pieces)) {
+		const bool could_clear = AI::canClearWith2PiecesOrFewer(GameState(board), pieces);
+		const bool best_is_untouched =
+			reference.best_no_clear_can_move == reference.best;
+		could_clear_early += could_clear ? 1 : 0;
+		best_was_a_board_no_clear_can_move += best_is_untouched ? 1 : 0;
+		if (best_is_untouched && could_clear) {
 			++decided_by_a_board_no_clear_can_move;
 		}
 		test::require(move.evaluation == reference.best,
@@ -346,7 +360,7 @@ void testSearchPruningOnOpenBoards() {
 			std::to_string(reference.best));
 	}
 
-	test::require(playable >= 200,
+	test::require(playable >= 800,
 		"open board sweep should be mostly playable hands");
 	// Without positions of this kind the sweep passes whatever the pruning does,
 	// because every board it could drop was worse than one it kept anyway.
@@ -354,7 +368,9 @@ void testSearchPruningOnOpenBoards() {
 		"open board sweep should include hands that could have cleared early but "
 		"whose best board no clear can move -- counted " +
 		std::to_string(decided_by_a_board_no_clear_can_move) + " of " +
-		std::to_string(playable) + " playable");
+		std::to_string(playable) + " playable; could clear early " +
+		std::to_string(could_clear_early) + ", best was untouched " +
+		std::to_string(best_was_a_board_no_clear_can_move));
 }
 
 // Boards where a line is nearly full, which is where the two rules that let a

@@ -1,18 +1,15 @@
 #pragma once
 #include <cstdint>
 
-// Charging a crowded board for having no way to clear. Off by default: turning
-// it on changes what the engine plays, so the committed WASM and the weights
-// below both describe an engine without it. See docs/clear-opportunity.md.
+// Charging a crowded board for having no way to clear, worth a measured 74% in
+// game length. See docs/clear-opportunity.md.
 //
-// These live in the header rather than in eval.cpp so that the reference
+// The knobs live in the header rather than in eval.cpp so that the reference
 // evaluation in tests/eval-test.cpp is checked against the same numbers, and are
 // overridable from the compiler command line, which is how they were swept. The
 // charge itself is not here: it is weights[13], so the fitness tooling can tune
-// it like any other.
-#ifndef BLOKIE_CLEAR_OPPORTUNITY
-#define BLOKIE_CLEAR_OPPORTUNITY 0
-#endif
+// it like any other, and setting it to zero is an exact way to switch the term
+// off -- which is how every control in the write-up was measured.
 // Occupancy at which the term switches on. It pays for the enumeration.
 #ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
 #define BLOKIE_CLEAR_OPPORTUNITY_GATE 30
@@ -61,18 +58,23 @@ public:
 	constexpr int getOccupiedCenterSquare() const { return weights[10]; }
 	// Nonlinear penalty for scarce hard-piece placements on crowded boards.
 	constexpr int getCrowdedPieceScarcity() const { return weights[12]; }
-	// Charge per missing way to clear, per square of crowding. Read only when
-	// BLOKIE_CLEAR_OPPORTUNITY is on; kept in the vector either way so the
-	// fitness tooling can reach it and so the slot does not move when it is.
+	// Charge per missing way to clear, per square of crowding. Zero switches the
+	// term off exactly, which is how its controls were measured.
 	constexpr int getClearOpportunity() const { return weights[13]; }
 
 	static constexpr EvalWeights getDefault();
 };
 
 // Played out by makeMoveSimpleDefault, these weights last a measured
-// 46,962 sets of three pieces per game, 95% CI 46,148 to 47,805. From 3,520
-// complete games, 162.7M moves, no cutoff. Change a weight below and the
-// number no longer describes anything.
+// 81,367 sets of three pieces per game. From 2,008 deaths over 163.4M moves of
+// fixed-exposure chains, pooled across two seed bases, hazard 1.229e-05. Change a
+// weight below and the number no longer describes anything.
+//
+// The twelve above weights[12] were fitted before the clear-opportunity term
+// existed, against an engine that measured 46,962 (95% CI 46,148 to 47,805, from
+// 3,520 complete games and 162.7M moves). Adding the term moved the figure to the
+// one above without touching them, so they are very likely no longer where they
+// should be -- retuning them is the obvious next gain and has not been done.
 constexpr EvalWeights EvalWeights::getDefault() {
 	EvalWeights result;
 	result.weights[0] = 1358;  // occupied side cube

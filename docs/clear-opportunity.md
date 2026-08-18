@@ -1,10 +1,17 @@
 # Charging a crowded board for having no way to clear
 
 A new evaluation term, measured at **74% longer games**, confirmed on seed bases
-no parameter was chosen on. It is committed behind `BLOKIE_CLEAR_OPPORTUNITY`, off by
-default, because turning it on changes what the engine plays: the committed WASM
-and the reference evaluation in `engine/cpp/tests/eval-test.cpp` both have to be
-regenerated, and the other twelve weights were tuned without it.
+no parameter was chosen on. **On, unconditionally**, in the native engine and in
+the committed WASM: this is what the engine plays now.
+
+There is no flag. `weights[13]` is the charge, and setting it to zero switches the
+term off exactly -- which is how every control below was measured, and is the only
+switch there is.
+
+One thing this changes that is worth knowing before reading further: the other
+twelve weights were fitted against an engine without this term, so they are
+very probably no longer where they should be. Retuning them is the obvious next
+gain and has not been done.
 
 ## What it measures
 
@@ -213,22 +220,28 @@ measured distribution rather than from a guess about mechanism, and it is the on
 that produced an improvement. Three guesses about why the piece filter mattered
 all failed; one measurement of where the statistic actually sits paid 12%.
 
-## A test caveat when the option is on
+## What turning it on cost in the tests
 
-With `BLOKIE_CLEAR_OPPORTUNITY=ON`, every correctness assertion passes -- including
-the one that matters most here, the pruned search agreeing with an unpruned
-reference on all 240 open-board samples. One *coverage* guard in `search-test`
-falls short: it wants at least five samples where the best board is one no clear
-can move, and counts four.
+`search-test` has a coverage guard, not a correctness one: it counts hands where
+the pruning's cross-ordering argument could actually have produced a wrong answer,
+and requires at least five of them. Without hands of that kind the sweep "passes
+whatever the pruning does".
 
-Those positions occur at about 1.7%, and the term makes them rarer by changing leaf
-ordering above the gate -- open-board samples start near twenty squares and three
-pieces of four or five squares push the leaves past the gate. Reaching five
-reliably would take roughly 600 samples and two and a half times the runtime of
-what is already the slowest test. Shopping for a seed or lowering the threshold
-would hide exactly what the guard exists to catch, so neither was done; the
-assertion now reports its own count instead. With the option off, which is the
-default, all seven tests pass.
+Two conditions have to hold together -- a clear must be available inside two
+pieces, so more than one ordering is walked, and the best board must be one no
+clear can move, so a dropped board would change the answer. They are
+anti-correlated, because a hand that can clear early usually should, and this term
+sharpens that by charging a board for not clearing. Of 240 samples: 165 could clear
+early, 24 had an untouched best board, and 4 did both -- one under the threshold.
+
+The fix is more samples, not a lower bar. At 960 samples the count is 25, five
+times the threshold: 682 could clear early, 125 had an untouched best board. The
+test costs 14 seconds. The 265 seconds it appeared to take during this work was a
+single-threaded test starved at `nice 19` behind 32 busy cores, which is also why
+an earlier version of this note argued the sample count was too expensive to
+raise. It was not.
+
+All seven tests pass.
 
 ## The control that says what the gain is
 
@@ -340,17 +353,22 @@ optimum. Use them to find the mechanism and the hazard to set the number.
   compares.
 The reference evaluation in `tests/eval-test.cpp` now carries the term as well,
 written against a plain 9×9 array rather than through the placement iterator the
-evaluation uses, so the two implementations are independent. All seven tests pass
-with the option on. The four knobs moved to `eval.h` so both implementations read
-the same numbers.
+evaluation uses, so the two implementations are independent. The knobs live in
+`eval.h` so both read the same numbers.
 
 ## Reproducing
 
 ```bash
-cmake -S engine/cpp -B /tmp/on -DCMAKE_BUILD_TYPE=Release -DBLOKIE_CLEAR_OPPORTUNITY=ON
-make -C /tmp/on fitness -j
+cmake -S engine/cpp -B /tmp/b -DCMAKE_BUILD_TYPE=Release
+make -C /tmp/b fitness -j
 ```
 
-The weight, gate and cap are `BLOKIE_CLEAR_OPPORTUNITY_WEIGHT`, `_GATE` and
-`_CAP` in `eval.cpp`, overridable from the compiler command line, which is how
-the sweep above was run.
+The charge is `weights[13]`, reachable through `--weights`; setting it to zero is
+the control. The gate, the cap percentage and the piece filter are
+`BLOKIE_CLEAR_OPPORTUNITY_GATE`, `_CAP_PERCENT`, `_MIN_SQUARES` and `_MAX_SQUARES`
+in `eval.h`, overridable from the compiler command line, which is how the sweeps
+above were run.
+
+The committed WASM was checked against the native evaluation on fifteen boards
+above the gate: it agrees with all fifteen and differs from the term-off value on
+every one, so the artifact players get is the one measured here.

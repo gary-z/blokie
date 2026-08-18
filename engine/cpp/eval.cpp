@@ -225,7 +225,6 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 				* weights.getCrowdedPieceScarcity();
 		}
 
-#if BLOKIE_CLEAR_OPPORTUNITY
 		// Ways left to clear, counted where a mid-sized piece would complete a
 		// line. Of everything tried against the crowded pairs in
 		// engine/golden/golden.json, every static statistic over how full the
@@ -256,7 +255,6 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			result += (uint64_t)missing * crowded_blocks
 				* weights.getClearOpportunity();
 		}
-#endif
 	}
 
 	return std::min(result, max);
