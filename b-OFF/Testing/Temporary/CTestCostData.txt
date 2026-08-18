@@ -1,0 +1,8 @@
+evaluation 2 4.186
+bitboard 2 0.00291387
+placement 2 0.119928
+search 2 26.5606
+probe-equivalence 2 11.6179
+fitness-probe-rng 2 48.3606
+golden 2 0.0770056
+---

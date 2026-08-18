@@ -1,0 +1,27 @@
+Start testing: Aug 17 21:55 UTC
+----------------------------------------------------------
+4/7 Testing: search
+4/7 Test: search
+Command: "/tmp/claude-1000/-workspaces-blockudoku/91612a82-a0b0-4c7e-973b-25ae2a18aa38/scratchpad/wt/b-ON/search-test"
+Directory: /tmp/claude-1000/-workspaces-blockudoku/91612a82-a0b0-4c7e-973b-25ae2a18aa38/scratchpad/wt/b-ON
+"search" start time: Aug 17 21:55 UTC
+Output:
+----------------------------------------------------------
+ok - search placements replay to its board
+ok - two-piece clear detection
+ok - held-piece counting
+ok - ordering-sensitive searches
+ok - blank and game-over searches
+ok - random search against brute force
+FAIL - search pruning on open boards: open board sweep should include hands that could have cleared early but whose best board no clear can move
+ok - search pruning where clears are available
+1 test(s) failed
+<end of output>
+Test time = 265.50 sec
+----------------------------------------------------------
+Test Failed.
+"search" end time: Aug 17 21:59 UTC
+"search" time elapsed: 00:04:25
+----------------------------------------------------------
+
+End testing: Aug 17 21:59 UTC
