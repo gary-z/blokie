@@ -251,6 +251,12 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 						++ways;
 						// One per piece: stopping here is the whole change, and
 						// it also makes the term cheaper than counting on.
+						//
+						// It has to be one. Allowing two measures 83,626, which is
+						// the uncapped 84,361 rather than anything between -- most
+						// pieces that can clear have only one placement that does,
+						// so a cap of two barely changes the count. Only a cap of
+						// one removes the duplicates that share a piece.
 						break;
 					}
 				}
