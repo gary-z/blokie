@@ -145,8 +145,12 @@ Which measure to trust depends on how full the boards are:
 | 23–35 | risk becomes measurable, 32× baseline by 24 squares | clears **and** deaths |
 | 36–44 | 1,000× baseline; 17% chance of dying within 4 moves | `P(no fit)`, exhaustively |
 
-Every pair in the file today sits in the first row, so `P(no fit)` is 0.00000
-on all sixteen boards and no death signal exists to find.
+The thirty-two hand-written and `mined-*` pairs all sit in the first row, so
+`P(no fit)` is 0.00000 on those boards and no death signal exists to find; they
+are decided on clearing. The eighteen `deadly-*` pairs are the opposite case,
+mined at 36–49 squares precisely so that survival is measurable, and they are
+decided on deaths. See [Mining pairs the eval kills itself
+on](#mining-pairs-the-eval-kills-itself-on).
 
 ### Reading the eval after N moves
 
@@ -398,6 +402,71 @@ independently and now with fourteen witnesses. Three more turn on a run the eval
 is happy to leave broken, since nothing in it scores how near a line is to
 completing. Twenty of the twenty also reverse or fade under
 [the self-consistency check](#does-the-eval-agree-with-itself).
+
+## Mining pairs the eval kills itself on
+
+The `mined-*` pairs above are labelled by clearing, and clearing is the wrong
+objective: every policy measured clears about 11.74 squares a move, because in
+the long run you clear what you place or you fill up and die. What separates
+policies is survival. So the eighteen `deadly-*` pairs are labelled by it
+directly — the chance of being dead within twenty sets, measured by playing the
+board out, with every sibling of a parent sharing the same piece streams so the
+comparison is paired.
+
+That label is only measurable where death can happen, which is why these boards
+carry 36 to 49 squares while the rest of the corpus carries 2 to 14. A crowded
+board resolves inside about twenty sets: it kills you, or it comes back to
+something ordinary.
+
+Two batches, and the gap between them is the point:
+
+| batch | mined against | occupancy | pairs |
+|---|---|---:|---:|
+| `deadly-36-5` … `deadly-47-1` | the eval before the clear-opportunity term | 36–47 | 6 |
+| `deadly-43-8` … `deadly-49-13` | the eval **with** that term | 43–49 | 12 |
+
+**The term closed the band it was built for.** Re-running the same miner in the
+30–44 band the first six came from now finds *nothing*: over 1,439 crowded
+decisions the eval's own choice is dead within twenty sets 0.10% of the time,
+against 0.39% for a random legal alternative and 0.04% for the best of ten
+sampled siblings. Its pick is four times safer than chance and sits within 0.06
+points of the best move available, so the `gap >= 4 points` screen that produced
+six pairs produces none. When those six were mined the chosen board was dying
+2.1% to 11.2% of the time.
+
+The twelve here come from deeper water: parents of 38 to 47 squares, so the pairs
+themselves carry 43 to 49. There 1,802 decisions still show 0.65% against 1.66%
+for a random alternative, and 27.8% of them have some sampled sibling that
+survives better. They were screened on 300 paired
+streams, confirmed on 8,000 fresh ones, and then re-checked on `golden_measure`,
+which is a separate rollout implementation and an exact `P(no fit)`: it returns
+`keep` on all twelve at `z` between 6.0 and 10.7. Pairs whose two death rates
+were proportionally close were dropped rather than kept for their absolute gap —
+21.1% against 22.8% is a coin flip wearing a finding's clothes — and the 1.5x
+ratio floor independently removed the one pair `golden_measure` could not
+separate.
+
+All twelve are also `REVERSES` on [the self-consistency
+check](#does-the-eval-agree-with-itself): the eval scores A worse *now*, and
+after a window of its own play A's descendants score better. It contradicts
+itself on every one, and how loud it is says nothing about how wrong it is:
+`deadly-48-10` prefers B by 82,582 while B dies 1.89x as often, and
+`deadly-46-18` is nearly indifferent at 1,666 while B dies 2.89x as often.
+
+Mine them with `deadly-pairs.cpp` if it is still around, or reproduce it: collect
+crowded boards from self-play, enumerate the siblings of one piece, take the
+eval's pick as B, play every equal-occupancy rival out on shared streams, and
+keep the ones where a rival survives measurably better. The screen and the report
+must use different streams, for the reason in [the section
+above](#mining-pairs-from-play).
+
+**These are evidence about a decision, not a target.** Every warning in [How to
+use these pairs](#how-to-use-these-pairs) still applies, and the survival label
+does not exempt them: `clear-opportunity.md` records that at weight 600 the term
+fixed four of the original six crowded pairs and at weight 200 it fixed two, and
+that 200 plays 46% better. Pass rate kept pointing past the optimum even with
+pairs labelled by survival. Use them to find the mechanism and the hazard to set
+the number.
 
 ## Evaluating an eval change
 
