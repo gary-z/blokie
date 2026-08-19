@@ -986,5 +986,317 @@
       "######.##",
       "..###.###"
     ]
+  },
+  {
+    "id": "deadly-48-7",
+    "description": "Crowded board, 48 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 29.5% of the time against 9.0% for A, a gap of 20.5 points and 3.28x the risk. The search plays B, preferring it by 12559. Confirmed independently by golden_measure at z=10.7, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "#######.#",
+      ".##..####",
+      ".##.#####",
+      ".#.##...#",
+      "##.##...#",
+      "###...###",
+      "...###.##",
+      "...###.#.",
+      "....##..#"
+    ],
+    "b": [
+      "#######.#",
+      ".##..####",
+      ".##.#####",
+      ".#.##...#",
+      "##.##....",
+      "###......",
+      "..####.#.",
+      "######.#.",
+      "..#.##..#"
+    ]
+  },
+  {
+    "id": "deadly-43-8",
+    "description": "Crowded board, 43 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 41.5% of the time against 24.5% for A, a gap of 17.0 points and 1.69x the risk. The search plays B, preferring it by 73393. Confirmed independently by golden_measure at z=8.4, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "##.##..##",
+      "...###...",
+      "##.#..###",
+      ".........",
+      "####.#.#.",
+      ".#####.#.",
+      "#####...#",
+      "##.###.#.",
+      "##...##.."
+    ],
+    "b": [
+      "##.##..##",
+      "...####..",
+      "##.#.####",
+      "....#....",
+      "####.#.#.",
+      ".#####.#.",
+      "#####....",
+      "##.###...",
+      "##...#..."
+    ]
+  },
+  {
+    "id": "deadly-46-9",
+    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 27.6% of the time against 16.3% for A, a gap of 11.3 points and 1.70x the risk. The search plays B, preferring it by 38502. Confirmed independently by golden_measure at z=8.9, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "##..#...#",
+      "###.#.###",
+      "##.##.###",
+      "##..#####",
+      "....###..",
+      "#..#.####",
+      "##.#..###",
+      "###....#.",
+      ".#.#....."
+    ],
+    "b": [
+      "##..#...#",
+      "###.#.###",
+      "##.##.###",
+      "##..#####",
+      "....###..",
+      "#..#.####",
+      "#..#.####",
+      "....####.",
+      "...#.#..."
+    ]
+  },
+  {
+    "id": "deadly-48-10",
+    "description": "Crowded board, 48 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 22.9% of the time against 12.1% for A, a gap of 10.8 points and 1.89x the risk. The search plays B, preferring it by 82582. Confirmed independently by golden_measure at z=9.9, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "#######.#",
+      ".##..####",
+      ".##.#####",
+      ".#.##...#",
+      "##.##.#.#",
+      "###...###",
+      "...###.#.",
+      "...###.#.",
+      "....##..#"
+    ],
+    "b": [
+      "#######.#",
+      ".##..####",
+      ".##.#####",
+      ".#.##...#",
+      "##.##....",
+      "###......",
+      "...###.#.",
+      "#.####.#.",
+      "###.##..#"
+    ]
+  },
+  {
+    "id": "deadly-46-11",
+    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 14.6% of the time against 5.6% for A, a gap of 9.0 points and 2.60x the risk. The search plays B, preferring it by 49629. Confirmed independently by golden_measure at z=10.4, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "#.#.#....",
+      "#...##...",
+      "#######..",
+      "..#######",
+      "..##.#...",
+      "########.",
+      "#.#.###..",
+      "#.#..#...",
+      "#######.."
+    ],
+    "b": [
+      "#.#.#....",
+      "#...#....",
+      "#####....",
+      "..###.###",
+      "..##.#...",
+      "########.",
+      "#.#.####.",
+      "#.#..#.##",
+      "########."
+    ]
+  },
+  {
+    "id": "deadly-49-12",
+    "description": "Crowded board, 49 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 14.0% of the time against 5.7% for A, a gap of 8.4 points and 2.48x the risk. The search plays B, preferring it by 23515. Confirmed independently by golden_measure at z=10.6, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "#.###.###",
+      "######..#",
+      "#.##....#",
+      "####.####",
+      ".......#.",
+      "..#######",
+      "#..####..",
+      "#....###.",
+      "...######"
+    ],
+    "b": [
+      "#.###.###",
+      "######..#",
+      "#.##.####",
+      "####...##",
+      ".........",
+      "..#######",
+      "#..####..",
+      "#....###.",
+      "...######"
+    ]
+  },
+  {
+    "id": "deadly-49-13",
+    "description": "Crowded board, 49 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 21.5% of the time against 13.2% for A, a gap of 8.3 points and 1.63x the risk. The search plays B, preferring it by 40552. Confirmed independently by golden_measure at z=8.5, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "######..#",
+      ".####..##",
+      "..###...#",
+      "#.#..#.##",
+      "#.#..#.#.",
+      ".#.....##",
+      "####.#.##",
+      "######.#.",
+      "#..#####."
+    ],
+    "b": [
+      "#######.#",
+      ".####.###",
+      "..###.###",
+      "#.#..#.##",
+      "#.#..#.#.",
+      ".#.....##",
+      "####...##",
+      "#####..#.",
+      "#..##..#."
+    ]
+  },
+  {
+    "id": "deadly-44-14",
+    "description": "Crowded board, 44 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 21.2% of the time against 13.2% for A, a gap of 8.0 points and 1.60x the risk. The search plays B, preferring it by 30064. Confirmed independently by golden_measure at z=6.0, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "##.##..##",
+      "...###...",
+      "##.#..###",
+      ".........",
+      "####.#.##",
+      ".#####.##",
+      "#####..##",
+      "##.###...",
+      "##...#..."
+    ],
+    "b": [
+      "##.##..##",
+      "..####...",
+      "####..###",
+      ".##......",
+      "####.#.#.",
+      ".#####.#.",
+      "#####....",
+      "##.###...",
+      "##...#..."
+    ]
+  },
+  {
+    "id": "deadly-47-15",
+    "description": "Crowded board, 47 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 15.7% of the time against 8.5% for A, a gap of 7.2 points and 1.85x the risk. The search plays B, preferring it by 11115. Confirmed independently by golden_measure at z=7.3, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "#######.#",
+      ".##..####",
+      ".##.#####",
+      ".#.####.#",
+      "##.####..",
+      "###......",
+      "...###.#.",
+      "...###.#.",
+      "....##..#"
+    ],
+    "b": [
+      "#######.#",
+      ".##..####",
+      ".##.#####",
+      ".#.##...#",
+      "##.##....",
+      "###......",
+      "...###.#.",
+      "##.###.#.",
+      "##..##..#"
+    ]
+  },
+  {
+    "id": "deadly-46-16",
+    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 7.2% of the time against 2.7% for A, a gap of 4.5 points and 2.69x the risk. The search plays B, preferring it by 28497. Confirmed independently by golden_measure at z=6.9, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      ".##..####",
+      ".....##.#",
+      "#####.#.#",
+      "###.#.#..",
+      "##..#....",
+      "###...##.",
+      "###.#.#..",
+      ".####.#..",
+      "#####.#.#"
+    ],
+    "b": [
+      ".##...###",
+      "........#",
+      "#####...#",
+      "###.#.##.",
+      "##..#..##",
+      "###...###",
+      "###.#.#..",
+      ".####.#..",
+      "#####.#.#"
+    ]
+  },
+  {
+    "id": "deadly-45-17",
+    "description": "Crowded board, 45 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 6.3% of the time against 2.2% for A, a gap of 4.2 points and 2.94x the risk. The search plays B, preferring it by 18683. Confirmed independently by golden_measure at z=6.0, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "###.###..",
+      "######...",
+      ".###.#...",
+      "###.....#",
+      "####..###",
+      "#.###.###",
+      "...#..###",
+      "...####..",
+      "...##...#"
+    ],
+    "b": [
+      "###.#....",
+      "#####....",
+      ".###.....",
+      "###.....#",
+      "####..###",
+      "#.###.###",
+      "##.#..###",
+      "#..####..",
+      "#..##...#"
+    ]
+  },
+  {
+    "id": "deadly-46-18",
+    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 4.7% of the time against 1.6% for A, a gap of 3.1 points and 2.89x the risk. The search plays B, preferring it by 1666. Confirmed independently by golden_measure at z=7.6, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "a": [
+      "#.#####.#",
+      "#.#####.#",
+      "#...#####",
+      "......##.",
+      "......##.",
+      "#..#..###",
+      "####.#...",
+      "#.#######",
+      "...#..###"
+    ],
+    "b": [
+      "#.#####.#",
+      "#.#####.#",
+      "#...#####",
+      "....#.##.",
+      "....#.##.",
+      "#...#.###",
+      "###.##...",
+      "#.#.#####",
+      "......###"
+    ]
   }
 ]
