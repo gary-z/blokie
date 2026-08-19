@@ -32,6 +32,9 @@ struct Options {
     bool probe_occupancy_table = false;
     bool custom_weights = false;
     int crowded_scarcity_weight = 0;
+    // A whole weight vector, when the run is measuring something other than
+    // weights[12]. Empty means the shipped weights.
+    std::vector<int> weight_vector;
 };
 
 struct GameResult {
@@ -123,8 +126,13 @@ GameResult playOneGame(uint64_t seed, const Options& opt) {
     std::uniform_int_distribution<int> probe_piece_dist(
         0, Piece::NUM_PIECES - 1);
     EvalWeights weights = EvalWeights::getDefault();
-    if (opt.custom_weights) {
-        weights.weights[12] = opt.crowded_scarcity_weight;
+    if (!opt.weight_vector.empty()) {
+        for (int index = 0; index < EvalWeights::NUM_WEIGHTS; ++index) {
+            weights.weights[index] = opt.weight_vector[index];
+        }
+    } else if (opt.custom_weights) {
+        weights.weights[EvalWeights::CROWDED_PIECE_SCARCITY] =
+            opt.crowded_scarcity_weight;
     }
 
     GameState game(BitBoard::empty());
@@ -263,6 +271,10 @@ void usage(const char* argv0) {
         "  --crowded-scarcity-weight W\n"
         "                    use the generic evaluator with weights[12]=W;\n"
         "                    pass 200 and 0 for a fair scarcity-term A/B test\n"
+        "  --weights W0,..   the whole weight vector, comma separated. It must\n"
+        "                    have exactly as many values as the evaluation has\n"
+        "                    weights, so that a vector written down before a\n"
+        "                    weight was added is rejected rather than padded\n"
         "\n"
         "stdout gets one line per chain. Its first three fields retain the old\n"
         "moves/ended/seed format; probe runs append their sufficient stats.\n",
@@ -358,6 +370,30 @@ int main(int argc, char** argv) {
             }
             opt.custom_weights = true;
             opt.crowded_scarcity_weight = (int)weight;
+        } else if (std::strcmp(argv[i], "--weights") == 0 && i + 1 < argc) {
+            std::vector<int> parsed;
+            const char *text = argv[++i];
+            while (*text) {
+                parsed.push_back((int)std::strtol(text, nullptr, 10));
+                while (*text && *text != ',') ++text;
+                if (*text == ',') ++text;
+            }
+            if ((int)parsed.size() != EvalWeights::NUM_WEIGHTS) {
+                std::fprintf(stderr,
+                    "--weights needs exactly %d values, got %d\n",
+                    EvalWeights::NUM_WEIGHTS, (int)parsed.size());
+                return 1;
+            }
+            for (const int weight : parsed) {
+                if (weight < 0 || weight > EvalWeights::MAX_WEIGHT) {
+                    std::fprintf(stderr,
+                        "--weights values must be between 0 and %d\n",
+                        EvalWeights::MAX_WEIGHT);
+                    return 1;
+                }
+            }
+            opt.custom_weights = true;
+            opt.weight_vector = std::move(parsed);
         } else if (std::strcmp(argv[i], "--help") == 0) {
             usage(argv[0]);
             return 0;
