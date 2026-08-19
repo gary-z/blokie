@@ -107,38 +107,128 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			return max;
 		}
 
-		// Cornerish squares carry the next strongest signal. Evaluate them before
-		// the cheaper-weighted squashed-square features so a losing candidate can
-		// stop without calculating either kind of squash.
-		int cornered_empty = 0;
-		const auto blocked_up_left = blocked_up & blocked_left;
-		cornered_empty += (blocked_up_left -
-			(BitBoard::row(0) | BitBoard::column(0))).count();
-		const auto blocked_up_right = blocked_up & blocked_right;
-		cornered_empty += (blocked_up_right -
-			(BitBoard::row(0) | BitBoard::column(8))).count();
-		const auto blocked_down_left = blocked_down & blocked_left;
-		cornered_empty += (blocked_down_left -
-			(BitBoard::row(8) | BitBoard::column(0))).count();
-		const auto blocked_down_right = blocked_down & blocked_right;
-		cornered_empty += (blocked_down_right -
-			(BitBoard::row(8) | BitBoard::column(8))).count();
-		result += cornered_empty * weights.getCorneredEmpty();
+		// How an empty square is walled in, priced one pattern at a time. See
+		// the class list in eval.h. A side is blocked when the neighbour is
+		// filled or off the board, which `blocked_*` above already encodes, so
+		// the rim needs no special case beyond knowing which side the wall is
+		// on. The unions below are disjoint by construction -- a square matches
+		// exactly one pattern -- so counting a union counts each square once.
+		const auto rim = BitBoard::row(0) | BitBoard::row(8) |
+			BitBoard::column(0) | BitBoard::column(8);
+
+		// Squares with four real neighbours, where blocked means filled.
+		const auto inside = open - rim;
+		const auto up = blocked_up & inside;
+		const auto down = blocked_down & inside;
+		const auto left = blocked_left & inside;
+		const auto right = blocked_right & inside;
+		const auto no_up = inside - up;
+		const auto no_down = inside - down;
+		const auto no_left = inside - left;
+		const auto no_right = inside - right;
+
+		result += (uint64_t)(up & down & left & right).count() *
+			weights.getEmptyInteriorFour();
+		result += (uint64_t)((up & down & left & no_right) |
+			(up & down & no_left & right) | (up & no_down & left & right) |
+			(no_up & down & left & right)).count() *
+			weights.getEmptyInteriorThree();
+		result += (uint64_t)((up & left & no_down & no_right) |
+			(up & right & no_down & no_left) |
+			(down & left & no_up & no_right) |
+			(down & right & no_up & no_left)).count() *
+			weights.getEmptyInteriorTwoAdjacent();
+		result += (uint64_t)((up & down & no_left & no_right) |
+			(left & right & no_up & no_down)).count() *
+			weights.getEmptyInteriorTwoOpposite();
+		// A pattern priced at zero cannot change the result, so skip building
+		// its mask at all. Five of the fifteen are unpriced by default, and the
+		// test is on a weight rather than on the board, so it is the same branch
+		// every call.
+		if (const int one = weights.getEmptyInteriorOne()) {
+			result += (uint64_t)((up & no_down & no_left & no_right) |
+				(no_up & down & no_left & no_right) |
+				(no_up & no_down & left & no_right) |
+				(no_up & no_down & no_left & right)).count() * one;
+		}
+		if (const int none = weights.getEmptyInteriorOpen()) {
+			result += (uint64_t)(no_up & no_down & no_left & no_right).count() *
+				none;
+		}
+
 		if (result >= max) [[likely]] {
 			return max;
 		}
 
-		const auto edges = BitBoard::row(0) | BitBoard::row(8) |
-			BitBoard::column(0) | BitBoard::column(8);
-		const auto horizontal_squashed = blocked_right & blocked_left;
-		const auto verticle_squashed = blocked_up & blocked_down;
-		const int squashed_empty = (horizontal_squashed - edges).count() +
-			(verticle_squashed - edges).count();
-		const int squashed_empty_at_edge =
-			(horizontal_squashed & edges).count() +
-			(verticle_squashed & edges).count();
-		result += squashed_empty * weights.getSquashedEmpty() +
-			squashed_empty_at_edge * weights.getSquashedEmptyAtEdge();
+		// Squares with a wall on one side, all four walls at once. `inward` is
+		// the neighbour away from the wall; the two `along` sides run beside it
+		// and are interchangeable, so what the classes need to know is only
+		// whether the inward side is blocked and whether none, one or both of
+		// the along sides are. Asking that of the whole rim in one pass costs
+		// about a third of asking each wall separately.
+		const auto side_columns = BitBoard::column(0) | BitBoard::column(8);
+		const auto side_rows = BitBoard::row(0) | BitBoard::row(8);
+		const auto beside_horizontal_wall =
+			(open & side_rows) - side_columns;      // top and bottom rows
+		const auto beside_vertical_wall =
+			(open & side_columns) - side_rows;      // left and right columns
+
+		// Blocked on the side that points away from a wall. Both are shared with
+		// the board corners below, where the same two directions apply.
+		const auto away_from_horizontal_wall =
+			(blocked_down & BitBoard::row(0)) | (blocked_up & BitBoard::row(8));
+		const auto away_from_vertical_wall =
+			(blocked_right & BitBoard::column(0)) |
+			(blocked_left & BitBoard::column(8));
+
+		const auto inward =
+			(away_from_horizontal_wall & beside_horizontal_wall) |
+			(away_from_vertical_wall & beside_vertical_wall);
+		const auto along_any =
+			((blocked_left | blocked_right) & beside_horizontal_wall) |
+			((blocked_up | blocked_down) & beside_vertical_wall);
+		const auto along_both =
+			(blocked_left & blocked_right & beside_horizontal_wall) |
+			(blocked_up & blocked_down & beside_vertical_wall);
+		const auto along_one = along_any - along_both;
+		const auto along_none =
+			(beside_horizontal_wall | beside_vertical_wall) - along_any;
+
+		result += (uint64_t)(inward & along_both).count() *
+				weights.getEmptyEdgeAll() +
+			(uint64_t)(inward & along_one).count() *
+				weights.getEmptyEdgeInwardAlong() +
+			(uint64_t)(along_both - inward).count() *
+				weights.getEmptyEdgeBothAlong() +
+			(uint64_t)(inward & along_none).count() *
+				weights.getEmptyEdgeInward();
+		if (const int along = weights.getEmptyEdgeAlong()) {
+			result += (uint64_t)(along_one - inward).count() * along;
+		}
+		if (const int none = weights.getEmptyEdgeOpen()) {
+			result += (uint64_t)(along_none - inward).count() * none;
+		}
+
+		if (result >= max) [[likely]] {
+			return max;
+		}
+
+		// The four board corners, walled on two sides. Their two real
+		// neighbours are interchangeable under the diagonal reflection, and
+		// they are the same two directions the rim just used.
+		const auto corners = open & side_rows & side_columns;
+		const auto corner_vertical = away_from_horizontal_wall & corners;
+		const auto corner_horizontal = away_from_vertical_wall & corners;
+		const auto corner_either = corner_vertical | corner_horizontal;
+
+		const auto corner_both = corner_vertical & corner_horizontal;
+		result += (uint64_t)corner_both.count() *
+				weights.getEmptyCornerBoth() +
+			(uint64_t)(corner_either - corner_both).count() *
+				weights.getEmptyCornerOne();
+		if (const int none = weights.getEmptyCornerOpen()) {
+			result += (uint64_t)(corners - corner_either).count() * none;
+		}
 	}
 
 	if (result >= max) {
@@ -170,6 +260,55 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		auto fillable_by_verticle_3_bar = (open & open_up & open_down) |
 		(open & open_up & open_2_up) | (open & open_down & open_2_down);
 		result += (open &~fillable_by_verticle_3_bar).count() * weights.get3Bar();
+
+		// The other six three-square pieces, asked exactly what the two bars are
+		// asked: how many open cells can this orientation no longer cover. How
+		// many of the eight can still fill a hole is not decided by which of its
+		// four sides are blocked -- within a single empty-square pattern the
+		// count runs across almost the whole range -- so this carries information
+		// those weights cannot. Both charges default to zero, and a zero weight
+		// skips its masks entirely.
+		if (const int l_weight = weights.getNoLThree()) {
+			// Four L orientations, three placements each: the cell takes each of
+			// the piece's three squares in turn. Only one-step neighbours are
+			// needed, and all of them are already computed above.
+			const auto corner_up_left = open &
+				((open_right & open_down) | (open_left & open_down_left) |
+					(open_up & open_up_right));
+			const auto corner_up_right = open &
+				((open_right & open_down_right) | (open_left & open_down) |
+					(open_up & open_up_left));
+			const auto corner_down_left = open &
+				((open_down & open_down_right) | (open_up & open_right) |
+					(open_up_left & open_left));
+			const auto corner_down_right = open &
+				((open_down_left & open_down) | (open_up_right & open_right) |
+					(open_up & open_left));
+			result += (uint64_t)((open - corner_up_left).count() +
+				(open - corner_up_right).count() +
+				(open - corner_down_left).count() +
+				(open - corner_down_right).count()) * l_weight;
+		}
+
+		if (const int diagonal_weight = weights.getNoDiagonalThree()) {
+			// A diagonal piece reaches a cell whose four orthogonal neighbours
+			// are all filled, which is why "no open side" is not the same as
+			// sealed. These need the two-step diagonals, computed only here.
+			const auto open_2_up_left = open_up_left.shiftDown().shiftRight();
+			const auto open_2_down_right = open_down_right.shiftUp().shiftLeft();
+			const auto open_2_up_right = open_up_right.shiftDown().shiftLeft();
+			const auto open_2_down_left = open_down_left.shiftUp().shiftRight();
+			const auto main_diagonal = open &
+				((open_down_right & open_2_down_right) |
+					(open_up_left & open_down_right) |
+					(open_up_left & open_2_up_left));
+			const auto anti_diagonal = open &
+				((open_down_left & open_2_down_left) |
+					(open_up_right & open_down_left) |
+					(open_up_right & open_2_up_right));
+			result += (uint64_t)((open - main_diagonal).count() +
+				(open - anti_diagonal).count()) * diagonal_weight;
+		}
 
 		if (result >= max) {
 			return max;
