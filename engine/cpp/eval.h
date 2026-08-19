@@ -36,65 +36,101 @@
 
 class EvalWeights {
 public:
-	static constexpr int NUM_WEIGHTS = 14;
-	static constexpr int MAX_WEIGHT = 40000;
+	// Every weight has a key and its slot number is written here and nowhere
+	// else: the getters below and getDefault() both index with these names.
+	//
+	// Slots 1, 2, 3, 5, 8 and 9 are unused. They held jaggedness, the aligned
+	// jaggedness rate, the three-bar fit, cornered empty and squashed empty, all
+	// of which are gone -- one signal replaced them. The surviving weights keep
+	// their old numbers so that references to weights[13] and the recorded
+	// vectors for the terms that remain still mean what they said. Nothing reads
+	// the unused slots; setting one has no effect.
+	enum Slot : int {
+		OCCUPIED_SIDE_CUBE = 0,
+		DEADLY_PIECE = 4,
+		OCCUPIED_CENTER_CUBE = 6,
+		OCCUPIED_CORNER_CUBE = 7,
+		OCCUPIED_CENTER_SQUARE = 10,
+		OCCUPIED_CORNER_SQUARE = 11,
+		CROWDED_PIECE_SCARCITY = 12,
+		CLEAR_OPPORTUNITY = 13,
+		// How much room an empty square has left, as one weight per value of the
+		// count: how many PLACEMENTS of a three-square piece still cover it.
+		// Nineteen values, because six pieces -- two bars and four L shapes, the
+		// diagonal staircases excluded -- have three placements each over a given
+		// square.
+		THREE_WAYS_0 = 14,
+		THREE_WAYS_18 = THREE_WAYS_0 + 18,
+	};
+
+	static constexpr int NUM_WEIGHTS = THREE_WAYS_18 + 1;
+	static constexpr int MAX_WEIGHT = 120000;
 
 	int weights[NUM_WEIGHTS] = {0};
 
 	constexpr EvalWeights() = default;
 
 	constexpr int getOccupiedSideSquare() const { return 2000; }
-	constexpr int getOccupiedSideCube() const { return weights[0]; }
-	constexpr int getSquashedEmpty() const { return weights[1]; }
-	constexpr int getCorneredEmpty() const { return weights[2]; }
-	constexpr int getTransition() const { return weights[3]; }
-	constexpr int getDeadlyPiece() const { return weights[4]; }
-	constexpr int get3Bar() const { return weights[5]; }
-	constexpr int getOccupiedCenterCube() const { return weights[6]; }
-	constexpr int getOccupiedCornerCube() const { return weights[7]; }
-	constexpr int getTransitionAligned() const { return weights[8]; }
-	constexpr int getSquashedEmptyAtEdge() const { return weights[9]; }
-	constexpr int getOccupiedCornerSquare() const { return weights[11]; }
-	constexpr int getOccupiedCenterSquare() const { return weights[10]; }
+	constexpr int getOccupiedSideCube() const { return weights[OCCUPIED_SIDE_CUBE]; }
+	constexpr int getDeadlyPiece() const { return weights[DEADLY_PIECE]; }
+	constexpr int getOccupiedCenterCube() const { return weights[OCCUPIED_CENTER_CUBE]; }
+	constexpr int getOccupiedCornerCube() const { return weights[OCCUPIED_CORNER_CUBE]; }
+	constexpr int getOccupiedCornerSquare() const { return weights[OCCUPIED_CORNER_SQUARE]; }
+	constexpr int getOccupiedCenterSquare() const { return weights[OCCUPIED_CENTER_SQUARE]; }
 	// Nonlinear penalty for scarce hard-piece placements on crowded boards.
-	constexpr int getCrowdedPieceScarcity() const { return weights[12]; }
+	constexpr int getCrowdedPieceScarcity() const { return weights[CROWDED_PIECE_SCARCITY]; }
 	// Charge per missing way to clear, per square of crowding. Zero switches the
 	// term off exactly, which is how its controls were measured.
-	constexpr int getClearOpportunity() const { return weights[13]; }
+	constexpr int getClearOpportunity() const { return weights[CLEAR_OPPORTUNITY]; }
+
+	// The charge for an empty square with `ways` placements left, 0 to 18. It
+	// falls with room: 0 ways is a hole nothing three squares long can reach.
+	constexpr int getThreeWays(int ways) const { return weights[THREE_WAYS_0 + ways]; }
 
 	static constexpr EvalWeights getDefault();
 };
 
-// Played out by makeMoveSimpleDefault, these weights last a measured
-// 91,670 sets of three pieces per game, 95% CI 87,150 to 96,423. From 1,503 deaths
-// over 137.8M moves of fixed-exposure chains on seed base 20260822, hazard
-// 1.091e-05. Change a weight below and the number no longer describes anything.
-//
-// Seed bases disagree by more than any one run's interval suggests: the previous
-// evaluation measured 81,367, 87,091, 82,642 and 84,361 on four of them. Compare
-// candidates against a baseline measured on the same seed, never against a
-// remembered number.
-//
-// The twelve above weights[12] were fitted before the clear-opportunity term
-// existed, against an engine that measured 46,962 (95% CI 46,148 to 47,805, from
-// 3,520 complete games and 162.7M moves). Adding the term moved the figure to the
-// one above without touching them, so they are very likely no longer where they
-// should be -- retuning them is the obvious next gain and has not been done.
+// EXPERIMENT. One signal -- how much room an empty square has left -- in place of
+// jaggedness, the three-bar fit, cornered empty and squashed empty. The room
+// table below starts as the least-squares fit to the four features it replaces,
+// so this is close to the shipped evaluation but NOT identical to it, and the
+// 91,670 sets a game that the previous weights measured does not describe it.
+// Nothing here is confirmed. See docs/three-way-fill.md.
 constexpr EvalWeights EvalWeights::getDefault() {
 	EvalWeights result;
-	result.weights[0] = 1358;  // occupied side cube
-	result.weights[1] = 524;   // squashed empty
-	result.weights[2] = 6540;  // cornered empty
-	result.weights[3] = 4450;  // transition
-	result.weights[4] = 18185; // deadly piece
-	result.weights[5] = 2665;  // three bar
-	result.weights[6] = 204;   // occupied center cube
-	result.weights[7] = 908;   // occupied corner cube
-	result.weights[8] = 1776;  // aligned transition
-	result.weights[9] = 3386;  // squashed empty at edge
-	result.weights[10] = 1607; // occupied center square
-	result.weights[11] = 3067; // occupied corner square
-	result.weights[12] = 200;  // crowded-piece scarcity
-	result.weights[13] = 335;  // clear opportunity
+	result.weights[OCCUPIED_SIDE_CUBE] = 1358;
+	result.weights[DEADLY_PIECE] = 18185;
+	result.weights[OCCUPIED_CENTER_CUBE] = 204;
+	result.weights[OCCUPIED_CORNER_CUBE] = 908;
+	result.weights[OCCUPIED_CENTER_SQUARE] = 1607;
+	result.weights[OCCUPIED_CORNER_SQUARE] = 3067;
+	result.weights[CROWDED_PIECE_SCARCITY] = 200;
+	result.weights[CLEAR_OPPORTUNITY] = 335;
+
+	// The room table. These are not a measurement of what a hole is worth; they
+	// are the mean charge the four removed features put on an empty square with
+	// that many placements left, over 102,326 empty squares from real play, which
+	// is the least-squares closest this shape can start to the evaluation it
+	// replaces. The four were almost a function of this count already: past
+	// twelve placements they charged a square nothing at all.
+	result.weights[THREE_WAYS_0 + 0] = 36760;
+	result.weights[THREE_WAYS_0 + 1] = 22470;
+	result.weights[THREE_WAYS_0 + 2] = 21080;
+	result.weights[THREE_WAYS_0 + 3] = 16260;
+	result.weights[THREE_WAYS_0 + 4] = 12080;
+	result.weights[THREE_WAYS_0 + 5] = 9710;
+	result.weights[THREE_WAYS_0 + 6] = 9250;
+	result.weights[THREE_WAYS_0 + 7] = 8390;
+	result.weights[THREE_WAYS_0 + 8] = 4770;
+	result.weights[THREE_WAYS_0 + 9] = 4490;
+	result.weights[THREE_WAYS_0 + 10] = 4190;
+	result.weights[THREE_WAYS_0 + 11] = 3600;
+	result.weights[THREE_WAYS_0 + 12] = 2780;
+	result.weights[THREE_WAYS_0 + 13] = 0;
+	result.weights[THREE_WAYS_0 + 14] = 0;
+	result.weights[THREE_WAYS_0 + 15] = 0;
+	result.weights[THREE_WAYS_0 + 16] = 0;
+	result.weights[THREE_WAYS_0 + 17] = 0;
+	result.weights[THREE_WAYS_0 + 18] = 0;
 	return result;
 }

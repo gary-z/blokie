@@ -81,72 +81,40 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 		}
 	}
 
-	int squashed = 0;
-	int squashed_at_edge = 0;
-	int cornered = 0;
-	int transitions = 0;
-	int aligned_transitions = 0;
+	// How much room each empty square has left: the number of placements of a
+	// three-square piece that cover it, counted from shape offsets rather than
+	// from shifted masks so this stays independent of the evaluation. Six pieces,
+	// the diagonal staircases excluded, and the square may be any of a piece's
+	// three cells, so the count runs 0 to 18. Nothing special is done at the
+	// board edge; a placement that runs off simply does not fit.
+	const std::array<Shape, 6> ROOM_PIECES = {{
+		{{0, 0}, {0, 1}, {0, 2}},
+		{{0, 0}, {1, 0}, {2, 0}},
+		{{0, 0}, {0, 1}, {1, 0}},
+		{{0, 0}, {0, 1}, {1, 1}},
+		{{0, 0}, {1, 0}, {1, 1}},
+		{{0, 1}, {1, 0}, {1, 1}},
+	}};
 	for (int row = 0; row < 9; ++row) {
 		for (int column = 0; column < 9; ++column) {
 			if (!board.open(row, column)) {
 				continue;
 			}
-			const bool right = board.blocked(row, column + 1);
-			const bool left = board.blocked(row, column - 1);
-			const bool up = board.blocked(row - 1, column);
-			const bool down = board.blocked(row + 1, column);
-			const bool edge = row == 0 || row == 8 || column == 0 || column == 8;
-			const int squashed_here = (left && right ? 1 : 0) +
-				(up && down ? 1 : 0);
-			if (edge) {
-				squashed_at_edge += squashed_here;
-			} else {
-				squashed += squashed_here;
-			}
-
-			cornered += up && left && row != 0 && column != 0 ? 1 : 0;
-			cornered += up && right && row != 0 && column != 8 ? 1 : 0;
-			cornered += down && left && row != 8 && column != 0 ? 1 : 0;
-			cornered += down && right && row != 8 && column != 8 ? 1 : 0;
-
-			const auto add_transition = [&](bool blocked, bool aligned) {
-				if (blocked) {
-					(aligned ? aligned_transitions : transitions)++;
+			int ways = 0;
+			for (const auto &shape : ROOM_PIECES) {
+				for (const auto &[anchor_row, anchor_column] : shape) {
+					bool fits = true;
+					for (const auto &[cell_row, cell_column] : shape) {
+						fits = fits && board.open(row + cell_row - anchor_row,
+							column + cell_column - anchor_column);
+					}
+					ways += fits ? 1 : 0;
 				}
-			};
-			add_transition(up, row == 3 || row == 6);
-			add_transition(down, row == 2 || row == 5);
-			add_transition(left, column == 3 || column == 6);
-			add_transition(right, column == 2 || column == 5);
+			}
+			result += static_cast<uint64_t>(
+				weights.weights[EvalWeights::THREE_WAYS_0 + ways]);
 		}
 	}
-	result += static_cast<uint64_t>(squashed) * weights.weights[1];
-	result += static_cast<uint64_t>(squashed_at_edge) * weights.weights[9];
-	result += static_cast<uint64_t>(cornered) * weights.weights[2];
-	result += static_cast<uint64_t>(transitions) * weights.weights[3];
-	result += static_cast<uint64_t>(aligned_transitions) * weights.weights[8];
-
-	int unfillable_by_three_bar = 0;
-	for (int row = 0; row < 9; ++row) {
-		for (int column = 0; column < 9; ++column) {
-			if (!board.open(row, column)) {
-				continue;
-			}
-			bool horizontal = false;
-			bool vertical = false;
-			for (int offset = -2; offset <= 0; ++offset) {
-				horizontal = horizontal || (board.open(row, column + offset) &&
-					board.open(row, column + offset + 1) &&
-					board.open(row, column + offset + 2));
-				vertical = vertical || (board.open(row + offset, column) &&
-					board.open(row + offset + 1, column) &&
-					board.open(row + offset + 2, column));
-			}
-			unfillable_by_three_bar += horizontal ? 0 : 1;
-			unfillable_by_three_bar += vertical ? 0 : 1;
-		}
-	}
-	result += static_cast<uint64_t>(unfillable_by_three_bar) * weights.weights[5];
 
 	int scarce_placements = 0;
 	for (const auto &shape : DEADLY_SHAPES) {
@@ -263,27 +231,38 @@ void testWeightMapping() {
 	const auto weights = indexedWeights();
 	test::require(weights.getOccupiedSideSquare() == 2000, "side square constant");
 	test::require(weights.getOccupiedSideCube() == weights.weights[0], "side cube");
-	test::require(weights.getSquashedEmpty() == weights.weights[1], "squashed");
-	test::require(weights.getCorneredEmpty() == weights.weights[2], "cornered");
-	test::require(weights.getTransition() == weights.weights[3], "transition");
 	test::require(weights.getDeadlyPiece() == weights.weights[4], "deadly");
-	test::require(weights.get3Bar() == weights.weights[5], "three bar");
 	test::require(weights.getOccupiedCenterCube() == weights.weights[6], "center cube");
 	test::require(weights.getOccupiedCornerCube() == weights.weights[7], "corner cube");
-	test::require(weights.getTransitionAligned() == weights.weights[8], "aligned");
-	test::require(weights.getSquashedEmptyAtEdge() == weights.weights[9], "edge squash");
 	test::require(weights.getOccupiedCenterSquare() == weights.weights[10], "center square");
 	test::require(weights.getOccupiedCornerSquare() == weights.weights[11], "corner square");
 	test::require(weights.getCrowdedPieceScarcity() == weights.weights[12], "crowding");
 	test::require(weights.getClearOpportunity() == weights.weights[13],
 		"clear opportunity");
+	for (int ways = 0; ways <= 18; ++ways) {
+		test::require(weights.getThreeWays(ways) == weights.weights[14 + ways],
+			"room table " + std::to_string(ways));
+	}
 }
 
 void testDefaultWeights() {
-	const std::array<int, EvalWeights::NUM_WEIGHTS> expected = {
-		1358, 524, 6540, 4450, 18185, 2665, 204,
-		908, 1776, 3386, 1607, 3067, 200, 335,
-	};
+	// By key, so a value cannot drift onto the wrong weight. Slots 1, 2, 3, 5, 8
+	// and 9 are unused and must stay zero; anything left out of this list stays
+	// zero here and fails below.
+	std::array<int, EvalWeights::NUM_WEIGHTS> expected{};
+	expected[EvalWeights::OCCUPIED_SIDE_CUBE] = 1358;
+	expected[EvalWeights::DEADLY_PIECE] = 18185;
+	expected[EvalWeights::OCCUPIED_CENTER_CUBE] = 204;
+	expected[EvalWeights::OCCUPIED_CORNER_CUBE] = 908;
+	expected[EvalWeights::OCCUPIED_CENTER_SQUARE] = 1607;
+	expected[EvalWeights::OCCUPIED_CORNER_SQUARE] = 3067;
+	expected[EvalWeights::CROWDED_PIECE_SCARCITY] = 200;
+	expected[EvalWeights::CLEAR_OPPORTUNITY] = 335;
+	const int room[19] = {36760, 22470, 21080, 16260, 12080, 9710, 9250, 8390,
+		4770, 4490, 4190, 3600, 2780, 0, 0, 0, 0, 0, 0};
+	for (int ways = 0; ways <= 18; ++ways) {
+		expected[EvalWeights::THREE_WAYS_0 + ways] = room[ways];
+	}
 	const auto actual = EvalWeights::getDefault();
 	for (int index = 0; index < EvalWeights::NUM_WEIGHTS; ++index) {
 		test::require(actual.weights[index] == expected[index],

@@ -71,82 +71,8 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 	const auto open = ~bb;
 
 	{
-		const auto blocked_right = open - open.shiftLeft();
-		const auto blocked_left = open - open.shiftRight();
-		const auto blocked_up = open - open.shiftDown();
-		const auto blocked_down = open - open.shiftUp();
-
-		// Every horizontal or vertical run of open squares has one transition
-		// at each end. Count just the upper and left ends, then double them.
-		// The four aligned boundary masks do not overlap, so their contributions
-		// can be unioned before counting as well.
-		const int transition_weight = weights.getTransition();
-		const int aligned_transition_weight = weights.getTransitionAligned();
-		const int base_transition_weight = std::min(transition_weight,
-			aligned_transition_weight);
-		const int all_transitions = 2 *
-			(blocked_up.count() + blocked_left.count());
-		result += all_transitions * base_transition_weight;
-		if (result >= max) {
-			return max;
-		}
-
-		const auto aligned_vertical =
-			(blocked_up & (BitBoard::row(3) | BitBoard::row(6))) |
-			(blocked_down & (BitBoard::row(2) | BitBoard::row(5)));
-		const auto aligned_horizontal =
-			(blocked_left & (BitBoard::column(3) | BitBoard::column(6))) |
-			(blocked_right & (BitBoard::column(2) | BitBoard::column(5)));
-		const int aligned_transitions = aligned_vertical.count() +
-			aligned_horizontal.count();
-		const int transitions = all_transitions - aligned_transitions;
-		result += transitions * (transition_weight - base_transition_weight) +
-			aligned_transitions *
-				(aligned_transition_weight - base_transition_weight);
-		if (result >= max) [[likely]] {
-			return max;
-		}
-
-		// Cornerish squares carry the next strongest signal. Evaluate them before
-		// the cheaper-weighted squashed-square features so a losing candidate can
-		// stop without calculating either kind of squash.
-		int cornered_empty = 0;
-		const auto blocked_up_left = blocked_up & blocked_left;
-		cornered_empty += (blocked_up_left -
-			(BitBoard::row(0) | BitBoard::column(0))).count();
-		const auto blocked_up_right = blocked_up & blocked_right;
-		cornered_empty += (blocked_up_right -
-			(BitBoard::row(0) | BitBoard::column(8))).count();
-		const auto blocked_down_left = blocked_down & blocked_left;
-		cornered_empty += (blocked_down_left -
-			(BitBoard::row(8) | BitBoard::column(0))).count();
-		const auto blocked_down_right = blocked_down & blocked_right;
-		cornered_empty += (blocked_down_right -
-			(BitBoard::row(8) | BitBoard::column(8))).count();
-		result += cornered_empty * weights.getCorneredEmpty();
-		if (result >= max) [[likely]] {
-			return max;
-		}
-
-		const auto edges = BitBoard::row(0) | BitBoard::row(8) |
-			BitBoard::column(0) | BitBoard::column(8);
-		const auto horizontal_squashed = blocked_right & blocked_left;
-		const auto verticle_squashed = blocked_up & blocked_down;
-		const int squashed_empty = (horizontal_squashed - edges).count() +
-			(verticle_squashed - edges).count();
-		const int squashed_empty_at_edge =
-			(horizontal_squashed & edges).count() +
-			(verticle_squashed & edges).count();
-		result += squashed_empty * weights.getSquashedEmpty() +
-			squashed_empty_at_edge * weights.getSquashedEmptyAtEdge();
-	}
-
-	if (result >= max) {
-		return max;
-	}
-
-	{
-		// Deadly pieces.
+		// Every neighbour a three-square piece can reach, which is everything
+		// within two steps. The deadly-piece section below reuses all of them.
 		const auto open_left =  open.shiftRight();
 		const auto open_2_left = open_left.shiftRight();
 		const auto open_right = open.shiftLeft();
@@ -155,21 +81,80 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const auto open_2_up = open_up.shiftDown();
 		const auto open_down = open.shiftUp();
 		const auto open_2_down = open_down.shiftUp();
-
 		const auto open_up_left = open_up.shiftRight();
 		const auto open_down_left = open_down.shiftRight();
 		const auto open_up_right = open_up.shiftLeft();
 		const auto open_down_right = open_down.shiftLeft();
 
+		// How much room an empty square has left: the number of placements of a
+		// three-square piece that still cover it. Six pieces -- two bars and four
+		// L shapes -- times three placements each, since the square can be any of
+		// the piece's three cells, so the count runs 0 to 18.
+		//
+		// This is one signal in place of four. Jaggedness counted blocked sides,
+		// the three-bar fit asked two of these eighteen questions, and cornered
+		// and squashed empty counted pairs of blocked sides; all of them were
+		// reading the same thing badly. Nothing special happens at the board
+		// edge: a placement that would run off the board simply does not fit, so
+		// rim and corner squares have fewer ways without a rule saying so.
+		//
+		// The diagonal staircases are excluded on purpose. They cannot cover 24%
+		// of open squares even on a healthy board, so counting them adds noise
+		// rather than caution -- measured, in docs/empty-patterns.md.
+		const BitBoard ways[18] = {
+			// horizontal bar, the square at each of its three cells
+			open & open_right & open_2_right,
+			open & open_left & open_right,
+			open & open_2_left & open_left,
+			// vertical bar
+			open & open_down & open_2_down,
+			open & open_up & open_down,
+			open & open_2_up & open_up,
+			// L, corner up-left
+			open & open_right & open_down,
+			open & open_left & open_down_left,
+			open & open_up & open_up_right,
+			// L, corner up-right
+			open & open_right & open_down_right,
+			open & open_left & open_down,
+			open & open_up_left & open_up,
+			// L, corner down-left
+			open & open_down & open_down_right,
+			open & open_up & open_right,
+			open & open_up_left & open_left,
+			// L, corner down-right
+			open & open_down_left & open_down,
+			open & open_up_right & open_right,
+			open & open_up & open_left,
+		};
 
-		auto fillable_by_horizontal_3_bar =
-		(open & open_left & open_right) | (open & open_left & open_2_left) |
-		(open & open_right & open_2_right);
-		result += (open &~ fillable_by_horizontal_3_bar).count() * weights.get3Bar();
+		// Add the eighteen masks a bit-plane at a time, so each square ends up
+		// holding its own count in five bits. Eighteen needs five planes.
+		BitBoard plane[5] = {BitBoard::empty(), BitBoard::empty(),
+			BitBoard::empty(), BitBoard::empty(), BitBoard::empty()};
+		for (const BitBoard &mask : ways) {
+			BitBoard carry = mask;
+			for (BitBoard &bit : plane) {
+				const BitBoard next = bit & carry;
+				bit = bit ^ carry;
+				carry = next;
+			}
+		}
 
-		auto fillable_by_verticle_3_bar = (open & open_up & open_down) |
-		(open & open_up & open_2_up) | (open & open_down & open_2_down);
-		result += (open &~fillable_by_verticle_3_bar).count() * weights.get3Bar();
+		// A square with `count` ways matches exactly one weight. Cells that are
+		// filled hold zero in every plane, so the open mask has to come first.
+		for (int count = 0; count <= 18; ++count) {
+			const int weight = weights.getThreeWays(count);
+			if (weight == 0) {
+				continue;
+			}
+			BitBoard matching = open;
+			for (int bit = 0; bit < 5; ++bit) {
+				matching = (count >> bit) & 1 ? (matching & plane[bit])
+					: (matching - plane[bit]);
+			}
+			result += (uint64_t)matching.count() * weight;
+		}
 
 		if (result >= max) {
 			return max;

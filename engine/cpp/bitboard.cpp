@@ -70,6 +70,10 @@ BitBoard BitBoard::operator-(const BitBoard other) const {
 	return BitBoard(a & ~other.a, b & ~other.b);
 }
 
+BitBoard BitBoard::operator^(const BitBoard other) const {
+	return BitBoard(a ^ other.a, b ^ other.b);
+}
+
 BitBoard BitBoard::operator~() const {
 	return BitBoard((~a) & ALL_ALLOWED_BITS_IN_A, (~b) & ALL_ALLOWED_BITS_IN_B);
 }

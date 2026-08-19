@@ -51,6 +51,8 @@ public:
 	BitBoard operator|(BitBoard other) const;
 	BitBoard operator&(BitBoard other) const;
 	BitBoard operator~() const;
+	// Needed to add masks together bitwise, a bit-plane at a time.
+	BitBoard operator^(BitBoard other) const;
 
 	// Same as (*this) &~ other.
 	BitBoard operator-(BitBoard other) const;
