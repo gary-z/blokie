@@ -53,7 +53,7 @@ and the corner-first arm in `empty-patterns.md` and the steep room table in
 weight cap, so this is not evidence that the shape is harmless -- it is evidence
 that pricing it is.
 
-## The one that worked: charge an empty board corner
+## The fourth: charge an empty board corner
 
 A dose-response, same seed base:
 
@@ -69,8 +69,7 @@ Unimodal, with a peak near 1000 and a significantly harmful tail. The harmful en
 is what makes the left side credible: it proves the weight moves play, so the
 improvement is not noise around an inert parameter.
 
-Confirmed on three further seed bases, each with its own baseline arm, none of
-which any parameter was chosen on:
+Taken to ten seed bases, each with its own baseline arm, it disappears:
 
 | seed base | baseline | candidate | HR |
 |---|---:|---:|---:|
@@ -78,22 +77,55 @@ which any parameter was chosen on:
 | 20260921 | 677, 85,081 | 644, 89,441 | 0.951 |
 | 20260935 | 670, 85,970 | 624, 92,308 | 0.931 |
 | 20260949 | 638, 90,282 | 612, 94,118 | 0.959 |
-| **pooled** | 2663 deaths | 2517 deaths | **0.945, z = -2.03** |
+| 20260963 | 626, 92,013 | 604, 95,364 | 0.965 |
+| 20260977 | 615, 93,659 | 627, 91,866 | 1.020 |
+| 20260991 | 626, 92,013 | 625, 92,160 | 0.998 |
+| 20261007 | 636, 90,566 | 629, 91,574 | 0.989 |
+| 20261019 | 613, 93,964 | 631, 91,284 | 1.029 |
+| 20261033 | 600, 96,000 | 642, 89,720 | 1.070 |
 
-Four seed bases, four hazard ratios below one, spread 0.931 to 0.959. Pooled that
-is **a 5.8% longer game**, 95% CI 0.895 to 0.998.
+**Primary endpoint, fixed in advance** in `wall-corner-preregistration.md`: pooled
+over the nine seed bases the weight was *not* chosen on, 5,701 baseline deaths
+against 5,638 candidate deaths, **HR 0.9889, 95% CI 0.9532 to 1.0260, z = -0.59**.
+That is the pre-registered **unresolved**, and it is unresolved in the direction of
+nothing: the interval runs from a 2.6% harm to a 4.7% gain around a point estimate
+of 1.1%.
 
-**Read the significance carefully.** Pooled over all four the interval excludes
-one, but only just, and one of the four is the seed base the weight was chosen on.
-On the three it was not chosen on, the estimate is **HR 0.947, z = -1.69**, whose
-interval includes one. This weight was also the best of about twenty arms tried
-across a day, and one arm in twenty at p = 0.04 is roughly what chance supplies.
+## The decay is the finding
 
-What argues against that being the whole story: the effect size barely moves
-between seed bases, all four point the same way, and the dose-response has a
-significant harmful tail, which a spurious parameter does not.
+| seed bases pooled | HR | z |
+|---:|---:|---:|
+| 4 | 0.945 | **-2.03** |
+| 6 | 0.960 | -1.78 |
+| 10 | 0.984 (0.989 out-of-sample) | -0.92 (-0.59) |
 
-## Why an empty board corner is worth charging
+At four seed bases this was written up here as confirmed, at 5.8% longer games,
+with a dose-response behind it and a replication behind that. Every batch of fresh
+seed bases pulled it toward one, and three of the last four went the other way. No
+step in that sequence was a mistake in isolation -- the dose-response really was
+unimodal with a significant harmful tail at 8000, and the first replication really
+did reproduce the effect size to within a percentage point. The mistake was
+treating a marginal z on the best of about twenty arms as a result rather than as
+a hypothesis, and the correction cost four hours of compute that a pre-registered
+stopping rule would have spent anyway, but honestly.
+
+Two things are worth keeping from it. The **significant harmful tail is still
+real**: 8000 measured HR 1.186 at z = +3.3, so the weight does move play, it just
+does not move it anywhere good. And the **fixed-exposure design is far more stable
+across seed bases than `eval.h` warns**: ten baseline arms ran from 600 to 678
+deaths, where the note in `eval.h` describes a 7% spread on complete games. The
+spread that matters here is between arms on the *same* seed base, and it is small.
+
+## What all four distinctions came to
+
+Nothing measurable. Three were null on their first arm and the fourth was null
+once it had enough seed bases to be tested rather than discovered. The evaluation
+does not appear to care whether the thing shutting a square in can ever be cleared
+away, which is surprising -- it is a real asymmetry, and `CORNERED_ONE_WALL` in
+particular charges a configuration that occurs 7.91 times a board and is priced at
+zero today.
+
+## Why it looked like it should work
 
 The weight is not a shape penalty. There are four board corners, so it is close to
 a positional preference for filling them, and that makes it unlike everything else
@@ -107,8 +139,11 @@ the same measurement from the other side and warns about the trap next to it:
 charging a *walled-in* corner more than an interior hole costs 36% to 58%,
 because the evaluation prices what creating a hole costs rather than how hard the
 hole is to fill. Charging an *empty* corner is the opposite intervention -- it
-gets the square filled before it can become a hole at all -- and it is the one
-that measures better.
+gets the square filled before it can become a hole at all -- and it is the one that
+looked like it measured better. Over ten seed bases it does not measure better at
+all. The mechanism was plausible, the measurement behind it was real, and the
+conclusion still did not survive -- which is the whole reason the rule was fixed
+before the deciding run.
 
 ## Reproducing
 
