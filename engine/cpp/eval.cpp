@@ -139,6 +139,75 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			(verticle_squashed & edges).count();
 		result += squashed_empty * weights.getSquashedEmpty() +
 			squashed_empty_at_edge * weights.getSquashedEmptyAtEdge();
+
+		// A filled neighbour can be cleared away; the edge of the board cannot.
+		// The three charges above treat the two the same, so these ask where the
+		// blocking came from. All three weights default to zero.
+		//
+		// `fill_*` is an open square whose neighbour on that side is a real
+		// filled square, which is `blocked_*` with the row or column where that
+		// side is off the board taken out.
+		const auto top = BitBoard::row(0);
+		const auto bottom = BitBoard::row(8);
+		const auto far_left = BitBoard::column(0);
+		const auto far_right = BitBoard::column(8);
+		const auto fill_up = blocked_up - top;
+		const auto fill_down = blocked_down - bottom;
+		const auto fill_left = blocked_left - far_left;
+		const auto fill_right = blocked_right - far_right;
+
+		if (const int wall_squash = weights.getSquashedAgainstWall()) {
+			// Squashed between a wall and a filled square. The opposite side of
+			// a wall is never a wall too, so one of the pair is always a fill.
+			const int count = (top & fill_down).count() +
+				(bottom & fill_up).count() +
+				(far_left & fill_right).count() +
+				(far_right & fill_left).count();
+			result += (uint64_t)count * wall_squash;
+		}
+
+		if (const int one_wall = weights.getCorneredOneWall()) {
+			// A corner made of one wall and one filled square. Nothing above
+			// charges these: cornered empty takes the whole edge row or column
+			// out, which is exactly the set where a wall forms the corner.
+			const int count = (top & fill_left).count() +
+				(far_left & fill_up).count() +
+				(top & fill_right).count() +
+				(far_right & fill_up).count() +
+				(bottom & fill_left).count() +
+				(far_left & fill_down).count() +
+				(bottom & fill_right).count() +
+				(far_right & fill_down).count();
+			result += (uint64_t)count * one_wall;
+		}
+
+		if (const int two_walls = weights.getCorneredTwoWalls()) {
+			// The four board corners, where the corner is made of two walls and
+			// can never be freed by any clear.
+			const int count = (open & (top | bottom) & (far_left | far_right))
+				.count();
+			result += (uint64_t)count * two_walls;
+		}
+
+		if (const int shallow = weights.getThreeSidedShallowEscape()) {
+			// Shut in on three sides, and the one open side runs off the board
+			// two steps on: the square beyond the open neighbour is not there.
+			// A dead end of that shape cannot be entered by anything longer than
+			// a two-square piece.
+			const auto only_up = (blocked_down & blocked_left & blocked_right) -
+				blocked_up;
+			const auto only_down = (blocked_up & blocked_left & blocked_right) -
+				blocked_down;
+			const auto only_left = (blocked_up & blocked_down & blocked_right) -
+				blocked_left;
+			const auto only_right = (blocked_up & blocked_down & blocked_left) -
+				blocked_right;
+			const int count = (only_up & BitBoard::row(1)).count() +
+				(only_down & BitBoard::row(7)).count() +
+				(only_left & BitBoard::column(1)).count() +
+				(only_right & BitBoard::column(7)).count();
+			result += (uint64_t)count * shallow;
+		}
 	}
 
 	if (result >= max) {

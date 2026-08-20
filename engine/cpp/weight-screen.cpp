@@ -96,8 +96,8 @@ EvalWeights fromVector(const std::vector<int> &v) {
 
 void printUsage(const char *program) {
     std::printf(
-        "usage: %s --candidate W0,..,W13 [options]\n\n"
-        "  --base W0,..,W13   the vector to measure against (default: the\n"
+        "usage: %s --candidate W0,..,W25 [options]\n\n"
+        "  --base W0,..,W25   the vector to measure against (default: the\n"
         "                     shipped weights)\n"
         "  --candidate ...    the vector to measure\n"
         "  --label TEXT       what to call it in the output line\n"
@@ -150,6 +150,19 @@ int main(int argc, char **argv) {
         base_v.assign(d.weights, d.weights + EvalWeights::NUM_WEIGHTS);
     }
     if (cand_v.empty()) cand_v = base_v;
+    // A vector of the wrong length used to be accepted, with the missing
+    // weights left at zero. That is silently a different evaluation rather than
+    // the one asked for, and it became a real trap when the empty-square
+    // patterns took the count from fourteen to twenty-six: every vector written
+    // down before that change is now short.
+    for (const auto *v : {&base_v, &cand_v}) {
+        if ((int)v->size() != EvalWeights::NUM_WEIGHTS) {
+            std::fprintf(stderr,
+                "a weight vector needs exactly %d values, got %d\n",
+                EvalWeights::NUM_WEIGHTS, (int)v->size());
+            return 2;
+        }
+    }
     const EvalWeights base = fromVector(base_v);
     const EvalWeights cand = fromVector(cand_v);
 

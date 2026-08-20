@@ -84,6 +84,10 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 	int squashed = 0;
 	int squashed_at_edge = 0;
 	int cornered = 0;
+	int squashed_against_wall = 0;
+	int cornered_one_wall = 0;
+	int cornered_two_walls = 0;
+	int three_sided_shallow = 0;
 	int transitions = 0;
 	int aligned_transitions = 0;
 	for (int row = 0; row < 9; ++row) {
@@ -102,6 +106,39 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 				squashed_at_edge += squashed_here;
 			} else {
 				squashed += squashed_here;
+			}
+
+			// Where did the blocking come from? A wall is off the board; a fill
+			// is a real occupied neighbour. Reasoned as sides, not as masks.
+			const bool wall_up = row == 0, wall_down = row == 8;
+			const bool wall_left = column == 0, wall_right = column == 8;
+			const bool fill_up = up && !wall_up, fill_down = down && !wall_down;
+			const bool fill_left = left && !wall_left;
+			const bool fill_right = right && !wall_right;
+			squashed_against_wall += (wall_up && fill_down) ? 1 : 0;
+			squashed_against_wall += (wall_down && fill_up) ? 1 : 0;
+			squashed_against_wall += (wall_left && fill_right) ? 1 : 0;
+			squashed_against_wall += (wall_right && fill_left) ? 1 : 0;
+			const auto corner_kind = [&](bool wall_a, bool fill_a,
+				bool wall_b, bool fill_b) {
+				if (wall_a && wall_b) {
+					++cornered_two_walls;
+				} else if ((wall_a && fill_b) || (fill_a && wall_b)) {
+					++cornered_one_wall;
+				}
+			};
+			corner_kind(wall_up, fill_up, wall_left, fill_left);
+			corner_kind(wall_up, fill_up, wall_right, fill_right);
+			corner_kind(wall_down, fill_down, wall_left, fill_left);
+			corner_kind(wall_down, fill_down, wall_right, fill_right);
+			// Shut in on three sides, open side running off the board two on.
+			const int blocked_sides = (up ? 1 : 0) + (down ? 1 : 0) +
+				(left ? 1 : 0) + (right ? 1 : 0);
+			if (blocked_sides == 3) {
+				if (!up && row == 1) ++three_sided_shallow;
+				if (!down && row == 7) ++three_sided_shallow;
+				if (!left && column == 1) ++three_sided_shallow;
+				if (!right && column == 7) ++three_sided_shallow;
 			}
 
 			cornered += up && left && row != 0 && column != 0 ? 1 : 0;
@@ -123,6 +160,14 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 	result += static_cast<uint64_t>(squashed) * weights.weights[1];
 	result += static_cast<uint64_t>(squashed_at_edge) * weights.weights[9];
 	result += static_cast<uint64_t>(cornered) * weights.weights[2];
+	result += static_cast<uint64_t>(squashed_against_wall) *
+		weights.weights[EvalWeights::SQUASHED_AGAINST_WALL];
+	result += static_cast<uint64_t>(cornered_one_wall) *
+		weights.weights[EvalWeights::CORNERED_ONE_WALL];
+	result += static_cast<uint64_t>(cornered_two_walls) *
+		weights.weights[EvalWeights::CORNERED_TWO_WALLS];
+	result += static_cast<uint64_t>(three_sided_shallow) *
+		weights.weights[EvalWeights::THREE_SIDED_SHALLOW_ESCAPE];
 	result += static_cast<uint64_t>(transitions) * weights.weights[3];
 	result += static_cast<uint64_t>(aligned_transitions) * weights.weights[8];
 
@@ -277,12 +322,22 @@ void testWeightMapping() {
 	test::require(weights.getCrowdedPieceScarcity() == weights.weights[12], "crowding");
 	test::require(weights.getClearOpportunity() == weights.weights[13],
 		"clear opportunity");
+	test::require(weights.getSquashedAgainstWall() == weights.weights[14],
+		"squashed against wall");
+	test::require(weights.getCorneredOneWall() == weights.weights[15],
+		"cornered one wall");
+	test::require(weights.getCorneredTwoWalls() == weights.weights[16],
+		"cornered two walls");
+	test::require(weights.getThreeSidedShallowEscape() == weights.weights[17],
+		"three sided shallow escape");
 }
 
 void testDefaultWeights() {
 	const std::array<int, EvalWeights::NUM_WEIGHTS> expected = {
 		1358, 524, 6540, 4450, 18185, 2665, 204,
 		908, 1776, 3386, 1607, 3067, 200, 335,
+		// The wall distinctions, all off by default.
+		0, 0, 0, 0,
 	};
 	const auto actual = EvalWeights::getDefault();
 	for (int index = 0; index < EvalWeights::NUM_WEIGHTS; ++index) {

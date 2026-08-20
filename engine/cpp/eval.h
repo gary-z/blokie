@@ -34,9 +34,42 @@
 #define BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES 5
 #endif
 
+// A filled neighbour can be cleared away. The edge of the board cannot. The
+// jaggedness features do not draw that distinction: cornered empty *ignores* a
+// corner formed by a wall entirely, and squashed empty splits on whether the
+// SQUARE sits on the rim rather than on whether the thing blocking it is a wall.
+// The four weights at the end of the list free those distinctions, and all four
+// default to zero, so the evaluation starts exactly where it was.
+// See docs/wall-vs-filled.md.
 class EvalWeights {
 public:
-	static constexpr int NUM_WEIGHTS = 14;
+	// Every weight has a key, and its slot number is written here and nowhere
+	// else, so that a value cannot drift onto the wrong weight.
+	enum Slot : int {
+		OCCUPIED_SIDE_CUBE = 0,
+		SQUASHED_EMPTY = 1,
+		CORNERED_EMPTY = 2,
+		TRANSITION = 3,
+		DEADLY_PIECE = 4,
+		THREE_BAR = 5,
+		OCCUPIED_CENTER_CUBE = 6,
+		OCCUPIED_CORNER_CUBE = 7,
+		TRANSITION_ALIGNED = 8,
+		SQUASHED_EMPTY_AT_EDGE = 9,
+		OCCUPIED_CENTER_SQUARE = 10,
+		OCCUPIED_CORNER_SQUARE = 11,
+		CROWDED_PIECE_SCARCITY = 12,
+		CLEAR_OPPORTUNITY = 13,
+		// Extra charge when the blocking is a wall rather than a filled square.
+		SQUASHED_AGAINST_WALL = 14,
+		CORNERED_ONE_WALL = 15,
+		CORNERED_TWO_WALLS = 16,
+		// Extra charge for a square shut in on three sides whose one open side
+		// runs off the board two steps later.
+		THREE_SIDED_SHALLOW_ESCAPE = 17,
+	};
+
+	static constexpr int NUM_WEIGHTS = THREE_SIDED_SHALLOW_ESCAPE + 1;
 	static constexpr int MAX_WEIGHT = 40000;
 
 	int weights[NUM_WEIGHTS] = {0};
@@ -61,6 +94,24 @@ public:
 	// Charge per missing way to clear, per square of crowding. Zero switches the
 	// term off exactly, which is how its controls were measured.
 	constexpr int getClearOpportunity() const { return weights[13]; }
+
+	// A pair of opposite blocked sides where one of them is the board edge. The
+	// square is necessarily on the rim, so this is charged on top of
+	// getSquashedEmptyAtEdge().
+	constexpr int getSquashedAgainstWall() const {
+		return weights[SQUASHED_AGAINST_WALL];
+	}
+	// A pair of adjacent blocked sides involving the board edge. Neither is
+	// counted by getCorneredEmpty(), which only sees corners made of two real
+	// filled squares, so these are charges the evaluation did not have. A corner
+	// made with a wall can never be freed by a clear.
+	constexpr int getCorneredOneWall() const { return weights[CORNERED_ONE_WALL]; }
+	constexpr int getCorneredTwoWalls() const { return weights[CORNERED_TWO_WALLS]; }
+	// Shut in on three sides, with the open side leading off the board two steps
+	// on -- a dead end rather than a way out.
+	constexpr int getThreeSidedShallowEscape() const {
+		return weights[THREE_SIDED_SHALLOW_ESCAPE];
+	}
 
 	static constexpr EvalWeights getDefault();
 };
@@ -96,5 +147,12 @@ constexpr EvalWeights EvalWeights::getDefault() {
 	result.weights[11] = 3067; // occupied corner square
 	result.weights[12] = 200;  // crowded-piece scarcity
 	result.weights[13] = 335;  // clear opportunity
+	// Zero is the evaluation that shipped: a wall blocks a square exactly as a
+	// filled square does, a corner made with a wall is not charged at all, and a
+	// three-sided square is not asked where its open side leads.
+	result.weights[SQUASHED_AGAINST_WALL] = 0;
+	result.weights[CORNERED_ONE_WALL] = 0;
+	result.weights[CORNERED_TWO_WALLS] = 0;
+	result.weights[THREE_SIDED_SHALLOW_ESCAPE] = 0;
 	return result;
 }
