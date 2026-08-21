@@ -79,6 +79,10 @@ MoveResult makeMoveSimpleImpl(GameState game, PieceSet piece_set,
 				// Anything that reorders the walk has to keep it: a first
 				// ordering that skipped half its pairs would take those boards
 				// down with it, which is what "Most placements first" did.
+				// Ordering the hand by placement count has since been measured
+				// properly, both ways round and at both ends of the hand, and
+				// is worth less than recompiling the same walk moves it:
+				// docs/piece-ordering.md.
 				if (pair_test_applies) {
 					if (!p1_cleared) {
 						continue;
