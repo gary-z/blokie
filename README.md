@@ -1,4 +1,4 @@
-Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/store/apps/details?id=com.easybrain.block.puzzle.games), [Woodoku](https://play.google.com/store/apps/details?id=com.tripledot.woodoku&hl=en_CA&gl=US), and [Block Sudoku](https://play.google.com/store/apps/details?id=block.puzzle.sudoku.free.game.classic.offline) puzzle games. It can achieve 1.5 million points (roughly 40,000 sets of 3 pieces) on average.
+Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/store/apps/details?id=com.easybrain.block.puzzle.games), [Woodoku](https://play.google.com/store/apps/details?id=com.tripledot.woodoku&hl=en_CA&gl=US), and [Block Sudoku](https://play.google.com/store/apps/details?id=block.puzzle.sudoku.free.game.classic.offline) puzzle games. It can play about 100,000 sets of 3 pieces on average.
 
 <img style="width: 25%; height: 15%" src="/docs/preview.gif?raw=true"/>
 
@@ -27,7 +27,7 @@ Internally, the board state is represented as a bitboard using three 32-bit inte
 
 The board state evaluation weights were trained using a genetic learning algorithm written in C++. JavaScript is too slow for training.
 
-Games run about 40,000 sets long and their lengths are close to exponential, so telling a real improvement from noise takes more games than it looks like it should. [How to measure a change to the evaluation](docs/evaluating-changes.md) works out what that costs, and why the obvious ways to make it cheaper — playing two pieces at a time, or dropping the small pieces — end up measuring a different game.
+Games run about 100,000 sets long and their lengths are close to exponential, so telling a real improvement from noise takes more games than it looks like it should. [How to measure a change to the evaluation](docs/evaluating-changes.md) works out what that costs, and why the obvious ways to make it cheaper — playing two pieces at a time, or dropping the small pieces — end up measuring a different game.
 
 ## Can I have the computer play the phone games for me?
 No.
