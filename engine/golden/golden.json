@@ -287,7 +287,7 @@
   },
   {
     "id": "O-prefer-corner",
-    "description": "The exception to prefer-middle: for the ring, the corner is better. It clears more at every horizon measured, and by 0.805 squares on the next set.",
+    "description": "A keeps more room available near the center.",
     "a": [
       ".........",
       ".........",
@@ -313,7 +313,7 @@
   },
   {
     "id": "mined-run-1",
-    "description": "Mined from play, then stripped to the 5 squares the mistake needs (it started at 22). Two placements of one piece from one parent. A keeps a run of 3 unbroken where B leaves 2, and A's fullest line reaches 3 against 3. Nothing in the eval scores how near a line is to completing, so the broken version looks no worse. It prefers B by 4092; A clears 0.77 more squares on the next set.",
+    "description": "A preserves the longer contiguous run.",
     "a": [
       ".........",
       ".........",
@@ -339,7 +339,7 @@
   },
   {
     "id": "mined-rim-1",
-    "description": "Mined from play, then stripped to the 11 squares the mistake needs (it started at 21). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 6 against B's 3. The eval prefers B by 7565; A clears 0.99 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       "..#......",
@@ -365,7 +365,7 @@
   },
   {
     "id": "mined-rim-2",
-    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 33). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 0. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 9563; A clears 0.26 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       "......#..",
@@ -391,7 +391,7 @@
   },
   {
     "id": "mined-rim-3",
-    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 28). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 32960; A clears 0.53 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -417,7 +417,7 @@
   },
   {
     "id": "mined-rim-4",
-    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 20). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 32499; A clears 2.21 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -443,7 +443,7 @@
   },
   {
     "id": "mined-shape-1",
-    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 21). Two placements of one piece from one parent. The two sides are level on edge contact and on longest run, so what separates them is where the squares sit. The eval prefers B by 6931; A clears 0.33 more squares on the next set, counted over every hand.",
+    "description": "A is preferred despite matching B on boundary contact and longest run.",
     "a": [
       ".........",
       ".....#...",
@@ -469,7 +469,7 @@
   },
   {
     "id": "mined-rim-5",
-    "description": "Mined from play, then stripped to the 5 squares the mistake needs (it started at 14). Two placements of one piece from one parent. B puts 4 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 3 against B's 3. The eval prefers B by 37633; A clears 1.06 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       "......#..",
@@ -495,7 +495,7 @@
   },
   {
     "id": "mined-rim-6",
-    "description": "Mined from play, then stripped to the 6 squares the mistake needs (it started at 16). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 6 against B's 5. The eval prefers B by 35384; A clears 2.16 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -521,7 +521,7 @@
   },
   {
     "id": "mined-rim-7",
-    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 37). Two placements of one piece from one parent. B puts 5 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 5. The eval prefers B by 44214; A clears 0.73 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -547,7 +547,7 @@
   },
   {
     "id": "mined-rim-8",
-    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 22). Two placements of one piece from one parent. B puts 4 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 4 against B's 3. The eval prefers B by 22194; A clears 0.25 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       "......#..",
       ".........",
@@ -573,7 +573,7 @@
   },
   {
     "id": "mined-rim-9",
-    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 16). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 3. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 4 against B's 3. The eval prefers B by 49212; A clears 1.09 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       "......#..",
       "......#..",
@@ -599,7 +599,7 @@
   },
   {
     "id": "mined-rim-10",
-    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 17). Two placements of one piece from one parent. B puts 4 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 15279; A clears 2.28 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       "......#..",
       "......#..",
@@ -625,7 +625,7 @@
   },
   {
     "id": "mined-rim-11",
-    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 27). Two placements of one piece from one parent. B puts 3 squares on the board edge against A's 1. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 4 against B's 3. The eval prefers B by 30157; A clears 1.58 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -651,7 +651,7 @@
   },
   {
     "id": "mined-run-2",
-    "description": "Mined from play, then stripped to the 6 squares the mistake needs (it started at 17). Two placements of one piece from one parent. A keeps a run of 4 unbroken where B leaves 2, and A's fullest line reaches 4 against 3. Nothing in the eval scores how near a line is to completing, so the broken version looks no worse. It prefers B by 5536; A clears 1.01 more squares on the next set.",
+    "description": "A preserves the longer contiguous run.",
     "a": [
       "......#..",
       "......#..",
@@ -677,7 +677,7 @@
   },
   {
     "id": "mined-shape-2",
-    "description": "Mined from play, then stripped to the 8 squares the mistake needs (it started at 19). Two placements of one piece from one parent. The two sides are level on edge contact and on longest run, so what separates them is where the squares sit. The eval prefers B by 20971; A clears 0.77 more squares on the next set, counted over every hand.",
+    "description": "A is preferred despite matching B on boundary contact and longest run.",
     "a": [
       ".........",
       ".........",
@@ -703,7 +703,7 @@
   },
   {
     "id": "mined-rim-12",
-    "description": "Mined from play, then stripped to the 7 squares the mistake needs (it started at 18). Two placements of one piece from one parent. B puts 6 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 3. The eval prefers B by 15954; A clears 1.54 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -729,7 +729,7 @@
   },
   {
     "id": "mined-rim-13",
-    "description": "Mined from play, then stripped to the 11 squares the mistake needs (it started at 27). Two placements of one piece from one parent. B puts 5 squares on the board edge against A's 3. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 5 against B's 4. The eval prefers B by 10204; A clears 0.36 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -755,7 +755,7 @@
   },
   {
     "id": "mined-shape-3",
-    "description": "Mined from play, then stripped to the 9 squares the mistake needs (it started at 33). Two placements of one piece from one parent. The two sides are level on edge contact and on longest run, so what separates them is where the squares sit. The eval prefers B by 2311; A clears 0.62 more squares on the next set, counted over every hand.",
+    "description": "A is preferred despite matching B on boundary contact and longest run.",
     "a": [
       ".........",
       "##.......",
@@ -781,7 +781,7 @@
   },
   {
     "id": "mined-rim-14",
-    "description": "Mined from play, then stripped to the 6 squares the mistake needs (it started at 20). Two placements of one piece from one parent. B puts 5 squares on the board edge against A's 2. The edge is not counted as a boundary, so a piece flush against the wall reads as tidier than the same piece extending a line inward \u2014 A's longest run is 3 against B's 3. The eval prefers B by 5637; A clears 0.75 more squares on the next set, counted over every hand.",
+    "description": "A extends inward while B concentrates squares on the rim.",
     "a": [
       ".........",
       ".........",
@@ -807,7 +807,7 @@
   },
   {
     "id": "mined-run-3",
-    "description": "Mined from play, then stripped to the 5 squares the mistake needs (it started at 26). Two placements of one piece from one parent. A keeps a run of 5 unbroken where B leaves 4, and A's fullest line reaches 5 against 4. Nothing in the eval scores how near a line is to completing, so the broken version looks no worse. It prefers B by 23643; A clears 0.66 more squares on the next set.",
+    "description": "A preserves the longer contiguous run.",
     "a": [
       "..#......",
       "..#......",
@@ -833,7 +833,7 @@
   },
   {
     "id": "deadly-47-1",
-    "description": "Crowded board, 47 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 4.3% of the time against 1.4% for A, a gap of 2.9 points. The search plays B, preferring it by 1248. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#######..",
       "###.#####",
@@ -859,7 +859,7 @@
   },
   {
     "id": "deadly-42-2",
-    "description": "Crowded board, 42 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 9.7% of the time against 3.8% for A, a gap of 5.9 points. The search plays B, preferring it by 34247. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "######..#",
       ".#..##...",
@@ -885,7 +885,7 @@
   },
   {
     "id": "deadly-42-3",
-    "description": "Crowded board, 42 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 11.2% of the time against 5.7% for A, a gap of 5.5 points. The search plays B, preferring it by 16885. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#######.#",
       ".#..#####",
@@ -911,7 +911,7 @@
   },
   {
     "id": "deadly-38-4",
-    "description": "Crowded board, 38 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 4.8% of the time against 0.4% for A, a gap of 4.5 points. The search plays B, preferring it by 69016. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "######...",
       "##...####",
@@ -937,7 +937,7 @@
   },
   {
     "id": "deadly-36-5",
-    "description": "Crowded board, 36 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 3.8% of the time against 1.5% for A, a gap of 2.3 points. The search plays B, preferring it by 12369. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "##...#..#",
       "#....#...",
@@ -963,7 +963,7 @@
   },
   {
     "id": "deadly-36-6",
-    "description": "Crowded board, 36 squares, and the first pairs here labelled by survival rather than by clearing. Two placements of one piece from one parent, played out on 4,000 fresh piece streams: B is dead within 20 sets 2.1% of the time against 0.4% for A, a gap of 1.7 points. The search plays B, preferring it by 26290. Mined by searching for placements the eval gets wrong, so this is evidence about that decision and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       ".....#...",
       ".#.......",
@@ -989,7 +989,7 @@
   },
   {
     "id": "deadly-48-7",
-    "description": "Crowded board, 48 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 29.5% of the time against 9.0% for A, a gap of 20.5 points and 3.28x the risk. The search plays B, preferring it by 12559. Confirmed independently by golden_measure at z=10.7, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#######.#",
       ".##..####",
@@ -1015,7 +1015,7 @@
   },
   {
     "id": "deadly-43-8",
-    "description": "Crowded board, 43 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 41.5% of the time against 24.5% for A, a gap of 17.0 points and 1.69x the risk. The search plays B, preferring it by 73393. Confirmed independently by golden_measure at z=8.4, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "##.##..##",
       "...###...",
@@ -1041,7 +1041,7 @@
   },
   {
     "id": "deadly-46-9",
-    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 27.6% of the time against 16.3% for A, a gap of 11.3 points and 1.70x the risk. The search plays B, preferring it by 38502. Confirmed independently by golden_measure at z=8.9, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "##..#...#",
       "###.#.###",
@@ -1067,7 +1067,7 @@
   },
   {
     "id": "deadly-48-10",
-    "description": "Crowded board, 48 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 22.9% of the time against 12.1% for A, a gap of 10.8 points and 1.89x the risk. The search plays B, preferring it by 82582. Confirmed independently by golden_measure at z=9.9, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#######.#",
       ".##..####",
@@ -1093,7 +1093,7 @@
   },
   {
     "id": "deadly-46-11",
-    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 14.6% of the time against 5.6% for A, a gap of 9.0 points and 2.60x the risk. The search plays B, preferring it by 49629. Confirmed independently by golden_measure at z=10.4, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#.#.#....",
       "#...##...",
@@ -1119,7 +1119,7 @@
   },
   {
     "id": "deadly-49-12",
-    "description": "Crowded board, 49 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 14.0% of the time against 5.7% for A, a gap of 8.4 points and 2.48x the risk. The search plays B, preferring it by 23515. Confirmed independently by golden_measure at z=10.6, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#.###.###",
       "######..#",
@@ -1145,7 +1145,7 @@
   },
   {
     "id": "deadly-49-13",
-    "description": "Crowded board, 49 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 21.5% of the time against 13.2% for A, a gap of 8.3 points and 1.63x the risk. The search plays B, preferring it by 40552. Confirmed independently by golden_measure at z=8.5, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "######..#",
       ".####..##",
@@ -1171,7 +1171,7 @@
   },
   {
     "id": "deadly-44-14",
-    "description": "Crowded board, 44 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 21.2% of the time against 13.2% for A, a gap of 8.0 points and 1.60x the risk. The search plays B, preferring it by 30064. Confirmed independently by golden_measure at z=6.0, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "##.##..##",
       "...###...",
@@ -1197,7 +1197,7 @@
   },
   {
     "id": "deadly-47-15",
-    "description": "Crowded board, 47 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 15.7% of the time against 8.5% for A, a gap of 7.2 points and 1.85x the risk. The search plays B, preferring it by 11115. Confirmed independently by golden_measure at z=7.3, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#######.#",
       ".##..####",
@@ -1223,7 +1223,7 @@
   },
   {
     "id": "deadly-46-16",
-    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 7.2% of the time against 2.7% for A, a gap of 4.5 points and 2.69x the risk. The search plays B, preferring it by 28497. Confirmed independently by golden_measure at z=6.9, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       ".##..####",
       ".....##.#",
@@ -1249,7 +1249,7 @@
   },
   {
     "id": "deadly-45-17",
-    "description": "Crowded board, 45 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 6.3% of the time against 2.2% for A, a gap of 4.2 points and 2.94x the risk. The search plays B, preferring it by 18683. Confirmed independently by golden_measure at z=6.0, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "###.###..",
       "######...",
@@ -1275,7 +1275,7 @@
   },
   {
     "id": "deadly-46-18",
-    "description": "Crowded board, 46 squares, labelled by survival. Two placements of one piece from one parent, played out on 8,000 fresh piece streams: B is dead within 20 sets 4.7% of the time against 1.6% for A, a gap of 3.1 points and 2.89x the risk. The search plays B, preferring it by 1666. Confirmed independently by golden_measure at z=7.6, where the eval also reverses itself over the window. Mined against the engine that already carries the clear-opportunity term, so this is evidence about a decision that term does not fix, and not a target to tune against.",
+    "description": "A is the safer crowded-board placement.",
     "a": [
       "#.#####.#",
       "#.#####.#",

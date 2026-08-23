@@ -1,27 +1,13 @@
 "use strict";
 import { saveSfxSetting, loadSfxSetting } from "./storage.js";
 
-// A piece lifted off the hand, dropped onto the board, going back down unplayed,
-// and a row coming apart. Played whether you or the assist is moving the pieces,
-// except at the assist's top speed, where the moves come too fast to hear as
-// anything but noise.
-//
-// Off until someone turns it on, and remembered after that. Nothing is even
-// downloaded while it is off.
-//
-// Every clip is Kenney's, from the CC0 Impact Sounds pack. See
-// web/sfx/README.md for where they came from and what was done to them.
+// Lazy, opt-in sound effects. See web/sfx/README.md for asset details.
 
 const PICKUP = 'impactWood_light_000';
 
-// A semitone as a playback-rate multiplier: a clip played at STEP ** 4 comes
-// out a major third higher, and a little shorter with it.
+// Semitone playback-rate multiplier.
 const STEP = 2 ** (1 / 12);
 
-// Each event is a list of hits, so the clear can be a run rather than one clip:
-// the pickup struck three times up a major triad, 70ms apart and tapering, a
-// small marimba in the same piece of wood as everything else. The hits are
-// spaced enough that they sum to -1 dBFS instead of clipping.
 const SOUNDS = {
     pickup: [{ file: PICKUP, rate: 1, at: 0, gain: 1 }],
     place: [{ file: 'impactWood_medium_000', rate: 1, at: 0, gain: 1 }],
@@ -33,29 +19,15 @@ const SOUNDS = {
     ],
 };
 
-// The clips are all normalized to one level, so balance between the events
-// lives here instead of in the files. Picking a piece up happens on every drag
-// and wants to sit under the rest of it.
-//
-// The reject is the exception to that normalization being enough: it levelled
-// to -18 dB RMS before it reached -1 dB peak, and it is a third the length of
-// the wood at a fifth of the pitch, all of which the ear counts. It needs to be
-// louder than the others on paper to land beside them, and at 1.0 it measures
-// within a third of a dB of the place. Peak is still 0.58, so nothing clips.
 const EVENT_GAIN = { pickup: 0.45, place: 0.9, reject: 1.0, clear: 0.9 };
 
 /**
- * What can be played. Taken off SOUNDS rather than written out again, so a
- * new sound is a new key there and nothing else.
  * @typedef {keyof typeof SOUNDS} SoundEvent
  */
 
-// Cleared cells shrink out over 0.2s. Landing the sound just after that starts
-// reads as the clear causing it, rather than as part of the placement.
+// Sync with the clear animation.
 const CLEAR_DELAY_S = 0.06;
 
-// Safari answered to the prefixed name alone until 14.1, which is still inside
-// the range of iPhones this runs on.
 const AudioContextClass = window.AudioContext
     || /** @type {{webkitAudioContext?: typeof AudioContext}} */ (window).webkitAudioContext;
 
@@ -75,8 +47,6 @@ function clipUrl(name) {
     return new URL(`sfx/${name}.wav`, import.meta.url);
 }
 
-// Nothing is fetched until sound is turned on, so a player who leaves it off
-// never pays for the clips at all.
 function fetchClips() {
     for (const name of CLIPS) {
         if (!fetched.has(name) && !decoded.has(name)) {
@@ -85,9 +55,6 @@ function fetchClips() {
     }
 }
 
-// Safe to call on any user gesture, and cheap after the first one. An
-// AudioContext built before one starts out suspended (and complains in the
-// console), so it is built here rather than on load.
 function warmUp() {
     if (!sound_on || decode_failed) return;
     if (audio_ctx === null) {
@@ -98,19 +65,15 @@ function warmUp() {
     }
     for (const name of CLIPS) {
         if (!fetched.has(name)) continue;
-        // Claim the slot before awaiting: decodeAudioData detaches the buffer
-        // it is given, so the same bytes must not be decoded twice.
+        // Claim the buffer before decodeAudioData detaches it.
         const bytes = fetched.get(name);
         fetched.delete(name);
         if (bytes === undefined) continue;
-        // Captured, because `audio_ctx` is module state and the null check
-        // above does not survive the await.
         const ctx = audio_ctx;
         bytes
             .then(b => ctx.decodeAudioData(b))
             .then(buffer => decoded.set(name, buffer))
             .catch(() => {
-                // Silence beats a broken game.
                 decode_failed = true;
                 console.warn('blokie: sound effects are off, this browser could not decode web/sfx/*.wav');
             });
@@ -121,7 +84,6 @@ function warmUp() {
 function playSfx(event) {
     if (!sound_on || audio_ctx === null) return;
     const hits = SOUNDS[event];
-    // Still decoding, which only happens for the first sound of a session.
     if (!hits.every(h => decoded.has(h.file))) {
         warmUp();
         return;
@@ -133,7 +95,6 @@ function playSfx(event) {
     const base = audio_ctx.currentTime + (event === 'clear' ? CLEAR_DELAY_S : 0);
     for (const hit of hits) {
         const source = audio_ctx.createBufferSource();
-        // Every hit was checked into `decoded` just above.
         source.buffer = decoded.get(hit.file) ?? null;
         source.playbackRate.value = hit.rate;
         const gain = audio_ctx.createGain();
@@ -143,14 +104,9 @@ function playSfx(event) {
     }
 }
 
-// `from_gesture` is what makes it safe to build an AudioContext: doing that
-// without one leaves it suspended and has the browser complain, once here and
-// again on every attempt to resume it.
 /** @type {(on: boolean, button: HTMLElement, from_gesture: boolean) => void} */
 function setSoundOn(on, button, from_gesture) {
     sound_on = on;
-    // Only the icon: the button reads "Sound" beside it either way, and
-    // aria-pressed is what carries the state to a screen reader.
     const icon = button.querySelector('.menu-icon');
     if (icon !== null) {
         icon.textContent = on ? '\u{1F50A}' : '\u{1F507}';
@@ -166,12 +122,9 @@ function setSoundOn(on, button, from_gesture) {
     }
 }
 
-// Null when the page has no sound button, which is what a caller reaching for
-// one by id can hand over.
 /** @type {(button: HTMLElement | null) => void} */
 function initSfx(button) {
     if (button === null) return;
-    // Restoring a setting is not a gesture, so this only starts the download.
     setSoundOn(loadSfxSetting(), button, false);
 
     button.addEventListener('click', () => {
@@ -179,8 +132,7 @@ function initSfx(button) {
         saveSfxSetting(sound_on);
     });
 
-    // Left on from a previous visit: the clips are already on their way, and
-    // the first gesture anywhere is what pays for the decode.
+    // Decode after the first gesture.
     document.addEventListener('pointerdown', warmUp, { once: true });
 }
 

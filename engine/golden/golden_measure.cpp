@@ -1,31 +1,4 @@
-// What the game actually does with each board of a pair.
-//
-// `golden` asks the evaluation whether it prefers A. This asks the game, which
-// is a different question and the one that decides whether a pair is worth
-// keeping. It answers in two parts.
-//
-// The exact part. For a given board, every hand the game can deal can be
-// enumerated and played by the real search, which gives the expected squares
-// cleared by the next set with no sampling error at all. The search sorts the
-// hand before it looks at anything (solver.cpp), so what it returns depends on
-// which three pieces arrived and not on their order: enumerating unordered
-// hands and weighting each by how many of the 47^3 orderings it stands for is
-// the same number from 18,424 searches instead of 103,824. The same pass gives
-// P(no fit) -- the share of hands that cannot be placed at all, which is this
-// board's chance of ending the game on the very next set.
-//
-// The rolled-out part. A pair claims A is better, and better has to survive
-// contact with a few moves of play. Both boards are played forward on one
-// shared piece stream and compared on squares cleared. That measure is not
-// circular: dealt the same pieces, both boards receive the same number of
-// squares, so whichever holds fewer afterwards is exactly whichever cleared
-// more, and the evaluation never enters its own test. It is a fair comparison
-// only when the two boards start with the same number of squares, which is why
-// the README asks for that.
-//
-// Deaths are counted over every trial and never conditioned away. Dropping the
-// trials where a side died leaves that side only the futures it survived, which
-// is how a board that wins by dying looks good.
+// Validates golden pairs with exhaustive next-hand checks and paired rollouts.
 #include "golden_common.h"
 #include "game.h"
 #include "solver.h"
@@ -68,8 +41,7 @@ void printUsage(const char *prog) {
               << "  --max-trials N   Cap on paired rollouts per pair (default 16000)\n"
               << "  --stop-at T      Stop a pair early once |t| reaches this (default 6)\n"
               << "  --decide-at T    Bar for the final verdict (default 3)\n"
-              << "  --equiv E        Call a pair negligible once its 95% interval fits\n"
-              << "                   inside +/-E squares (default 0.05)\n"
+              << "  --equiv E        Equivalence threshold in squares (default 0.05)\n"
               << "  --threads T      Worker threads (default hardware_concurrency)\n"
               << "  --help           Show this help\n";
 }
@@ -84,15 +56,10 @@ uint64_t splitMix64(uint64_t x) {
 int windowLow = 3;
 int windowHigh = 6;
 
-// Fewest deaths across both sides before the observed death counts are allowed
-// to decide a dangerous pair. Below it the counts are too small to order, and
-// the exact one-move P(no fit) is the better of the two available answers.
+// Minimum deaths needed to compare survival.
 constexpr long MIN_DEATHS_TO_JUDGE = 12;
 
-// How far apart two death counts are, in standard deviations, with a positive
-// value favouring A. The two sides are played on shared piece streams, which
-// correlates them positively, so treating the counts as independent Poisson
-// understates the evidence rather than manufacturing it.
+// Positive values favour A.
 double survivalZ(long deathsA, long deathsB) {
     const long total = deathsA + deathsB;
     if (total == 0) return 0.0;
@@ -109,7 +76,6 @@ struct PairState {
     double noFitB = 0;
     int horizon = 0;
     std::vector<double> stats;
-    // The same window, read on the eval's own scale rather than on squares.
     std::vector<double> evalStats;
     double staticDelta = 0;
     double evalMean = 0;
@@ -122,10 +88,7 @@ struct PairState {
     bool negligible = false;
 };
 
-// One unordered hand's worth of work is a (board, first piece, second piece);
-// the third piece runs inside. Splitting on the first piece alone would give
-// items whose sizes run 1128 down to 1, and the threads that drew the small
-// ones would sit idle waiting for the ones that drew the large.
+// One unordered hand prefix.
 struct ExactJob {
     int pair;
     int side;
@@ -151,8 +114,6 @@ struct TrialResult {
     bool diedB = false;
 };
 
-// Mean of a set of paired differences, and how many standard errors it sits
-// from zero.
 struct MeanAndT { double mean = 0, t = 0, se = 0; };
 
 MeanAndT meanAndT(const std::vector<double> &v) {
@@ -169,9 +130,6 @@ MeanAndT meanAndT(const std::vector<double> &v) {
     return r;
 }
 
-// Pull items off one counter until they run out. Every stage here is a flat
-// list spanning every pair, so a thread that finishes one pair's work picks up
-// another's instead of waiting at a per-pair barrier.
 template <typename Body>
 void runQueue(size_t items, unsigned threads, Body body) {
     std::atomic<size_t> next(0);
@@ -189,8 +147,6 @@ void runQueue(size_t items, unsigned threads, Body body) {
     for (auto &w : workers) w.join();
 }
 
-// Play both boards forward on one piece stream, and report the average over the
-// window of how many more squares B is carrying than A.
 TrialResult runTrial(BitBoard a, BitBoard b, uint64_t seed, int horizon) {
     std::mt19937_64 rng(seed);
     std::uniform_int_distribution<int> piece_dist(0, Piece::NUM_PIECES - 1);
@@ -218,10 +174,6 @@ TrialResult runTrial(BitBoard a, BitBoard b, uint64_t seed, int horizon) {
         if (set >= windowLow && set <= windowHigh && alive_a && alive_b) {
             total += (double)(game_b.getBitBoard().count() - start_b)
                    - (double)(game_a.getBitBoard().count() - start_a);
-            // The same comparison on the eval's own scale. Circular by
-            // construction, which is the point: what it detects is the eval
-            // disagreeing with itself a few moves later, and no board can be
-            // said to disagree with itself by accident.
             evalTotal += (double)game_b.simpleEvalDefault()
                        - (double)game_a.simpleEvalDefault();
             ++counted;
@@ -288,13 +240,10 @@ int main(int argc, char **argv) {
         pairs[i].id = parsed[i].id;
         pairs[i].a = golden::boardFromLines(parsed[i].boardA);
         pairs[i].b = golden::boardFromLines(parsed[i].boardB);
-        // What `golden` compares, kept so the rolled-out eval has a baseline to
-        // be consistent with.
         pairs[i].staticDelta = (double)GameState(pairs[i].b).simpleEvalDefault()
                              - (double)GameState(pairs[i].a).simpleEvalDefault();
     }
 
-    // Every hand the game can deal, for every board, in one list.
     const int piece_count = Piece::NUM_PIECES;
     const double orderings = (double)piece_count * piece_count * piece_count;
     std::vector<ExactJob> exact_jobs;
@@ -314,7 +263,6 @@ int main(int argc, char **argv) {
         ExactTally tally;
         for (int third = job.second; third < piece_count; ++third) {
             const int i = job.first, j = job.second, k = third;
-            // How many of the 47^3 dealt orderings this one hand stands for.
             const int weight = (i == j && j == k) ? 1
                              : ((i == j || j == k || i == k) ? 3 : 6);
             const PieceSet hand(Piece::byIndex(i), Piece::byIndex(j), Piece::byIndex(k));
@@ -343,16 +291,11 @@ int main(int argc, char **argv) {
         pairs[p].clearedB = cleared_acc[p * 2 + 1] / orderings;
         pairs[p].noFitA = nofit_acc[p * 2] / orderings;
         pairs[p].noFitB = nofit_acc[p * 2 + 1] / orderings;
-        // A board that cannot die on the next set has just been shown not to,
-        // exactly, so a rollout only has to reach the end of the window. One
-        // that can is played further, where its deaths are the thing to watch.
         const bool can_die = pairs[p].noFitA > 0 || pairs[p].noFitB > 0;
         pairs[p].horizon = can_die ? 40 : windowHigh;
     }
     const auto exact_done = std::chrono::steady_clock::now();
 
-    // Rollouts, in rounds. Every pair still undecided contributes its next
-    // batch to one list, so the machine stays full even as pairs drop out.
     int batch = first_batch;
     while (true) {
         std::vector<TrialJob> jobs;
@@ -391,15 +334,7 @@ int main(int argc, char **argv) {
             pair.t = clears.t;
             pair.evalMean = evals.mean;
             pair.evalT = evals.t;
-            // Stop early only on a statistic large enough that looking
-            // repeatedly cannot account for it; the final look is judged on the
-            // ordinary bar. Or stop the other way, once the interval is small
-            // enough that the pair has been measured as not mattering.
-            //
-            // Which statistic that is depends on the pair. A board that can end
-            // the game is judged on deaths, so stopping it on the window would
-            // be stopping on the wrong number -- and a noisy one, since on these
-            // boards the window is mostly made of rollouts that ended early.
+            // Dangerous pairs stop on survival; others stop on clearing.
             if (pair.noFitA > 0 || pair.noFitB > 0) {
                 const long total_deaths = pair.deathsA + pair.deathsB;
                 if (total_deaths >= MIN_DEATHS_TO_JUDGE &&
@@ -440,13 +375,6 @@ int main(int argc, char **argv) {
         const double no_fit = std::max(pair.noFitA, pair.noFitB);
         std::string verdict;
         if (no_fit > 0) {
-            // The board can end the game outright, so the pair is about survival
-            // rather than about squares. Two numbers measure that. P(no fit) is
-            // exact but sees one set ahead, and one set is not where these pairs
-            // differ: a side can be likelier to die immediately and still be the
-            // side that lasts, because it is the side that can still clear. So
-            // judge on the deaths the longer rollout actually observed, and fall
-            // back to the exact number only when they are too few to order.
             ++dangerous;
             const long total_deaths = pair.deathsA + pair.deathsB;
             const double z = survivalZ(pair.deathsA, pair.deathsB);
@@ -478,20 +406,8 @@ int main(int argc, char **argv) {
         else if (pair.negligible) { verdict = "negligible -- no measurable difference"; ++unresolved; }
         else { verdict = "unresolved -- weak pair"; ++unresolved; }
 
-        // Does the eval still say later what it says now? A sign it reverses is
-        // the eval contradicting itself; a magnitude that all but vanishes is
-        // the eval being loud about something that does not survive a move.
-        // Neither says which side is right -- an eval can be wrong in a
-        // perfectly self-consistent way, and two of these pairs are -- but a
-        // pair that trips either one is worth looking at.
         std::string consistency = "-";
         if (pair.evalStats.size() >= 2) {
-            // A reversal is only a reversal if the later opinion is real, so
-            // that branch needs significance. Fading does not: an eval that was
-            // certain and now has no opinion worth measuring has faded to
-            // nothing, and demanding significance there would throw away the
-            // strongest case -- which is what aligned-on-cube-edge, loud at
-            // 56,242 and down to 76, would otherwise have been.
             const bool later_is_real = std::fabs(pair.evalT) >= decide_at;
             const bool now_favours_a = pair.staticDelta > 0;
             const bool later_favours_a = pair.evalMean > 0;

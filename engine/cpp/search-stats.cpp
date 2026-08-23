@@ -1,26 +1,4 @@
-// Counts how often the move search evaluates a board it has already
-// evaluated, and what a search that refused to would have saved.
-//
-// The search walks up to six orderings of the dealt triple and evaluates the
-// board each line of play ends on. Two different lines can end on the same
-// board -- two placements that complete the same line leave the same board
-// behind, and two orderings of placements that all survive a clear leave the
-// same board however they were ordered. Every such coincidence is an
-// evaluation spent on an answer already known.
-//
-// The walk below is the search with the ordering rules it had before the two
-// this tool was written to find, so its counts describe the search that was
-// measured. Every move it checks that it settled on the same score the search
-// in this build did. What it adds is bookkeeping: the boards it evaluates, the
-// (board, remaining piece) pairs it reaches with one piece left, and the
-// (board, remaining pieces) triples it reaches with two, each against a hash
-// set, so a repeat is visible along with the subtree a search that recognized
-// it would not have walked.
-//
-// The dedup levels and the candidate rules are all measured independently
-// against the same baseline walk, so their savings are alternatives rather
-// than a total: recognizing a repeat at level 1 also removes the level 2 and
-// leaf repeats beneath it.
+// Reports repeated work and pruning opportunities in the move search.
 
 #include "solver.h"
 
@@ -38,11 +16,6 @@
 
 namespace {
 
-// A board plus whatever else identifies a search node: the pieces still to be
-// played, as their shape bits. Leaves use neither, level 2 uses the last
-// piece, level 1 uses both in the order they will be played -- ordered,
-// because from one board the same two pieces played the other way round is a
-// different subtree whenever a clear makes room the other order did not have.
 struct NodeKey {
     uint64_t board_a;
     uint64_t board_b;
@@ -68,51 +41,23 @@ struct NodeKeyHash {
 };
 
 using NodeSet = std::unordered_set<NodeKey, NodeKeyHash>;
-// Leaf boards carry which ordering evaluated them first, so a repeat can say
-// whether another ordering had already found the board or the same ordering
-// reached it twice.
 using LeafMap = std::unordered_map<NodeKey, uint64_t, NodeKeyHash>;
 
-// Everything one move's search reveals. Counts are per move; the caller sums
-// them over a run.
 struct MoveStats {
     uint64_t orderings = 0;
-    // Leaf evaluations the real search performs.
     uint64_t evaluations = 0;
-    // Of those, ones whose board an earlier leaf had already evaluated.
     uint64_t repeated_evaluations = 0;
-    // Repeats first seen under a different ordering of the same triple, and
-    // repeats first seen under the same ordering. The second kind is two
-    // placements colliding after a clear, which no amount of ordering pruning
-    // can reach.
     uint64_t repeats_across_orderings = 0;
     uint64_t repeats_within_ordering = 0;
-    // Evaluations under a (board, last piece) node reached before, and under a
-    // (board, last two pieces) node reached before. What a search that
-    // recognized the repeated node would not have spent.
     uint64_t evaluations_under_repeated_level2 = 0;
     uint64_t evaluations_under_repeated_level1 = 0;
     uint64_t level2_nodes = 0;
     uint64_t repeated_level2_nodes = 0;
     uint64_t level1_nodes = 0;
     uint64_t repeated_level1_nodes = 0;
-    // Leaves a candidate rule would not have evaluated: when neither of the
-    // last two placements cleared, the two orderings of the last two pieces
-    // end on the same board, so only the one that plays them in sorted order
-    // has to be walked.
     uint64_t leaves_skipped_by_suffix_swap = 0;
-    // Leaves under a level 2 node the extended prefix-swap rule would not have
-    // walked: the first placement did not clear, the second did, and the clear
-    // took no cell the first placement had put down -- so the second piece
-    // clears the same lines played first, and the pair commutes even though
-    // one of them cleared.
     uint64_t leaves_skipped_by_prefix_swap = 0;
-    // Both rules at once.
     uint64_t leaves_skipped_by_both = 0;
-    // Leaves by which of the three placements cleared, indexed by the bits
-    // p0_cleared | p1_cleared << 1 | p2_cleared << 2, and the same for the
-    // subset of them that were repeats. Says which shapes of line a pruning
-    // rule would have to catch.
     uint64_t leaves_by_clear_pattern[8] = {0};
     uint64_t repeats_by_clear_pattern[8] = {0};
 
@@ -140,14 +85,10 @@ struct MoveStats {
     }
 };
 
-// Scratch reused across moves so the hash sets keep their buckets.
 struct Scratch {
     LeafMap leaves;
     NodeSet level2;
     NodeSet level1;
-    // Boards the suffix-swap rule would still have evaluated. Checked against
-    // `leaves` after every move: the rule is only worth anything if it leaves
-    // the set of boards the search considered exactly as it was.
     NodeSet suffix_swap_leaves;
     NodeSet prefix_swap_leaves;
     NodeSet both_rules_leaves;
@@ -162,11 +103,6 @@ struct Scratch {
     }
 };
 
-// The move search walked for its counts, with the pruning rules it had before
-// the two this tool was written to find. Keeping the old rules is what makes
-// the run a comparison: the counts describe the search as it was, and the
-// score check below compares what it settles on against the search in this
-// build.
 MoveResult walk(GameState game, PieceSet piece_set, Scratch& scratch,
     MoveStats& stats) {
     scratch.clear();
@@ -185,9 +121,6 @@ MoveResult walk(GameState game, PieceSet piece_set, Scratch& scratch,
         const auto p2 = piece_set.pieces[2];
         const uint64_t p1_bits = p1.getBitBoard().getA();
         const uint64_t p2_bits = p2.getBitBoard().getA();
-        // Whether this ordering plays the last two pieces out of sorted
-        // order. Constant for the ordering, so the leaf test below is two
-        // booleans and an and.
         const bool suffix_out_of_order = p2 < p1;
         const auto states_0 = game.nextStatesClearsFirst(p0);
         const auto last_0 = states_0.end();
@@ -212,12 +145,6 @@ MoveResult walk(GameState game, PieceSet piece_set, Scratch& scratch,
                     continue;
                 }
                 const auto board_1 = after_p1.getBitBoard();
-                // Would the extended prefix swap have dropped this node? The
-                // existing rule stops at pairs where neither placement
-                // cleared. This one also takes the pairs where the second
-                // cleared without using a cell of the first, which is the
-                // condition under which playing the second one first clears
-                // exactly the same lines.
                 bool prefix_swap_skips = false;
                 if (!is_first_permutation && p1 < p0 && !p0_cleared &&
                     p1_cleared) {
@@ -308,10 +235,6 @@ MoveResult walk(GameState game, PieceSet piece_set, Scratch& scratch,
     return best;
 }
 
-// Counts the leaves the search would evaluate with none of its ordering
-// prunings: every ordering of the dealt pieces, every placement, nothing
-// skipped. The baseline above is measured against this to show what the
-// prunings already remove.
 uint64_t countUnprunedLeaves(GameState game, PieceSet piece_set) {
     std::sort(piece_set.pieces, piece_set.pieces + 3);
     const int num_pieces = AI::countPieces(piece_set);
@@ -369,22 +292,10 @@ RunStats playMoves(uint64_t seed, uint64_t max_moves, bool unpruned) {
                 static_cast<unsigned long long>(run.moves));
             std::exit(1);
         }
-        // Both searches settled for the same score, which is the whole of what
-        // a pruning rule has to preserve. Which board carries that score need
-        // not be the same one: skipping the first sighting of a board leaves a
-        // differently-shaped board that ties with it winning instead. Counted
-        // rather than failed, because a run where it never happens is worth
-        // knowing about and one where it does is not wrong.
         if (!(instrumented.state.getBitBoard() ==
             real.state.getBitBoard())) {
             run.tie_broken_differently++;
         }
-        // A rule is only sound if every board it leaves out is reached some
-        // other way. Checked on every move rather than argued for: each
-        // variant's boards are a subset of the baseline's, so equal sizes mean
-        // equal sets. A rule that is sound alone can still lose a board
-        // alongside another rule, each dropping the ordering the other was
-        // relying on, so the pair is checked as well as the parts.
         const std::pair<const char*, const NodeSet*> variants[] = {
             {"suffix swap", &scratch.suffix_swap_leaves},
             {"prefix swap", &scratch.prefix_swap_leaves},

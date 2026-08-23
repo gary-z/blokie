@@ -1021,21 +1021,7 @@ function renderImpl() {
     updateScore(game_state.game.score);
 }
 
-// A set is dealt as one event, so it comes up as one: the three slots fade in
-// together. This is the only thing that fades a piece in hand -- the squares
-// there are deliberately left out of the board's per-square fade -- so a set
-// which lands on top of the one before it comes up evenly, rather than at two
-// brightnesses depending on which squares the last set happened to be using.
-//
-// Run from here rather than a class in the stylesheet because it is the same
-// three tables every time, and starting an animation on an element restarts
-// it, where re-adding a class it may still be wearing would do nothing.
-//
-// The tables and not the hand around them, so the fade multiplies with the
-// wash the container carries once the game is over instead of overriding it.
-//
-// Long enough to be watched rather than just noticed, and still well inside
-// the beat the assist gives a new hand at its slowest animated speed.
+// Fade all three pieces as one dealt set.
 const HAND_FADE_MS = 300;
 
 /** @type {(pieces_in_hand_div: HTMLElement) => void} */
@@ -1048,10 +1034,6 @@ function fadeInHand(pieces_in_hand_div) {
     }
 }
 
-// The score line carries the number and nothing else, at every point in the
-// game. Saying "final" up there as well used to be the whole of the game-over
-// signal; the card says it now, and on a narrow phone the longer line wrapped
-// and shoved the board down at the worst possible moment.
 /** @type {(score: number) => void} */
 function updateScore(score) {
     const score_el = element('score');

@@ -1,19 +1,4 @@
-// A screen for weight changes that costs seconds instead of an hour.
-//
-// Full-game hazard is the objective, but measuring it to 2% costs about ninety
-// minutes an arm: deaths are rare, and the probe estimator only buys 2.6x because
-// its variance is dominated by clustering within a chain rather than by the coin
-// flip it removes.
-//
-// The way out is that hazard is E[p(board)] over the boards a policy visits, and
-// p(board) -- the chance a random hand cannot be placed -- does not depend on the
-// weights at all. Only where the policy goes does. So run the candidate and the
-// baseline from the SAME sampled boards on the SAME piece streams, and difference
-// their risk. The two walks stay together until the first disagreement and the
-// comparison is paired, which is where the variance goes.
-//
-// What this cannot see is anything that only shows up beyond the window. It is a
-// screen; the finalists still have to face full games.
+// Screens candidate weights with paired short rollouts.
 #include "solver.h"
 #include <atomic>
 #include <cmath>
@@ -35,9 +20,7 @@ uint64_t mix(uint64_t x) {
     return x ^ (x >> 31);
 }
 
-// The chance a random hand of three cannot be placed on this board, over a fixed
-// set of sampled hands. Both sides of a pair see the same hands, so the estimate
-// is noisy in the same direction for both and the difference is not.
+// Failure probability over shared sampled hands.
 double risk(GameState state, uint64_t probe_seed, int probes) {
     std::mt19937_64 rng(probe_seed);
     std::uniform_int_distribution<int> pd(0, Piece::NUM_PIECES - 1);
@@ -50,9 +33,7 @@ double risk(GameState state, uint64_t probe_seed, int probes) {
     return (double)failures / probes;
 }
 
-// Mean risk over a window of play from one board on one piece stream. A death
-// inside the window counts as risk 1 for that step and ends the walk, which is
-// the same accounting the hazard uses.
+// Mean failure risk over a short rollout.
 double windowRisk(const EvalWeights &weights, BitBoard start, uint64_t stream_seed,
                   int horizon, int probes) {
     GameState state(start);
@@ -65,8 +46,6 @@ double windowRisk(const EvalWeights &weights, BitBoard start, uint64_t stream_se
         const auto move = AI::makeMoveSimple(weights, state, dealt);
         if (move.evaluation == UINT64_MAX) { total += 1.0; break; }
         state = move.state;
-        // The probe stream is keyed on the step, not on the board, so both sides
-        // of a pair draw the same hands at the same depth.
         total += risk(state, mix(stream_seed * 1000003ULL + step), probes);
         if (state.isOver()) { total += 1.0; break; }
     }
@@ -119,10 +98,7 @@ int main(int argc, char **argv) {
     int horizon = 15;
     int probes = 24;
     int floor = 24;
-    // Qualifying boards arrive in runs -- one dangerous excursion yields a dozen
-    // consecutive crowded boards -- so taking every one of them would count a
-    // dozen correlated observations as a dozen independent ones. Skip between
-    // keeps.
+    // Space sampled boards from the same game.
     int stride = 8;
     uint64_t seed = 777;
     unsigned threads = std::thread::hardware_concurrency();
@@ -153,11 +129,7 @@ int main(int argc, char **argv) {
     const EvalWeights base = fromVector(base_v);
     const EvalWeights cand = fromVector(cand_v);
 
-    // Starting boards from baseline play, so the window starts where the engine
-    // actually finds itself rather than on a board built by hand. Collected from
-    // one independent game per thread rather than one long game: crowded boards
-    // come in runs, and a dozen consecutive boards from a single dangerous
-    // excursion are one observation wearing twelve hats.
+    // Collect reachable starting boards from independent baseline games.
     std::vector<BitBoard> boards;
     {
         const int per_thread = (boards_wanted + (int)threads - 1) / (int)threads;
@@ -216,8 +188,7 @@ int main(int argc, char **argv) {
     }
     for (auto &th : pool) th.join();
 
-    // Clustered on the board: the streams that share a board share its whole
-    // future, so they are one observation, not `streams` of them.
+    // Streams that share a board form one statistical unit.
     const size_t clusters = boards.size();
     std::vector<double> per_board(clusters, 0);
     for (size_t i = 0; i < units; ++i) per_board[i / streams] += delta[i];
@@ -229,7 +200,6 @@ int main(int argc, char **argv) {
     for (double d : per_board) var += (d - mean) * (d - mean);
     var /= (clusters - 1);
     const double se = std::sqrt(var / clusters);
-    // Baseline level, for reading the difference as a fraction of the risk.
     double base_level = 0;
     {
         std::atomic<size_t> n2{0};

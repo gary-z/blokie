@@ -1,16 +1,6 @@
 "use strict";
 
-// The bitboard layer the rest of the engine is built out of: three 27-bit
-// words standing in for 81 squares, and the rows, columns, cubes, shifts and
-// piece shapes read off them. None of it is interesting on its own, and all of
-// it is wrong in ways that are hard to see from the board -- a shift that drops
-// a square at a word boundary, a cube mask off by three -- so it is checked
-// here a piece at a time.
-//
-// These checks used to run as console.assert calls at the top level of
-// engine/js/blokie.js, which meant every page load and every worker start ran
-// them before the board could be drawn. They are the same checks; they just
-// run where tests run now.
+// Bitboard and game-rule unit tests.
 
 import { blokie, _internals } from '../../engine/js/blokie.js';
 
@@ -336,10 +326,6 @@ checkAll("a combo counts the lines a board completes", (want) => {
 
 // === a piece under a finger ===
 
-// Held over a square it fits in, a piece goes in that square. Held over one it
-// does not, it is nudged into the nearest square it does. Held nowhere near a
-// square it fits in, it goes nowhere. test/engine/placement-test.js goes
-// through this properly; these are the cases that used to sit in blokie.js.
 checkAll("a dragged piece lands where it is held, or nearest to it", (want) => {
     want(equal(must(place_nearest(new_game(), PIECES[0], 4.1, 3.9, 1.5),
         'a piece held just off the middle').placement, bit(4, 4)),

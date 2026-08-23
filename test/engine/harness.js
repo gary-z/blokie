@@ -2,17 +2,7 @@
 
 import { blokie } from '../../engine/js/blokie.js';
 
-// The two ways the engine gets run for a number rather than for a move: play a
-// game out and report how long it lasted, or play a fixed number of moves and
-// report how long that took.
-//
-// These used to sit in engine/js/blokie.js and ship with it. They are here
-// instead because nothing on the page has ever called them -- a harness is not
-// part of the engine's API, and the deployed site should not carry one.
-//
-// The native equivalents are engine/cpp/fitness.cpp and engine/cpp/benchmark.cpp,
-// which are what long runs actually use. See docs/evaluating-changes.md for why
-// game length is measured the way it is.
+// JavaScript fitness and performance harnesses.
 
 /**
  * @typedef {object} FitnessSample
@@ -21,8 +11,6 @@ import { blokie } from '../../engine/js/blokie.js';
  *   harness counts it.
  */
 
-// Plays a game out with a fresh hand every move, so the only thing that can end
-// it is a hand the search cannot place in full.
 /** @returns {FitnessSample} */
 function fitnessSample() {
     let game = blokie.newGame();
@@ -37,8 +25,6 @@ function fitnessSample() {
     }
 }
 
-// Chris Doty-Humphrey's sfc32, mirrored by Sfc32 in engine/cpp/benchmark.cpp so
-// the native benchmark and this one play the same pieces in the same order.
 /** @type {(a: number, b: number, c: number, d: number) => () => number} */
 function sfc32(a, b, c, d) {
     return function () {
@@ -53,10 +39,7 @@ function sfc32(a, b, c, d) {
     }
 }
 
-// A fixed amount of work: `n` searched moves off a fixed seed, so two runs of
-// this are timing the same moves and not two different games. Starting over
-// whenever the search runs out of room keeps it that way -- a run that stopped
-// at the first dead board would time however far that particular game got.
+// Fixed work over a repeatable piece stream.
 /** @type {(n: number) => void} */
 function performanceSample(n) {
     const random = sfc32(1, 2, 3, 4);

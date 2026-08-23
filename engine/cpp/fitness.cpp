@@ -37,7 +37,7 @@ struct Options {
 struct GameResult {
     uint64_t seed;
     uint64_t moves;  // all moves attempted, including burn-in after restarts
-    bool ended;      // legacy mode only: whether the game reached a death
+    bool ended;      // single-game mode only
     uint64_t probe_boards = 0;
     uint64_t probe_failures = 0;
     long double probe_sum_p2 = 0.0;
@@ -68,12 +68,7 @@ Piece randomPiece(std::mt19937_64& rng,
     return Piece::byIndex(piece_dist(rng));
 }
 
-// Deaths and exposure split by how far into a game they happened. The point of
-// a cutoff is that the chance of dying settles to a constant once the board has
-// forgotten it started empty, and a game stopped early still tells you it
-// survived everything it was dealt. This is what shows whether that constant
-// really has arrived, and by which move -- read down the hazard column and look
-// for where it stops trending.
+// Deaths and exposure by game depth.
 struct HazardTable {
     uint64_t bin_width = 0;
     std::vector<uint64_t> exposure;
@@ -88,7 +83,6 @@ struct HazardTable {
 
     void add(const GameResult& r) {
         if (bin_width == 0 || r.moves == 0) return;
-        // Attempts are numbered 1..moves, so attempt k sits at offset k - 1.
         const size_t last = (size_t)((r.moves - 1) / bin_width);
         ensure(last + 1);
         for (size_t j = 0; j <= last; ++j) {
@@ -108,16 +102,9 @@ struct HazardTable {
     }
 };
 
-// In the legacy mode, plays until the game ends or max_moves is reached. In
-// fixed-exposure mode, restarts after a death until chain_moves measured moves
-// have accumulated; burn-in is applied again to every new game in the chain.
 GameResult playOneGame(uint64_t seed, const Options& opt) {
-    // Each game has its own RNG; callers pass a non-deterministic seed by
-    // default. Seeds are reported so any individual game can be reproduced.
     std::mt19937_64 rng(seed);
-    // Probing must not consume the trajectory's piece stream. Deriving a
-    // second seed is reproducible and leaves an unprobed run bit-for-bit
-    // comparable with a probed run using the same seed.
+    // Keep trajectory and probe draws independent.
     std::mt19937_64 probe_rng(splitMix64(seed ^ 0x52414f424c41434bULL));
     std::uniform_int_distribution<int> piece_dist(0, Piece::NUM_PIECES - 1);
     std::uniform_int_distribution<int> probe_piece_dist(
@@ -264,8 +251,7 @@ void usage(const char* argv0) {
         "                    use the generic evaluator with weights[12]=W;\n"
         "                    pass 200 and 0 for a fair scarcity-term A/B test\n"
         "\n"
-        "stdout gets one line per chain. Its first three fields retain the old\n"
-        "moves/ended/seed format; probe runs append their sufficient stats.\n",
+        "stdout gets one line per chain with the fields used by the analysis tools.\n",
         argv0);
 }
 
@@ -405,7 +391,6 @@ int main(int argc, char** argv) {
     unsigned num_threads =
         std::min<unsigned>(requested_threads, (unsigned)opt.num_games);
 
-    // Pre-generate per-game seeds so each game's seed is stable.
     std::vector<uint64_t> seeds(opt.num_games);
     if (opt.seed_base == 0) {
         std::random_device rd;
@@ -499,9 +484,6 @@ int main(int argc, char** argv) {
     const double total_secs =
         std::chrono::duration<double>(end - start).count();
 
-    // Aggregate stats. Deaths and exposure are kept separately from the raw
-    // lengths: once games are cut off, the lengths on their own understate how
-    // long the engine lasts, while deaths over exposure does not.
     std::vector<GameResult> by_length(results);
     std::sort(by_length.begin(), by_length.end(),
               [](const GameResult& a, const GameResult& b) {
@@ -517,8 +499,6 @@ int main(int argc, char** argv) {
         deaths += r.measured_deaths;
     }
 
-    // Raw per-game or per-chain results on stdout so downstream tools can
-    // analyze independent units.
     std::printf("# moves ended seed probe_boards probe_failures "
                 "probe_sum_p2 probe_seconds total_seconds exposure deaths "
                 "probe_draws probe_sum_p adaptive_high_boards "
@@ -574,7 +554,6 @@ int main(int argc, char** argv) {
                      "(fixed-exposure chains restart after deaths; game-length "
                      "summaries do not apply.)\n");
     } else if (cut_off == 0) {
-        // Nothing was censored, so the plain summary means what it says.
         std::vector<uint64_t> moves;
         moves.reserve(opt.num_games);
         double sum = 0.0;
@@ -608,10 +587,6 @@ int main(int argc, char** argv) {
                      "left out. Compare the hazard instead.)\n", cut_off);
     }
 
-    // The hazard is deaths per move survived. It is the quantity a cutoff
-    // leaves alone: a game that was stopped still contributes every move it
-    // lived through to the denominator, and contributes no death, which is
-    // exactly what was observed about it.
     if (opt.burn_in != 0) {
         std::fprintf(stderr, "\nhazard fit over moves past %llu:\n",
                      (unsigned long long)opt.burn_in);
@@ -629,7 +604,6 @@ int main(int argc, char** argv) {
                         : "--chain-moves or the chain count");
     } else {
         const double hazard = (double)deaths / (double)exposure;
-        // Asymptotic interval on the log rate: sd(log h) = 1/sqrt(deaths).
         const double half = 1.959963985 / std::sqrt((double)deaths);
         const double lo = hazard * std::exp(-half);
         const double hi = hazard * std::exp(half);
@@ -697,9 +671,6 @@ int main(int argc, char** argv) {
             const long double observed_mean_p2 =
                 probe_sum_p2 / probe_boards;
 
-            // Treat games/chains as the independent units. This cluster-robust
-            // standard error is for the pooled ratio sum(p)/sum(boards), and
-            // remains valid when a death makes chains different lengths.
             long double residual_sum_sq = 0.0;
             size_t chains = 0;
             for (const auto& r : results) {
@@ -737,9 +708,6 @@ int main(int argc, char** argv) {
             }
 
             if (opt.probes > 1) {
-                // If q=K/M, E[q^2|p] = p^2 + p(1-p)/M. Solving
-                // for E[p^2] needs M-1 in the denominator. With M=1 the two
-                // variance components cannot be identified separately.
                 const long double true_mean_p2 = observed_mean_p2 -
                     (h_probe - observed_mean_p2) / (opt.probes - 1);
                 const long double board_variance = std::max(0.0L,

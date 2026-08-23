@@ -1,20 +1,6 @@
 "use strict";
 
-// The engine, as the rest of the app sees it.
-//
-// The move search itself is C++ compiled to WASM, under engine/wasm. What lives
-// here is everything around it: the bitboard the board is kept in, the rules for
-// what a piece may cover and what that clears, and what a move scores. Those are
-// written once, here, and a move made by hand and a move chosen by the search
-// both go down the same path -- so the two can never come to disagree about what
-// a move was worth.
-//
-// Two namespaces come out of this file. `bits` is the board as three words of
-// squares, with no notion of a game attached; `blokie` is the game played on it.
-// Anything that talks about a score, a hand or a move is in the second one.
-//
-// Types are JSDoc, checked by `npm run typecheck` and erased by nothing, since
-// nothing compiles this file. See tsconfig.json for why it is arranged that way.
+// JavaScript game rules around the WebAssembly move search.
 
 // === TYPES ===
 
@@ -409,11 +395,6 @@ const PIECES = [
     bitboard(527874, 0, 0),
 ];
 
-// A fresh set of three, justified. `random` is there so a harness can deal a
-// repeatable sequence; the game itself has no reason to pass one.
-//
-// Where the pieces sit inside the 5x5 box they are drawn in is a question for
-// whoever is drawing them -- see bits.center -- and not one the engine answers.
 /** @type {(random?: Random) => Hand} */
 function deal(random = Math.random) {
     const pick = () => PIECES[Math.floor(random() * PIECES.length)];
@@ -446,10 +427,6 @@ function perform_clears(board) {
     return diff(board, to_remove);
 }
 
-// Returns true if `piece` fits anywhere on `board`. Walks the piece across the
-// board the way the solver's enumeration does, but stops at the first fit
-// instead of building every resulting board. The one thing over here that has
-// to agree with the search: it is what says the game is over.
 /** @type {(board: BitBoard, piece: Piece) => boolean} */
 function can_place_piece(board, piece) {
     let p = left_top_justify_piece(piece);
@@ -544,10 +521,6 @@ function get_move_score(previous_was_clear, prev, placement, after) {
     return result;
 }
 
-// Lands a piece on the board, where `placement` is the squares it covers in
-// board coordinates. The one place a move's board, score and clear are worked
-// out, whether a hand or the AI chose it. Returns null if the placement does
-// not fit, which is how a stale plan and a misdropped piece both read.
 /** @type {(game: Game, placement: Placement) => Move | null} */
 function place(game, placement) {
     if (is_empty(placement)) return null;
@@ -567,8 +540,6 @@ function place(game, placement) {
     };
 }
 
-// The same thing by where the piece's top left corner lands, which is what a
-// drag knows. Returns null if the piece would hang off the board.
 /** @type {(game: Game, piece: Piece, row: number, col: number) => Move | null} */
 function place_at(game, piece, row, col) {
     if (row < 0 || col < 0) return null;
@@ -581,23 +552,7 @@ function place_at(game, piece, row, col) {
     return place(game, p);
 }
 
-// What a piece under a finger should be taken to mean. `row` and `col` say
-// where the piece's top left square is being held, measured in board squares
-// down and right of the board's top left corner, and are fractional because a
-// piece being dragged sits between squares rather than on one.
-//
-// Answers with the legal placement whose corner is nearest to that, so a piece
-// held slightly over an occupied square, or slightly off the edge of the board,
-// lands in the closest square it does fit in instead of nowhere at all. Only
-// the square directly under the piece would be an exact reading of the drag,
-// and it is the one this picks whenever the piece fits there; the rest of the
-// time an exact reading is a placement the player cannot have meant.
-//
-// `max_distance` is how far, in squares, the piece may be pulled to reach a
-// placement. Past it the drag is somewhere else entirely and any placement
-// would be a guess, so the answer is null -- the same as it is for a piece that
-// fits nowhere. Otherwise this returns what place gives back for the square it
-// settled on, exactly as placeAt does for a named one.
+// Return the closest legal drag placement within max_distance.
 /** @type {(game: Game, piece: Piece, row: number, col: number, max_distance: number) => Move | null} */
 function place_nearest(game, piece, row, col, max_distance) {
     const justified = left_top_justify_piece(piece);
@@ -642,20 +597,11 @@ function evaluate(board) {
     return requireSolver().evaluate(board.a, board.b, board.c);
 }
 
-// The six orders three slots can be played in, walked in this order. Orderings
-// that score the same are settled by the last one seen, so the order here is
-// part of which move comes back.
+// Later equal-scoring orders win.
 const _SLOT_ORDERS = [
     [0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0],
 ];
 
-// Which slot of the hand each of the search's placements was made with. A
-// placement is its piece moved onto the board, so justifying it gives the piece
-// back. Two slots holding the same shape are interchangeable, so the first one
-// still free is as good as either.
-//
-// Answers with the placement each slot takes, and the slots in the order the
-// search played them.
 /** @type {(hand: Hand, placements: readonly Placement[]) => {placement_of_slot: Placement[], search_order: number[]}} */
 function _match_placements(hand, placements) {
     const placement_of_slot = [getEmpty(), getEmpty(), getEmpty()];
@@ -676,15 +622,7 @@ function _match_placements(hand, placements) {
     return { placement_of_slot: placement_of_slot, search_order: search_order };
 }
 
-// Plays the slots in `order`, each into the placement the search picked for it.
-// Answers with the game they leave and the moves that got there, or null when
-// one of them does not fit where it is being put -- which is how an ordering
-// that only works because an earlier placement cleared a line reads when the
-// clear has not happened yet.
-//
-// A blank slot is not a move: it neither clears nor breaks the run the move
-// before it started, so it is stepped over rather than played. Reading it as a
-// move that failed to clear would cost the streak bonus on the move after it.
+// Replay placements in a candidate slot order.
 /** @type {(game: Game, placement_of_slot: readonly Placement[], order: readonly number[]) => {game: Game, moves: PlannedMove[]} | null} */
 function _play_order(game, placement_of_slot, order) {
     /** @type {PlannedMove[]} */
@@ -705,10 +643,6 @@ function _play_order(game, placement_of_slot, order) {
     return { game: current, moves: moves };
 }
 
-// The best move the solver can find. The search decides where the pieces go;
-// which piece goes in which of those placements, what each move scores and the
-// order they are played in are worked out here, down the same path a move made
-// by hand takes -- so the rules of the game are written once, in one language.
 /** @type {(game: Game, hand: Hand) => AIMove} */
 function make_move(game, hand) {
     /** @type {Hand} */
@@ -735,9 +669,6 @@ function make_move(game, hand) {
 
     const { placement_of_slot, search_order } =
         _match_placements(justified, result.placements);
-    // Every placement belongs to a piece that was in hand. One that does not
-    // means the search answered about a hand it was not asked about, and there
-    // is no move here to play.
     const searched = search_order.length === 3
         ? _play_order(game, placement_of_slot, search_order)
         : null;
@@ -745,10 +676,7 @@ function make_move(game, hand) {
         return nothing;
     }
 
-    // The order the search played them in always fits, so it settles the board
-    // this move ends on. Every other order has to reach that same board to be
-    // the same move at all: a clear part way through takes squares a later
-    // piece was going to sit on away with it.
+    // Alternative orders must reach the search's target board.
     const target = searched.game.board;
     let best = searched;
     for (const order of _SLOT_ORDERS) {
@@ -759,8 +687,7 @@ function make_move(game, hand) {
         if (played.game.score < best.game.score) {
             continue;
         }
-        // A tie goes to the order that ends on a clear, which is the one that
-        // carries a streak into the move after it.
+        // Prefer a tie that carries a clear streak forward.
         if (played.game.score === best.game.score
             && !played.game.previous_move_was_clear) {
             continue;
@@ -776,8 +703,6 @@ function make_move(game, hand) {
     };
 }
 
-// The subsets of `indices`, biggest first. Only ever called with the slots of a
-// three piece hand, so this is at most seven short lists.
 /** @type {(indices: readonly number[]) => number[][]} */
 function _subsets_largest_first(indices) {
     /** @type {number[][]} */
@@ -788,15 +713,7 @@ function _subsets_largest_first(indices) {
     return result.sort((a, b) => b.length - a.length);
 }
 
-// Where the AI wants to put the pieces in hand, in the order they should be
-// played. Empty when nothing fits at all, which is the same thing hasValidMove
-// says about the position.
-//
-// The solver only ever plans moves that place every piece it is given, and says
-// it found nothing when it cannot. That is not the end of the game -- one or two
-// of the pieces usually still fit -- so ask again for a smaller handful. A
-// blanked slot is a no-op the search steps straight over, which is how a two- or
-// one-piece move gets planned at all.
+// Retry smaller subsets when the full hand cannot be placed.
 /** @type {(game: Game, hand: Hand) => PlannedMove[]} */
 function plan(game, hand) {
     const held = [0, 1, 2].filter(i => !is_empty(hand[i]));
@@ -876,11 +793,7 @@ const blokie = {
     makeMove: make_move,
 };
 
-// The bitboard layer underneath, for test/engine/bitboard-test.js. These used
-// to be checked by console.assert calls sitting at the top level of this file,
-// which meant every page load and every worker start paid for a run of the
-// engine's unit tests before it could draw anything. Nothing outside the tests
-// should reach in here.
+// Test-only bitboard access.
 const _internals = {
     bitboard, getEmpty, getFull, EMPTY, FULL, USED_BITS, ROW_0, TOP_LEFT_CUBE,
     _popcount, count, equal, any, is_empty, not, and, or, xor, diff, is_subset,

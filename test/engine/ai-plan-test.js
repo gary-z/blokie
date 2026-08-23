@@ -1,9 +1,6 @@
 "use strict";
 
-// The assist's move planning. The solver underneath only ever plans moves that
-// place every piece it is given, so what is checked here is what happens when
-// no such move exists: the assist has to keep playing what does fit, right up
-// to the point the game is genuinely over.
+// Assist fallback planning tests.
 
 import { blokie, bits, init } from '../../engine/js/blokie.js';
 
@@ -33,10 +30,7 @@ function gameWithBoard(board, score = 0) {
     };
 }
 
-// A real position, reached by playing pieces at random until the solver gave
-// up. Two of the three slots hold something, the first of them fits nowhere,
-// and the last one fits in exactly one place.
-//
+// One piece in this fixture fits and one does not.
 // .........  ..#######  ###.#####  .######.#  ..#.##...
 // ###.#.#..  .##.#####  ....#.###  ....#....
 const STUCK_BOARD = { a: 132118528, b: 22833534, c: 4432374 };
@@ -106,7 +100,7 @@ for (;;) {
         break;
     }
 }
-check(moves > 0, "the assist plays on from a position it used to give up in");
+check(moves > 0, "the assist continues while a piece fits");
 check(every_placement_legal, "every placement it played was legal");
 check(!blokie.hasValidMove(game.board, hand),
     "it plays until nothing in hand fits, which is the game being over");
