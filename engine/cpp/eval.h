@@ -10,9 +10,11 @@
 // charge itself is not here: it is weights[13], so the fitness tooling can tune
 // it like any other, and setting it to zero is an exact way to switch the term
 // off -- which is how every control in the write-up was measured.
-// Occupancy at which the term switches on. It pays for the enumeration.
-#ifndef BLOKIE_CLEAR_OPPORTUNITY_GATE
-#define BLOKIE_CLEAR_OPPORTUNITY_GATE 30
+// Total legal placements of the 4-5 square pieces at or below which the clear
+// enumeration switches on. Unlike occupancy, this sees whether the board's
+// geometry actually leaves room for useful pieces. See docs/placement-trigger.md.
+#ifndef BLOKIE_CLEAR_OPPORTUNITY_PLACEMENT_GATE
+#define BLOKIE_CLEAR_OPPORTUNITY_PLACEMENT_GATE 686
 #endif
 // Pieces able to clear that count as enough; beyond it the board is not charged.
 // It is a percentage of occupancy rather than a constant because the count RISES
@@ -65,13 +67,13 @@ public:
 	static constexpr EvalWeights getDefault();
 };
 
-// Played out by makeMoveSimpleDefault, these weights last a measured
-// 91,670 sets of three pieces per game, 95% CI 87,150 to 96,423. From 1,503 deaths
-// over 137.8M moves of fixed-exposure chains on seed base 20260822, hazard
-// 1.091e-05. Change a weight below and the number no longer describes anything.
+// The board-hazard probe estimates that these weights last 111,923 sets of three
+// pieces per game, 95% CI 99,757 to 127,468. That is the independent confirmation
+// bank at seed base 202609010000, 640 chains and 6.4M measured moves; probe hazard
+// 8.935e-06. Change the evaluation below and the number describes nothing.
 //
 // Seed bases disagree by more than any one run's interval suggests: the previous
-// evaluation measured 81,367, 87,091, 82,642 and 84,361 on four of them. Compare
+// previous evaluations have varied materially across them. Compare
 // candidates against a baseline measured on the same seed, never against a
 // remembered number.
 //

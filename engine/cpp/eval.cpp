@@ -31,10 +31,9 @@ using namespace bitboard_detail;
 // Two things about the shape of it. It is a penalty for the ways that are
 // missing rather than a bonus for the ways that exist, because the search prunes
 // against a running maximum and a negative term would let a candidate that has
-// already exceeded the bound come back under it. And it is gated on occupancy,
-// which is what makes it affordable: the mean board carries 18 squares, so the
-// enumeration almost never runs, and measured throughput is within about 5% of
-// leaving it out.
+// already exceeded the bound come back under it. The expensive clear enumeration
+// is gated on the total legal placements of the 4-5 square pieces. That sees bad
+// geometry that occupancy alone misses; see docs/placement-trigger.md.
 
 uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t max) {
 	uint64_t result = 0;
@@ -234,9 +233,9 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		// lines are ordered at most two of the six correctly; this orders five.
 		// The quantity is a one-ply lookahead and not a property of the board,
 		// which is why nothing already here could stand in for it.
-		if (bb.count() >= BLOKIE_CLEAR_OPPORTUNITY_GATE) {
+		if (crowded_blocks != 0) {
 			const GameState here(bb);
-			int ways = 0;
+			int piece_placements = 0;
 			for (int index = 0; index < Piece::NUM_PIECES; ++index) {
 				const Piece piece = Piece::byIndex(index);
 				const int squares = piece.count();
@@ -244,28 +243,40 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 					squares > BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES) {
 					continue;
 				}
-				for (auto it = here.nextStates(piece).begin();
-					it != here.nextStates(piece).end(); ++it) {
-					(void)*it;
-					if (it.didClear()) {
-						++ways;
-						// One per piece: stopping here is the whole change, and
-						// it also makes the term cheaper than counting on.
-						//
-						// It has to be one. Allowing two measures 83,626, which is
-						// the uncapped 84,361 rather than anything between -- most
-						// pieces that can clear have only one placement that does,
-						// so a cap of two barely changes the count. Only a cap of
-						// one removes the duplicates that share a piece.
-						break;
+				piece_placements += here.countPlacements(piece);
+			}
+			if (piece_placements <= BLOKIE_CLEAR_OPPORTUNITY_PLACEMENT_GATE) {
+				int ways = 0;
+				for (int index = 0; index < Piece::NUM_PIECES; ++index) {
+					const Piece piece = Piece::byIndex(index);
+					const int squares = piece.count();
+					if (squares < BLOKIE_CLEAR_OPPORTUNITY_MIN_SQUARES ||
+						squares > BLOKIE_CLEAR_OPPORTUNITY_MAX_SQUARES) {
+						continue;
+					}
+					for (auto it = here.nextStates(piece).begin();
+						it != here.nextStates(piece).end(); ++it) {
+						(void)*it;
+						if (it.didClear()) {
+							++ways;
+							// One per piece: stopping here is the whole change, and
+							// it also makes the term cheaper than counting on.
+							//
+							// It has to be one. Allowing two measures 83,626, which is
+							// the uncapped 84,361 rather than anything between -- most
+							// pieces that can clear have only one placement that does,
+							// so a cap of two barely changes the count. Only a cap of
+							// one removes the duplicates that share a piece.
+							break;
+						}
 					}
 				}
+				const int cap = bb.count()
+					* BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT / 100;
+				const int missing = std::max(0, cap - ways);
+				result += (uint64_t)missing * crowded_blocks
+					* weights.getClearOpportunity();
 			}
-			const int cap = bb.count()
-				* BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT / 100;
-			const int missing = std::max(0, cap - ways);
-			result += (uint64_t)missing * crowded_blocks
-				* weights.getClearOpportunity();
 		}
 	}
 

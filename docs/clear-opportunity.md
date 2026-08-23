@@ -21,20 +21,22 @@ completing. On a crowded board those are different questions. A position can
 have room for every piece in the game and still have no way to clear, and a
 position with no way to clear is a position that only gets fuller.
 
-So: count the placements, over pieces of four or five squares, that would
-complete a line. Charge the board for the ones that are **missing**.
+So: when the board leaves relatively few legal placements for the four- and
+five-square pieces, count which of those pieces could complete a line. Charge
+the board for the ones that are **missing**.
 
 ```
-if occupied >= 30:
-    ways = placements of any 4..5 square piece that complete a row, column or cube
-    result += max(0, occupied - ways) * (occupied - 20) * weight
+if occupied > 20 and legal placements of 4..5 square pieces <= 686:
+    ways = 4..5 square pieces with any placement that completes a line
+    result += max(0, 70% * occupied - ways) * (occupied - 20) * weight
 ```
 
 Two details about the shape. It is a penalty for absence rather than a bonus for
 presence, because the search prunes against a running maximum and a negative
 term would let a candidate that has already exceeded the bound come back under
-it. And it is gated on occupancy, which is what makes it affordable: the mean
-board carries 18.2 squares, so the enumeration almost never runs.
+it. The original occupancy gate was replaced by a legal-placement gate after it
+measured better on two independent seed banks. The calibration and threshold
+sweep are in [`placement-trigger.md`](placement-trigger.md).
 
 ## What it is worth
 
@@ -286,7 +288,7 @@ not in this branch.
 
 ## The three numbers, swept
 
-The gate, the cap and the piece filter were guesses, and the note here used to
+The original occupancy gate, the cap and the piece filter were guesses, and the note here used to
 say that 41% was therefore more likely a floor than a ceiling. That was wrong,
 and the way it is wrong is worth more than a better number would have been.
 
@@ -320,11 +322,13 @@ fifteen or more ways to clear, so a cap there charges almost nothing and the ter
 is switched off. It lands near the control, which is what being switched off
 looks like.
 
-So the term is insensitive to how it is parameterised over roughly a factor of
+So the term was insensitive to how it was parameterised over roughly a factor of
 two in every direction. The gain is carried by the mechanism, not by the numbers,
 which is a better property to ship than three values that had to be right. The
-gate stays at 30 on cost grounds alone -- gate 20 measured no better and cost 13%
-of throughput, 34,373 moves a second against 39,949.
+The old version therefore kept its occupancy gate at 30 on cost grounds alone --
+gate 20 measured no better and cost 13% of throughput, 34,373 moves a second
+against 39,949. That gate has since been replaced by the placement trigger
+described in [`placement-trigger.md`](placement-trigger.md).
 
 Two notes on method. `pieces 3-9` returned bit-identical to `pieces 3-5` -- same
 201 deaths, same exposure, same mean -- because the largest piece in the game is
@@ -342,7 +346,9 @@ six crowded pairs; at weight 200 it fixes two — and 200 plays 46% better than
 600. Even with pairs labelled by survival, pass rate keeps pointing past the
 optimum. Use them to find the mechanism and the hazard to set the number.
 
-## What is left before this can ship
+## Historical shipping checklist
+
+At the time of the original experiment, the remaining work was:
 
 * **Make the weight tunable** — it is a compile-time constant here, and belongs
   in `EvalWeights` as a fourteenth slot so the fitness tooling can reach it.
@@ -364,10 +370,9 @@ make -C /tmp/b fitness -j
 ```
 
 The charge is `weights[13]`, reachable through `--weights`; setting it to zero is
-the control. The gate, the cap percentage and the piece filter are
-`BLOKIE_CLEAR_OPPORTUNITY_GATE`, `_CAP_PERCENT`, `_MIN_SQUARES` and `_MAX_SQUARES`
-in `eval.h`, overridable from the compiler command line, which is how the sweeps
-above were run.
+the control. The placement gate, cap percentage and piece filter are
+`BLOKIE_CLEAR_OPPORTUNITY_PLACEMENT_GATE`, `_CAP_PERCENT`, `_MIN_SQUARES` and
+`_MAX_SQUARES` in `eval.h`, overridable from the compiler command line.
 
 The committed WASM was checked against the native evaluation on fifteen boards
 above the gate: it agrees with all fifteen and differs from the term-off value on

@@ -73,6 +73,7 @@ public:
 	BitBoard getBitBoard() const;
 	NextGameStateIteratorGenerator nextStates(Piece piece) const;
 	ClearsFirstGameStates nextStatesClearsFirst(Piece piece) const;
+	int countPlacements(Piece piece) const;
 	uint64_t simpleEval(EvalWeights weights, uint64_t max = UINT64_MAX) const;
 	// Gives the native optimizer the built-in weights as scalar constants. The
 	// generic entry point above remains available for tuning and tests.
