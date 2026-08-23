@@ -1,9 +1,10 @@
 # Measuring whether a change to the evaluation helped
 
-The engine lasts about 40,000 sets of three pieces per game. That number is the
-reason a small improvement is hard to see: a run long enough to resolve a 5%
-change needs hundreds of millions of moves, and most of them are spent watching
-games that were always going to be long.
+The current engine lasts about 100,000 sets of three pieces per game. The worked
+measurements below predate recent evaluation improvements and use a roughly
+40,000-set baseline. Even at that shorter length, a run long enough to resolve a
+5% change needs hundreds of millions of moves, and most of them are spent
+watching games that were always going to be long.
 
 This is what the harness measures instead, and why.
 
@@ -191,7 +192,7 @@ that deaths arrive sooner.
 
 | regime | mean length | moves/arm @5% | speedup |
 |---|---:|---:|---:|
-| 3 pieces (current)   | 40,000 | 2.5e8 |   1× |
+| 3 pieces (worked baseline) | 40,000 | 2.5e8 |   1× |
 | a harder piece mix   |  8,000 | 5.0e7 |   5× |
 | 2 pieces             |    800 | 5.0e6 |  50× |
 | 2 pieces, hard mix   |    200 | 1.3e6 | 200× |
