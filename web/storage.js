@@ -71,11 +71,6 @@ function encodeGameState(game_state) {
         SAVE_VERSION,
         game.board.a, game.board.b, game.board.c,
         game.score,
-        // How many moves in a row cleared. This field used to be the engine's
-        // 0/1 "did the last move clear" flag, and a count is a widening of it
-        // rather than a new field: a saved 1 meant a run of at least one clear,
-        // which is what a 1 means here too. So an older cookie still reads,
-        // only with a run that starts counting from where it was picked up.
         game_state.clear_streak,
     ];
     for (const piece of game_state.piece_set) {

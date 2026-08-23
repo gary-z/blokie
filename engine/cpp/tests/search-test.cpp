@@ -199,12 +199,6 @@ void testKnownOrderingSensitiveSearches() {
 				Piece(test::boardFromJs(262663, 0, 0)),
 				Piece(test::boardFromJs(525315, 0, 0))),
 			"duplicate shapes in ordering-sensitive hand"},
-		// The search takes its first ordering as having reached every board no
-		// clear can move, so that ordering is the one that must not skip
-		// anything. Walking the hand in sorted order used to guarantee it. The
-		// same position is in test/engine/enumeration-test.js, but that one only
-		// runs against a rebuilt .wasm; this is the C++ the weights are trained
-		// against, and it is where the ordering rule lives.
 		{test::boardFromJs(6316088, 786433, 786432),
 			PieceSet(Piece(test::boardFromJs(1052164, 0, 0)),
 				Piece(test::boardFromJs(1052164, 0, 0)),
@@ -259,23 +253,10 @@ void testRandomSearchAgainstBruteForce() {
 		"random sweep should include enough fully playable hands");
 }
 
-// What the search would settle on with every one of its pruning rules switched
-// off: all six orderings walked, no back-to-front pair skipped, no board
-// dropped for being one an earlier ordering is argued to have reached.
-//
-// Unlike the reference above this shares nextStates and simpleEval with the
-// search, which the placement sweeps in this file and eval-test check against
-// independent oracles. What it isolates is the pruning, and the pruning is the
-// part that is an argument rather than a calculation: one rule decides which
-// ordering is searched in full and another decides which pairs are redundant,
-// and if the two stop agreeing about the same ordering, the boards each thought
-// the other was covering are reached by neither.
+// Exhaustive reference with all ordering pruning disabled.
 struct UnprunedSearch {
 	bool any_line_of_play = false;
 	uint64_t best = std::numeric_limits<uint64_t>::max();
-	// The best board no clear can move: three disjoint placements, so every
-	// ordering reaches it and only one of them is meant to score it. These are
-	// the boards the rules above argue about, and the only ones they can lose.
 	uint64_t best_no_clear_can_move = std::numeric_limits<uint64_t>::max();
 };
 
@@ -307,20 +288,7 @@ UnprunedSearch searchWithoutPruning(BitBoard board, const PieceSet &pieces) {
 	return result;
 }
 
-// Open boards, which is what the engine spends a game on and what the sweep
-// above cannot reach: at 5 to 7 squares in 8 a clear is nearly always there for
-// the taking, so the best board almost always has one and the boards no clear
-// can move never decide anything. On a quarter-full board a hand often plays
-// out without completing a line at all, and then the whole move rests on the
-// pruning agreeing with itself.
-//
-// The sample count is what it is because of the coverage guard at the bottom
-// rather than the correctness check. The two conditions a hand has to meet to
-// exercise the pruning are anti-correlated -- of 960 hands, 682 can clear inside
-// two pieces and 125 have an untouched best board, but only 25 do both, because
-// a hand that can clear early usually should. The clear-opportunity term sharpens
-// that, since it charges a board for not clearing. 960 samples leave the guard
-// five times its threshold; 240 left it one under.
+// Open-board coverage for ordering pruning.
 void testSearchPruningOnOpenBoards() {
 	const auto weights = EvalWeights::getDefault();
 	test::Random random(0xF1B5C0DEULL);
@@ -330,8 +298,6 @@ void testSearchPruningOnOpenBoards() {
 	int best_was_a_board_no_clear_can_move = 0;
 	for (int sample = 0; sample < 960; ++sample) {
 		const auto board = test::clearCompletedLines(random.board(2));
-		// The smallest pieces fit almost everywhere on a board this open, which
-		// costs the unpruned reference a great deal and tests nothing extra.
 		const PieceSet pieces(
 			Piece::byIndex(13 + static_cast<int>(random.below(Piece::NUM_PIECES - 13))),
 			Piece::byIndex(13 + static_cast<int>(random.below(Piece::NUM_PIECES - 13))),
@@ -362,8 +328,6 @@ void testSearchPruningOnOpenBoards() {
 
 	test::require(playable >= 800,
 		"open board sweep should be mostly playable hands");
-	// Without positions of this kind the sweep passes whatever the pruning does,
-	// because every board it could drop was worse than one it kept anyway.
 	test::require(decided_by_a_board_no_clear_can_move >= 5,
 		"open board sweep should include hands that could have cleared early but "
 		"whose best board no clear can move -- counted " +
@@ -373,18 +337,7 @@ void testSearchPruningOnOpenBoards() {
 		std::to_string(best_was_a_board_no_clear_can_move));
 }
 
-// Boards where a line is nearly full, which is where the two rules that let a
-// clear through have anything to do. Both argue that a placement which cleared
-// can be played elsewhere in the order and clear the same lines: one takes a
-// pair whose second placement cleared without using a cell of the first, the
-// other takes the last two placements when neither cleared and the first one
-// did. Neither can fire on a board too open to complete a line, so the sweep
-// above passes whatever they do.
-//
-// The lines here are full but for two cells, so a clear usually arrives on the
-// second placement of a pair and needs a cell the first one put down. That is
-// the case the extended pair test has to decide correctly, and the case a
-// board with one-cell gaps never produces.
+// Near-complete-line coverage for clear-aware pruning.
 void testSearchPruningWhereClearsAreAvailable() {
 	const auto weights = EvalWeights::getDefault();
 	test::Random random(0xC1EA4B0A4DULL);
@@ -431,9 +384,6 @@ void testSearchPruningWhereClearsAreAvailable() {
 
 	test::require(playable >= 150,
 		"clearing board sweep should be mostly playable hands");
-	// Without these the sweep is the open-board sweep with a different seed:
-	// one ordering is searched at all, and no rule that lets a clear through
-	// can fire.
 	test::require(could_clear_early >= 100,
 		"clearing board sweep should mostly be hands that can clear early");
 }

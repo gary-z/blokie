@@ -68,12 +68,7 @@
     font-size: 0.8em;
 }
 
-/* Placed by its middle, so it sits over the piece whichever side of the
-   board that is. It pops up, then sits still and full strength for a
-   beat -- long enough to be read where it was earned, since a card that
-   starts leaving the moment it has settled is read on its way out or not
-   at all -- and only then rises about a block and a half: far enough to
-   read as leaving, short enough to stay over the board it came from. */
+/* Pop the score card in place before floating it away. */
 @keyframes score-card-float {
     0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0; }
     9% { transform: translate(-50%, -50%) scale(1.08); opacity: 1; }
@@ -82,19 +77,7 @@
     100% { transform: translate(-50%, calc(-50% - min(15vw, 10vh))) scale(1); opacity: 0; }
 }
 
-/* The column is sized off whichever axis is tighter, so on a page
-   taller than it needs there is height left over. Left to itself that
-   spare all collects under the hand, with the score pinned to the top
-   of the screen -- worst on a phone, where the width binds long before
-   the height does. Centring the column hands half of it back above the
-   score.
-
-   The padding is what the margin used to be, kept so the column still
-   has room around it on a page with nothing to spare, and inside the
-   height so it doesn't add a scrollbar to one that has. Small viewport
-   units where they are understood: the toolbar is up when the page is
-   opened, and a column centred against the taller viewport would sit
-   low until it goes away. */
+/* Center the game without hiding overflow above the viewport. */
 body {
     margin: 0;
     padding: 8px 0;
@@ -103,9 +86,6 @@ body {
     min-height: 100svh;
     display: flex;
     flex-direction: column;
-    /* Safe where it is understood, so a column with nothing to spare
-       overflows downwards, where it can be scrolled to, rather than
-       splitting the overflow across a top edge that cannot be. */
     justify-content: center;
     justify-content: safe center;
 }

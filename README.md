@@ -1,41 +1,49 @@
-Blokie is a powerful AI/engine/solver for [Blockudoku](https://play.google.com/store/apps/details?id=com.easybrain.block.puzzle.games), [Woodoku](https://play.google.com/store/apps/details?id=com.tripledot.woodoku&hl=en_CA&gl=US), and [Block Sudoku](https://play.google.com/store/apps/details?id=block.puzzle.sudoku.free.game.classic.offline) puzzle games. It can play about 100,000 sets of 3 pieces on average.
+Blokie is an AI solver for [Blockudoku](https://play.google.com/store/apps/details?id=com.easybrain.block.puzzle.games), [Woodoku](https://play.google.com/store/apps/details?id=com.tripledot.woodoku&hl=en_CA&gl=US), and [Block Sudoku](https://play.google.com/store/apps/details?id=block.puzzle.sudoku.free.game.classic.offline). The current solver plays about 110,000 sets of three pieces per game on average.
 
 <img style="width: 25%; height: 15%" src="/docs/preview.gif?raw=true"/>
 
-## What can I learn from Blokie to improve at the game?
+## Playing well
 
-### Prioritize clearing
-Blokie will clear blocks almost every round. If your board is clean, there is almost always a way to clear, so look *very* hard before deciding to let blocks stack up. 
+### Plan all three pieces
 
-### Plan your 3 pieces together
-Blokie sees placing each set of 3 pieces as one move, rather than 3 individual moves. This lets it plan tricky clearing patterns and leave a clean board state. Try to visualize where you will place all 3 pieces before you place your first piece.
+Blokie treats each set of three pieces as one move and considers every legal
+ordering and placement. Before placing the first piece, decide where all three
+will go.
 
-When Blokie plays with only 2 pieces at a time, rather than 3, it's average score drops by over 98%.
+### Keep the board clear
 
-### Rules of thumb for keeping your board clean
-Blokie's most critical component is its "board cleaniness" measurement. Roughly speaking in decreasing importance:
-  - Minimize the number of blocks on the board.
-  - Minimize the total perimeter of blocks.
-  - Avoid jagged edges of blocks.
-  - Avoid leaving a single empty space between two blocks.
-  - Keep as many 3x3 cubes free as possible.
+A clean board leaves more options for awkward pieces. In decreasing order of
+importance:
 
-## Implementation details
-Blokie looks at all possible board states resulting from places the 3 pieces and chooses the the move that results in the best "board cleaniness" score.
+- Minimize occupied squares.
+- Minimize the perimeter and jagged edges of occupied areas.
+- Avoid single-square gaps.
+- Keep 3×3 regions available.
+- Preserve several ways to complete a row, column, or 3×3 region.
 
-Internally, the board state is represented as a bitboard using three 32-bit integers.
+## Implementation
 
-The board state evaluation weights were trained using a genetic learning algorithm written in C++. JavaScript is too slow for training.
+The board is a bitboard backed by three 32-bit integers. The solver enumerates
+the reachable boards for a set of pieces and chooses the lowest evaluation.
+The native C++ engine is also compiled to WebAssembly for the browser.
 
-Games run about 100,000 sets long and their lengths are close to exponential, so telling a real improvement from noise takes more games than it looks like it should. [How to measure a change to the evaluation](docs/evaluating-changes.md) works out what that costs, and why the obvious ways to make it cheaper — playing two pieces at a time, or dropping the small pieces — end up measuring a different game.
+See [Running evaluation experiments](docs/evaluating-changes.md) to build,
+test, benchmark, and compare evaluator changes.
 
-## Can I have the computer play the phone games for me?
+## Can the solver play phone games automatically?
+
 No.
 
 ## Why did I build this?
+
 Cause a mermaid was better than me at this game.
 
 ## Disclaimer
-Blokie is an independent, unofficial project. It is not affiliated with, endorsed by, or sponsored by Easybrain, Tripledot Studios, or the developers of Block Sudoku.
 
-Blockudoku is a trademark of Easybrain Ltd. Woodoku is a trademark of Tripledot Studios Limited. All trademarks are the property of their respective owners and are used here only to describe the games this engine is compatible with.
+Blokie is an independent, unofficial project. It is not affiliated with,
+endorsed by, or sponsored by Easybrain, Tripledot Studios, or the developers
+of Block Sudoku.
+
+Blockudoku is a trademark of Easybrain Ltd. Woodoku is a trademark of Tripledot
+Studios Limited. All trademarks belong to their respective owners and are used
+only to identify compatible games.

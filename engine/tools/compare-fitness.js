@@ -1,22 +1,6 @@
 "use strict";
 
-// Compares two fitness runs on the rate at which the engine dies, rather than
-// on how long its games were.
-//
-// The reason to prefer the rate: game length is very close to exponential, so
-// a run's mean carries a standard deviation about as large as itself, and the
-// only thing that shrinks the error bar is watching more games end. A game cut
-// off by --max-moves never ends, but it still went a known number of moves
-// without dying, and that is real evidence about the rate even though it says
-// nothing usable about the mean. Counting deaths over moves survived uses every
-// cut-off game at full value; averaging lengths throws them away and quietly
-// biases the average down besides.
-//
-//   node engine/tools/compare-fitness.js baseline.txt candidate.txt
-//
-// Each argument is either a file of "moves ended seed" lines as written by the
-// fitness harness, or a literal deaths:exposure pair, so a baseline measured
-// once can be carried forward without re-running it.
+// Compare two fitness runs by deaths per measured move.
 
 import { readFileSync } from 'fs';
 

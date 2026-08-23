@@ -1,21 +1,6 @@
 "use strict";
 
-// Checks the installed app hangs together: that everything sw.js promises to
-// cache is really there, that the manifest describes icons that exist at the
-// sizes it claims, and that index.html points at both.
-//
-// It is worth checking because the failure is quiet and total. A service
-// worker fills its cache with one addAll, which is all-or-nothing: a single
-// path that 404s fails the install, and the app that was meant to work with no
-// network goes back to needing one, with nothing on screen to say so. Adding a
-// module to the page and forgetting this list is all it takes.
-//
-// Run against the checkout by default, or against a staged copy of the site:
-//
-//   node test/web/pwa-test.js _site
-//
-// which is what the Pages workflow does, since a file can equally well be
-// missing because it was never copied out of the repository.
+// Validate the service worker, manifest, and install assets.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -47,8 +32,6 @@ function read(relative) {
     return fs.readFileSync(path.join(site_root, relative), 'utf8');
 }
 
-// A URL as the browser would ask for it, back to the file that answers it. The
-// shell is a directory, which is served as the index.html inside it.
 /** @type {(url_path: string) => string} */
 function siteFile(url_path) {
     const relative = url_path.replace(/^\.\//, '');
@@ -61,10 +44,6 @@ function exists(url_path) {
     return fs.existsSync(file) && fs.statSync(file).isFile();
 }
 
-// The pixel size a PNG really is, off its header, so an icon cannot claim in
-// the manifest to be a size it is not. Formatted the way a manifest writes it,
-// since comparing against `icon.sizes` is the whole of what it is for. Null
-// when the file is not a PNG at all.
 /** @type {(file: string) => string | null} */
 function pngSize(file) {
     const header = Buffer.alloc(24);
@@ -79,10 +58,6 @@ const sw_source = read('sw.js');
 
 // ---------------------------------------------------------------- the worker
 
-// The placeholder the Pages workflow substitutes. It has to survive in the
-// repository for the workflow's sed to find, and it has to be gone from the
-// site the workflow is about to upload -- a deployed worker still carrying it
-// never changes, and so never replaces the cache it filled the first time.
 if (staged) {
     check(!sw_source.includes('__BUILD_ID__'), 'the staged worker was stamped with a build id');
     const build_id = sw_source.match(/const BUILD_ID = '([^']*)'/);
@@ -114,10 +89,6 @@ const precached = new Set(precache);
 
 // ------------------------------------------------------- everything it needs
 
-// Every module reachable from the page has to be in the list too, or the first
-// import off the network is the one that fails. Only relative specifiers: a
-// bare one is not something this site serves, and the WASM glue imports
-// "module" for the Node build of the engine.
 for (const url_path of precache) {
     if (!url_path.endsWith('.js')) continue;
     const source = read(url_path.replace(/^\.\//, ''));

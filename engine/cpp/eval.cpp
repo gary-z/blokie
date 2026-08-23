@@ -10,38 +10,10 @@
 
 using namespace bitboard_detail;
 
-// How many ways are left to clear.
-//
-// Off by default: turning it on changes what the engine plays, which means the
-// committed WASM and the reference evaluation in tests/eval-test.cpp both have
-// to be regenerated, and the numbers below were measured with the other weights
-// left at values tuned without it. See docs/clear-opportunity.md.
-//
-// The evaluation knows which pieces have nowhere left to go -- that is the
-// deadly-piece term -- but nothing about how near a row, column or cube is to
-// completing. On a crowded board those are different questions: a position can
-// have room for every piece and still have no way to clear, and a position with
-// no way to clear is a position that only gets fuller.
-//
-// Measured at 41% longer games, replicated on two seeds, hazard ratio 0.710 with
-// 631 deaths against 634 (p about 1e-9). The same penalty made blind to clears
-// -- a flat charge for being past the gate -- is 27% *worse* than not having it,
-// so the gain is the clear counting and not the extra crowding aversion.
-//
-// Two things about the shape of it. It is a penalty for the ways that are
-// missing rather than a bonus for the ways that exist, because the search prunes
-// against a running maximum and a negative term would let a candidate that has
-// already exceeded the bound come back under it. The expensive clear enumeration
-// is gated on the total legal placements of the 4-5 square pieces. That sees bad
-// geometry that occupancy alone misses; see docs/placement-trigger.md.
-
 uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t max) {
 	uint64_t result = 0;
 
-	// Occupied cubes and squares. Square weights only depend on a cube's
-	// category, so count each category together instead of popcounting all nine
-	// cubes independently. The individual tests are still needed for the fixed
-	// cost of making each cube nonempty.
+	// Count squares by cube category.
 	const auto center_cube = BitBoard::cube(1, 1) & bb;
 	const auto side_squares = (BitBoard::cube(0, 1) | BitBoard::cube(1, 0) |
 		BitBoard::cube(1, 2) | BitBoard::cube(2, 1)) & bb;
@@ -75,10 +47,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const auto blocked_up = open - open.shiftDown();
 		const auto blocked_down = open - open.shiftUp();
 
-		// Every horizontal or vertical run of open squares has one transition
-		// at each end. Count just the upper and left ends, then double them.
-		// The four aligned boundary masks do not overlap, so their contributions
-		// can be unioned before counting as well.
+		// Each open run has two ends; count the upper and left ends and double.
 		const int transition_weight = weights.getTransition();
 		const int aligned_transition_weight = weights.getTransitionAligned();
 		const int base_transition_weight = std::min(transition_weight,
@@ -106,9 +75,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 			return max;
 		}
 
-		// Cornerish squares carry the next strongest signal. Evaluate them before
-		// the cheaper-weighted squashed-square features so a losing candidate can
-		// stop without calculating either kind of squash.
+		// Evaluate stronger terms first to maximize early exits.
 		int cornered_empty = 0;
 		const auto blocked_up_left = blocked_up & blocked_left;
 		cornered_empty += (blocked_up_left -
@@ -215,24 +182,13 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		score_deadly_piece(open & open_left & open_right & open_up_left & open_up_right);
 		score_deadly_piece(open & open_left & open_right & open_down_left & open_down_right);
 
-		// The other pieces in a deal can consume a hard piece's last few legal
-		// placements. That scarcity only becomes dangerous on a crowded board;
-		// multiplying the two signals intervenes in the short failure cascade
-		// without disturbing the already-tuned sparse-board evaluation.
+		// Scale scarce hard-piece placements by crowding.
 		if (scarce_deadly_placements != 0) {
 			result += (uint64_t)scarce_deadly_placements * crowded_blocks
 				* weights.getCrowdedPieceScarcity();
 		}
 
-		// Pieces that could still clear a line, counted once each. Two placements
-		// that both need the same piece are one opportunity, not two: if that
-		// piece is not dealt, neither is available. Counting placements instead
-		// treats correlated options as independent and measures 8.7% shorter
-		// games. Of everything tried against the crowded pairs in
-		// engine/golden/golden.json, every static statistic over how full the
-		// lines are ordered at most two of the six correctly; this orders five.
-		// The quantity is a one-ply lookahead and not a property of the board,
-		// which is why nothing already here could stand in for it.
+		// Penalize crowded boards with few pieces able to clear a line.
 		if (crowded_blocks != 0) {
 			const GameState here(bb);
 			int piece_placements = 0;
@@ -259,14 +215,6 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 						(void)*it;
 						if (it.didClear()) {
 							++ways;
-							// One per piece: stopping here is the whole change, and
-							// it also makes the term cheaper than counting on.
-							//
-							// It has to be one. Allowing two measures 83,626, which is
-							// the uncapped 84,361 rather than anything between -- most
-							// pieces that can clear have only one placement that does,
-							// so a cap of two barely changes the count. Only a cap of
-							// one removes the duplicates that share a piece.
 							break;
 						}
 					}
@@ -301,4 +249,3 @@ uint64_t GameState::simpleEvalDefault(uint64_t max) const {
 
 	return result;
 }
-

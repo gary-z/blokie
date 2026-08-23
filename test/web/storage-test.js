@@ -146,8 +146,7 @@ check(restored_streak.clear_streak === 7
     && restored_streak.game.previous_move_was_clear === true,
     "a run of clears round trips as a length, not just a flag");
 
-// The streak used to be saved as a 0/1 flag in the same field, and a save
-// carrying one is a game someone is still in the middle of.
+// Version 1 encoded the streak as a boolean.
 const from_flag = decodeGameState("1.0.0.0.0.1.1.0.0.1.0.0.1.0.0");
 check(from_flag !== null && from_flag.clear_streak === 1
     && from_flag.game.previous_move_was_clear === true,

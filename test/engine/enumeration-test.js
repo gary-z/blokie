@@ -1,15 +1,6 @@
 "use strict";
 
-// The solver's move search. It plays the hand in sorted order and then, when a
-// clear is on the table, walks the other orderings too -- skipping any line of
-// play whose board it argues some earlier ordering already reached. Those skips
-// are the fiddliest part of the engine and the easiest to quietly break, so
-// what is checked here is the property they claim: that the search still sees
-// every board the hand can reach, and picks the best of them.
-//
-// The check is a brute force over every ordering and every placement, built out
-// of the same public API the app plays moves with. It is far too slow to be the
-// engine, but it cannot skip anything.
+// Compare the solver with exhaustive enumeration.
 
 import { blokie, bits, init } from '../../engine/js/blokie.js';
 
@@ -113,9 +104,6 @@ function reachableBoards(game, hand) {
     return best;
 }
 
-// Replays what the solver came back with, as the app would: every placement has
-// to be legal, every slot it names has to hold the piece it placed, and the
-// boards it reports have to be the ones that come out.
 /** @type {(game: Game, hand: Hand, result: AIMove) => Replayed} */
 function replay(game, hand, result) {
     /** @type {Set<number>} */
@@ -126,10 +114,6 @@ function replay(game, hand, result) {
             return null;
         }
         used.add(planned.piece_index);
-        // The placement has to be the piece in the slot it names, moved onto
-        // the board, and not some other shape the search preferred. A placement
-        // carries no record of which piece it came from, so this is the only
-        // thing tying the two halves of a planned move together.
         if (!bits.equals(bits.justify(planned.placement),
             bits.justify(hand[planned.piece_index]))) {
             return null;
@@ -140,10 +124,6 @@ function replay(game, hand, result) {
         }
         state = move.new_game;
     }
-    // Replaying the moves has to land on the game it reported. That is the
-    // whole of what the app relies on: the worker plans, the main thread
-    // replays the plan down the same path a dropped piece takes, and the two
-    // have to agree about where that leaves the game.
     if (key(state.board) !== key(result.game.board)
         || state.score !== result.game.score) {
         return null;
@@ -249,13 +229,7 @@ checkPosition("the best scoring order of a hand holding two of a kind",
     ],
     /*previous_move_was_clear=*/true);
 
-// The search walks the orderings with the piece that has the most placements
-// first, and takes the first of them as having already seen every board no
-// clear can move -- so the first ordering is the one that must not skip
-// anything. It used to get that for free by walking the hand in sorted order.
-// Sorting by how many placements a piece has does not keep the first two
-// pieces sorted, and once the first ordering started skipping the half of its
-// pairs that were back to front, it took the best board here down with it.
+// The first ordering must remain exhaustive.
 checkPosition("the first ordering is the flexible one, not the sorted one",
     // ...###...  ....##...  ...##....  #........  .........  ##.......
     // .........  .........  ##.......

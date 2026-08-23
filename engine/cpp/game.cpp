@@ -5,21 +5,7 @@
 #include <array>
 #include <cstring>
 
-// Tell the optimizer something it cannot prove, in whatever spelling the
-// compiler building this understands.
-//
-// [[assume]] is C++23, and the compilers that can build this engine arrived at
-// it years apart: GCC in 13, Clang in 19. An attribute an older one has never
-// heard of is a warning rather than an error, which sounds harmless until
-// -Werror turns it into a failed build -- so writing it plainly means the
-// engine only compiles on the newest half of the toolchains that could
-// otherwise run it. Every one of them has had the same instruction under its
-// own name for far longer.
-//
-// Dropping the hint where none of the spellings exist is safe. It only ever
-// narrowed the range the optimizer assumed for a value that already stays in
-// that range, so a compiler that does not get told produces slower code, never
-// different answers.
+// Portable optimizer assumption.
 #if defined(__has_cpp_attribute)
 #  if __has_cpp_attribute(assume) >= 202207L
 #    define BLOKIE_ASSUME(condition) [[assume(condition)]]

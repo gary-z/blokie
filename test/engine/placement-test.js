@@ -1,11 +1,6 @@
 "use strict";
 
-// Where a dragged piece is taken to be going. A piece under a finger sits
-// between squares, and the reading of it used to be the square it sat closest
-// to and nothing else: overlap a block by a corner, or hang a row off the edge
-// of the board, and the piece went nowhere. What is checked here is that the
-// reading still lands on that square whenever the piece fits there, and finds
-// the closest square it does fit in when it doesn't.
+// Drag-placement unit and fuzz tests.
 
 import { blokie, bits } from '../../engine/js/blokie.js';
 
@@ -160,7 +155,6 @@ check(nudged !== null
     && blokie.place(blocked_middle, nudged.placement) !== null,
     "the placement it settles on is legal");
 
-// Off the edge of the board, which the exact reading used to refuse outright.
 check(sameBitboard(
     must(blokie.placeNearest(empty_game, SINGLE, -0.9, 4, RADIUS),
         'a single square held off the top edge').placement,
@@ -280,9 +274,6 @@ for (let trial = 0; trial < 3000; ++trial) {
         nudges_seen++;
     }
 
-    // The reading this replaced: the square the piece sits closest to, taken
-    // only when the piece fits there. Everywhere that used to answer, this
-    // still answers the same, so nothing that worked before moved.
     const exact = blokie.placeAt(game, piece, Math.round(row), Math.round(col));
     if (exact !== null && !sameBitboard(exact.placement, result.placement)) {
         matches_exact_reading = false;
