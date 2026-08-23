@@ -367,6 +367,17 @@ NextGameStateIteratorGenerator GameState::nextStates(Piece piece) const {
 	return NextGameStateIteratorGenerator(*this, piece);
 }
 
+int GameState::countPlacements(Piece piece) const {
+	if (piece.placement_data_index == Piece::NUM_PIECES + 1) {
+		return 0;
+	}
+	if (piece.placement_data_index < Piece::NUM_PIECES) {
+		return validPlacementAnchors(bb,
+			PIECE_PLACEMENT_DATA[piece.placement_data_index]).count();
+	}
+	return validPlacementAnchors(bb, makePiecePlacementData(piece.bits)).count();
+}
+
 ClearsFirstGameStates GameState::nextStatesClearsFirst(Piece piece) const {
 	ClearsFirstGameStates result(piece.bits);
 	const auto generator = nextStates(piece);
