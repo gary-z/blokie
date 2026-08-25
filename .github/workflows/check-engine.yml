@@ -51,6 +51,7 @@ jobs:
           node --check engine/tools/analyze-probes.js
           node --check engine/tools/compare-fitness.js
           node --check engine/tools/compare-probes.js
+          node --check engine/tools/streak-order-experiment.js
 
       - name: Bitboards, pieces and clearing
         run: node test/engine/bitboard-test.js

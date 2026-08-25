@@ -85,6 +85,38 @@ The vector order matches `EvalWeights::getDefault()` in `engine/cpp/eval.h`.
 A positive risk delta is worse. Treat the screen as triage; confirm promising
 changes with `fitness`.
 
+## What the play order is worth
+
+Everything above measures survival, which is what a game's score is mostly made
+of. The one lever that changes points without touching survival is the order a
+hand is played in: the search picks the three placements, and only their
+sequence is left open, so every order reaches the same board and dies on the
+same hand. What separates them is which piece triggers each clear, and whether
+the hand ends on one.
+
+`streak-order-experiment` walks a run once and scores every ordering policy
+against that single trajectory, so there is no survival difference to control
+for:
+
+```bash
+node engine/tools/streak-order-experiment.js --hands 150000
+```
+
+It reports `make_move`'s current policy, that policy with the clear streak
+priced at a range of weights, and the best an ordering policy could have done
+had it known every later hand -- a two-state forward pass, which `--verify N`
+checks against exhaustive search over the first N hands.
+
+The current policy is already at that ceiling: over 450,000 hands the
+clairvoyant optimum was 2 points ahead in total. Ending a hand on a clear costs
+points on 0.7% of hands, and when it costs anything the price is exactly 9,
+because the order that leaves a clear last is the one that splits two adjacent
+clears and forfeits the streak bonus between them. The streak it buys is
+collected on 14% of the hands that inherit one, since only a clear on the very
+next placement collects it. Pricing the streak at its face value of 9 loses
+0.44 points per hand. Use the tool to re-check this if the scoring changes;
+there is nothing here to win as it stands.
+
 ## Inspect the search and board pairs
 
 ```bash

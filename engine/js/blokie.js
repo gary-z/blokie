@@ -687,7 +687,16 @@ function make_move(game, hand) {
         if (played.game.score < best.game.score) {
             continue;
         }
-        // Prefer a tie that carries a clear streak forward.
+        // Prefer a tie that carries a clear streak forward -- but only a tie.
+        // Paying for the streak is a losing trade at any price. The order that
+        // leaves a clear last is the order that splits two adjacent clears, so
+        // it gives up the 9 the second one was collecting; and the streak it
+        // buys is only collected if the next hand opens on a clear, which is
+        // about one hand in seven. So the asking price is 9 and the goods are
+        // worth about 1.3. engine/tools/streak-order-experiment.js measures it
+        // over 450,000 hands: pricing the streak at 9 costs 0.44 points a hand,
+        // and the most any ordering policy could win -- picked with every later
+        // hand already known -- is 2 points in total.
         if (played.game.score === best.game.score
             && !played.game.previous_move_was_clear) {
             continue;
