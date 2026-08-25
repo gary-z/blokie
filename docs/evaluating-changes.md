@@ -117,6 +117,38 @@ next placement collects it. Pricing the streak at its face value of 9 loses
 0.44 points per hand. Use the tool to re-check this if the scoring changes;
 there is nothing here to win as it stands.
 
+## Whether the placements are the best-scoring ones
+
+The search chooses placements by evaluation, and every placement set that ends
+on the same board evaluates the same, so which one comes back is decided by the
+order they are enumerated in. Points never enter into it. That would not matter
+if they all scored the same, and they do not: three pieces that exactly fill a
+3x3 cube clear it wherever that cube sits, so the board cannot tell those
+placements apart, but the piece that completes the cube forfeits its own squares
+to the clear and swapping which piece that is moves the score.
+
+`placement-set-experiment` enumerates every placement of the three pieces, in
+every order, that reaches the board the search chose, and asks whether any of
+them outscores what was played:
+
+```bash
+node engine/tools/placement-set-experiment.js --hands 20000
+```
+
+It is roughly ten times slower per hand than the search it is checking, so it is
+a measurement and not a candidate implementation. `--verify N` re-runs the first
+N hands without the reachability prunes and checks the answers match.
+
+Over 60,000 hands an alternative outscored the engine on 0.09% of them -- about
+one hand in a thousand -- and never by more than 9 points, for 0.0023 points a
+hand against a baseline of 37.2. Roughly 7% of hands have some alternative
+placement set reaching the same board, and the score really does vary across
+them on 69%, so the engine is not landing on the best one by construction; it is
+landing on it because the ordering pass in `make_move` already recovers most of
+what the spread is made of. Closing the last of it means scoring placement sets
+the evaluator considers identical, which costs an order of magnitude more search
+than the points are worth.
+
 ## Inspect the search and board pairs
 
 ```bash
