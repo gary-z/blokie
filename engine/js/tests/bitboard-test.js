@@ -3,6 +3,7 @@
 // Bitboard and game-rule unit tests.
 
 import { blokie, _internals } from '../blokie.js';
+import { check, checkAll, must, finish } from './check.js';
 
 const {
     bitboard, getEmpty, getFull, EMPTY, FULL, USED_BITS, ROW_0, TOP_LEFT_CUBE,
@@ -13,59 +14,6 @@ const {
     get_combo_magnitude, center_piece, left_top_justify_piece, get_piece_bounds,
     place_nearest, new_game,
 } = _internals;
-
-let failures = 0;
-/** @type {(condition: boolean, description: string) => void} */
-function check(condition, description) {
-    if (!condition) {
-        failures++;
-        console.error("FAIL: %s", description);
-        return;
-    }
-    console.log("ok - %s", description);
-}
-
-/**
- * A value the check below it is built on, which has to be there for that check
- * to mean anything. Throws rather than handing back null, so a fixture that
- * stopped working says so here instead of failing further down as a null
- * dereference.
- * @template T
- * @param {T | null} value
- * @param {string} what
- * @returns {T}
- */
-function must(value, what) {
-    if (value === null) {
-        throw new Error(`${what} should not have been null`);
-    }
-    return value;
-}
-
-/**
- * One assertion inside a group: what has to hold, and what to call it if it
- * does not. Named because every `want` in this file is one of these, and
- * annotating checkAll is what gives all of them their types.
- * @typedef {(condition: boolean, detail: string) => void} Want
- */
-
-// A whole group of assertions reported as one line, so a passing run stays
-// readable while a failure still says which case broke.
-/** @type {(description: string, body: (want: Want) => void) => void} */
-function checkAll(description, body) {
-    /** @type {string[]} */
-    const broken = [];
-    body((condition, detail) => {
-        if (!condition) {
-            broken.push(detail);
-        }
-    });
-    if (broken.length === 0) {
-        check(true, description);
-        return;
-    }
-    check(false, `${description} (${broken.length} failed, first: ${broken[0]})`);
-}
 
 // === words and counting ===
 
@@ -343,8 +291,4 @@ checkAll("a dragged piece lands where it is held, or nearest to it", (want) => {
         "an empty piece goes nowhere");
 });
 
-if (failures > 0) {
-    console.error("%d check(s) failed", failures);
-    process.exit(1);
-}
-console.log("all bitboard checks passed");
+finish('bitboard');

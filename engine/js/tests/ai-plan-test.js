@@ -3,23 +3,13 @@
 // Assist fallback planning tests.
 
 import { blokie, bits, init } from '../blokie.js';
+import { check, finish } from './check.js';
 
 /** @typedef {import('../blokie.js').Hand} Hand */
 /** @typedef {import('../blokie.js').Game} Game */
 /** @typedef {import('../blokie.js').BitBoard} BitBoard */
 
 await init();
-
-let failures = 0;
-/** @type {(condition: boolean, description: string) => void} */
-function check(condition, description) {
-    if (!condition) {
-        failures++;
-        console.error("FAIL: %s", description);
-        return;
-    }
-    console.log("ok - %s", description);
-}
 
 /** @type {(board: BitBoard, score?: number) => Game} */
 function gameWithBoard(board, score = 0) {
@@ -105,5 +95,4 @@ check(every_placement_legal, "every placement it played was legal");
 check(!blokie.hasValidMove(game.board, hand),
     "it plays until nothing in hand fits, which is the game being over");
 
-console.log(failures === 0 ? "\nall checks passed" : `\n${failures} check(s) failed`);
-process.exit(failures === 0 ? 0 : 1);
+finish('planning');

@@ -3,6 +3,7 @@
 // Compare the solver with exhaustive enumeration.
 
 import { blokie, bits, init } from '../blokie.js';
+import { check, failureCount, finish } from './check.js';
 
 /** @typedef {import('../blokie.js').Hand} Hand */
 /** @typedef {import('../blokie.js').Game} Game */
@@ -24,18 +25,6 @@ import { blokie, bits, init } from '../blokie.js';
  */
 
 await init();
-
-let failures = 0;
-/** @type {(condition: boolean, description: string) => boolean} */
-function check(condition, description) {
-    if (!condition) {
-        failures++;
-        console.error("FAIL: %s", description);
-        return false;
-    }
-    console.log("ok - %s", description);
-    return true;
-}
 
 const EMPTY = bits.empty();
 
@@ -336,7 +325,7 @@ function randomBoard(random, fullness) {
 const random = mulberry32(20240817);
 let swept = 0;
 let with_a_move = 0;
-const before_sweep = failures;
+const before_sweep = failureCount();
 for (let trial = 0; trial < 1500; ++trial) {
     const board = randomBoard(random, 0.4 + 0.3 * random());
     const hand = /** @type {Hand} */ (
@@ -394,7 +383,7 @@ for (let trial = 0; trial < 1500; ++trial) {
             + `; board ${key(board)}, hand ${hand.map(key).join(" / ")}`);
     }
 }
-check(failures === before_sweep,
+check(failureCount() === before_sweep,
     `${swept} random positions (${with_a_move} with a move) match the brute force`);
 
 // The plan the app actually asks for has to be playable too, on the same
@@ -422,5 +411,4 @@ check(failures === before_sweep,
     check(legal, "every placement in the plan is legal");
 }
 
-console.log(failures === 0 ? "\nall checks passed" : `\n${failures} check(s) failed`);
-process.exit(failures === 0 ? 0 : 1);
+finish('enumeration');
