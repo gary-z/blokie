@@ -5,7 +5,8 @@
 // Multiplying by aggregate worker time gives variance per unit compute; lower
 // is better and includes burn-in, probing, and restart overhead.
 
-import { readFileSync } from 'fs';
+import { readFitnessOutput } from './fitness-output.js';
+import { variance } from './stats.js';
 
 /**
  * One run's worth of fixed-exposure chains, and what they cost to measure.
@@ -32,52 +33,27 @@ import { readFileSync } from 'fs';
  * @typedef {ChainRun & {paths: string[], runs: number}} GroupedRun
  */
 
-/** @type {(values: number[]) => number} */
-function variance(values) {
-    const mean = values.reduce((sum, x) => sum + x, 0) / values.length;
-    return values.reduce((sum, x) => sum + (x - mean) ** 2, 0) /
-        (values.length - 1);
-}
-
 /** @type {(path: string) => ChainRun} */
 function readRun(path) {
-    let probes = 0;
-    let chainMoves = 0;
-    let burnIn = 0;
-    const estimates = [];
-    let workerSeconds = 0;
-    let totalMoves = 0;
-    for (const line of readFileSync(path, 'utf8').split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('# probe ')) {
-            const match = /M=(\d+)/.exec(trimmed);
-            if (match) probes = Number(match[1]);
-            continue;
-        }
-        if (trimmed.startsWith('# options ')) {
-            const chainMatch = /chain_moves=(\d+)/.exec(trimmed);
-            const burnMatch = /burn_in=(\d+)/.exec(trimmed);
-            if (chainMatch) chainMoves = Number(chainMatch[1]);
-            if (burnMatch) burnIn = Number(burnMatch[1]);
-            continue;
-        }
-        if (trimmed === '' || trimmed.startsWith('#')) continue;
-        const p = trimmed.split(/\s+/).map(Number);
-        if (p.length < 10 || p.some((x) => !Number.isFinite(x))) {
-            throw new Error(`${path}: malformed fixed-exposure row: ${trimmed}`);
-        }
-        estimates.push(p.length >= 12 ? p[11] / p[3]
-            : p[4] / (probes * p[3]));
-        workerSeconds += p[7];
-        totalMoves += p[0];
-    }
-    if (probes === 0 || chainMoves === 0 || estimates.length < 2) {
+    const run = readFitnessOutput(path);
+    const estimates = run.rows.map((row) => row.estimate);
+    if (run.probes === 0 || run.chainMoves === 0 || estimates.length < 2) {
         throw new Error(`${path}: requires a fixed-exposure uniform-probe run`);
     }
+    const workerSeconds = run.rows.reduce((sum, row) => sum + row.totalSeconds, 0);
     const estimateVariance = variance(estimates) / estimates.length;
     return {
-        path, probes, chainMoves, burnIn, chains: estimates.length,
-        estimates, workerSeconds, totalMoves, estimateVariance,
+        path,
+        probes: run.probes,
+        chainMoves: run.chainMoves,
+        // Written on the same `# options` line as chain_moves, so a run that
+        // got past the check above has one.
+        burnIn: run.burnIn ?? 0,
+        chains: estimates.length,
+        estimates,
+        workerSeconds,
+        totalMoves: run.rows.reduce((sum, row) => sum + row.moves, 0),
+        estimateVariance,
         varianceCost: estimateVariance * workerSeconds,
     };
 }
