@@ -77,13 +77,14 @@ than averaging truncated game lengths.
 `fitness` run:
 
 ```bash
-/tmp/blokie-build/weight-screen \
-    --candidate 1358,524,6540,4450,18185,2665,204,908,1776,3386,1607,3067,250,335
+/tmp/blokie-build/weight-screen --candidate crowded_piece_scarcity=250
 ```
 
-The vector order matches `EvalWeights::getDefault()` in `engine/cpp/eval.h`.
-A positive risk delta is worse. Treat the screen as triage; confirm promising
-changes with `fitness`.
+Weights are named, and a weight the run does not name keeps the value the build
+ships, so a screen says the change it is screening and nothing else. `--help`
+lists the names with those shipped values, and `--base` moves what the candidate
+is measured against the same way. A positive risk delta is worse. Treat the
+screen as triage; confirm promising changes with `fitness`.
 
 ## Inspect the search and board pairs
 
