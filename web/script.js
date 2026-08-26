@@ -167,48 +167,20 @@ document.addEventListener("DOMContentLoaded", function (event) {
     initRestartButton(element('restart'));
 
     const pieces_in_hand_container = element('pieces-in-hand-container');
+    // A finger and a mouse start a drag the same way; all they disagree about
+    // is where to read the coordinates from. The press is swallowed only when
+    // one actually started, so a press on anything else in the container --
+    // the gap between pieces, an empty slot -- still behaves normally.
     pieces_in_hand_container.addEventListener('touchstart', (event) => {
-        if (!gameIsActive()) return;
-        const cell = /** @type {HTMLElement} */ (event.target);
-        if (cell.nodeName !== 'TD') return;
-        const table = cell.closest('table');
-        if (table === null || table.className !== 'pieces-in-hand') return;
-
-        const pieceIndex = parseInt(table.id.slice(-1));
-        const piece = state.game_state.piece_set[pieceIndex];
-        if (bits.isEmpty(piece)) return;
-
         const touch = event.touches[0];
-        drag_info = {
-            pieceIndex,
-            piece,
-            bounds: bits.bounds(piece),
-            startX: touch.clientX,
-            startY: touch.clientY,
-            active: false,
-        };
-        event.preventDefault();
+        if (beginDrag(event.target, touch.clientX, touch.clientY)) {
+            event.preventDefault();
+        }
     });
     pieces_in_hand_container.addEventListener('mousedown', (event) => {
-        if (!gameIsActive()) return;
-        const cell = /** @type {HTMLElement} */ (event.target);
-        if (cell.nodeName !== 'TD') return;
-        const table = cell.closest('table');
-        if (table === null || table.className !== 'pieces-in-hand') return;
-
-        const pieceIndex = parseInt(table.id.slice(-1));
-        const piece = state.game_state.piece_set[pieceIndex];
-        if (bits.isEmpty(piece)) return;
-
-        drag_info = {
-            pieceIndex,
-            piece,
-            bounds: bits.bounds(piece),
-            startX: event.clientX,
-            startY: event.clientY,
-            active: false,
-        };
-        event.preventDefault();
+        if (beginDrag(event.target, event.clientX, event.clientY)) {
+            event.preventDefault();
+        }
     });
 
     // If a native drag somehow starts, cancel it and clean up our drag state
@@ -291,6 +263,35 @@ function initSettings() {
 
 // === Drag and drop ===
 
+// A press on a piece in hand picks it up. Nothing has moved yet: the drag
+// stays inactive until the pointer has travelled far enough to be a drag
+// rather than a tap, which is what handleDragMove watches for.
+//
+// Returns whether a piece was picked up, which is what says whether the press
+// was ours to swallow.
+/** @type {(target: EventTarget | null, clientX: number, clientY: number) => boolean} */
+function beginDrag(target, clientX, clientY) {
+    if (!gameIsActive()) return false;
+    const cell = /** @type {HTMLElement} */ (target);
+    if (cell.nodeName !== 'TD') return false;
+    const table = cell.closest('table');
+    if (table === null || table.className !== 'pieces-in-hand') return false;
+
+    const pieceIndex = parseInt(table.id.slice(-1));
+    const piece = state.game_state.piece_set[pieceIndex];
+    if (bits.isEmpty(piece)) return false;
+
+    drag_info = {
+        pieceIndex,
+        piece,
+        bounds: bits.bounds(piece),
+        startX: clientX,
+        startY: clientY,
+        active: false,
+    };
+    return true;
+}
+
 // The piece drawn at board scale rather than hand scale, since the board is
 // where it is headed and where it has to be lined up by eye.
 /** @type {(piece: Piece, bounds: PieceBounds) => HTMLElement} */
@@ -342,6 +343,30 @@ function createFloatingPiece(piece, bounds) {
 function getBoardGeometry() {
     const rect = element('game-board').getBoundingClientRect();
     return { rect: rect, cellW: rect.width / 9, cellH: rect.height / 9 };
+}
+
+/**
+ * The squares a placement spans, as inclusive board coordinates. A placement
+ * always covers at least one square, so every field names a real one.
+ * @typedef {{min_r: number, min_c: number, max_r: number, max_c: number}} PlacementBox
+ */
+
+// Read once here rather than at each of the two places that want it: the
+// flying piece aims at the top left corner, and a score card sits in the
+// middle, and both of those are this box.
+/** @type {(placement: Placement) => PlacementBox} */
+function getPlacementBox(placement) {
+    let min_r = 9, min_c = 9, max_r = -1, max_c = -1;
+    for (let r = 0; r < 9; ++r) {
+        for (let c = 0; c < 9; ++c) {
+            if (!bits.at(placement, r, c)) continue;
+            if (r < min_r) min_r = r;
+            if (c < min_c) min_c = c;
+            if (r > max_r) max_r = r;
+            if (c > max_c) max_c = c;
+        }
+    }
+    return { min_r: min_r, min_c: min_c, max_r: max_r, max_c: max_c };
 }
 
 // Where the piece being dragged is drawn, in screen pixels: centered on the
@@ -862,20 +887,9 @@ function startFlyAnimation(pieceIndex, piece, placement) {
 
     // Target: top-left of where the piece lands on the board
     const board = getBoardGeometry();
-
-    // Find the top-left occupied cell of the placement
-    let minR = 9, minC = 9;
-    for (let r = 0; r < 9; r++) {
-        for (let c = 0; c < 9; c++) {
-            if (bits.at(placement, r, c)) {
-                if (r < minR) minR = r;
-                if (c < minC) minC = c;
-            }
-        }
-    }
-
-    const targetX = board.rect.left + minC * board.cellW;
-    const targetY = board.rect.top + minR * board.cellH;
+    const box = getPlacementBox(placement);
+    const targetX = board.rect.left + box.min_c * board.cellW;
+    const targetY = board.rect.top + box.min_r * board.cellH;
 
     // Start at the in-hand slot, centered
     const pieceW = bounds.cols * board.cellW;
@@ -923,16 +937,7 @@ const SCORE_CARD_MARGIN_PX = 4;
 /** @type {(placement: Placement) => {x: number, y: number}} */
 function getPlacementCenter(placement) {
     const board = getBoardGeometry();
-    let min_r = 9, min_c = 9, max_r = -1, max_c = -1;
-    for (let r = 0; r < 9; ++r) {
-        for (let c = 0; c < 9; ++c) {
-            if (!bits.at(placement, r, c)) continue;
-            if (r < min_r) min_r = r;
-            if (c < min_c) min_c = c;
-            if (r > max_r) max_r = r;
-            if (c > max_c) max_c = c;
-        }
-    }
+    const { min_r, min_c, max_r, max_c } = getPlacementBox(placement);
     return {
         x: board.rect.left + (min_c + max_c + 1) / 2 * board.cellW,
         // A piece landing in the top row would put the card over the score and
@@ -1120,10 +1125,10 @@ function drawGame(board_table, pieces_in_hand_div, board, piece_set, clearing_pl
         // Centering justifies first, so a hand restored from an older cookie --
         // which saved its pieces already centered -- comes up in the same place.
         const piece = bits.center(piece_set[i]);
+        const hand_table = /** @type {HTMLTableElement} */ (
+            pieces_in_hand_div.children[i]);
         for (let r = 0; r < 5; ++r) {
             for (let c = 0; c < 5; ++c) {
-                const hand_table = /** @type {HTMLTableElement} */ (
-                    pieces_in_hand_div.children[i]);
                 const td = hand_table.rows[r].cells[c];
                 const cls = (!hidePiece && bits.at(piece, r, c)) ? 'has-piece' : '';
                 if (td.className !== cls) td.className = cls;
