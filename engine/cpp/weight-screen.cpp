@@ -1,5 +1,6 @@
 // Screens candidate weights with paired short rollouts.
 #include "solver.h"
+#include "splitmix64.h"
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -12,13 +13,6 @@
 #include <vector>
 
 namespace {
-
-uint64_t mix(uint64_t x) {
-    x += 0x9e3779b97f4a7c15ULL;
-    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
-    return x ^ (x >> 31);
-}
 
 // Failure probability over shared sampled hands.
 double risk(GameState state, uint64_t probe_seed, int probes) {
@@ -46,7 +40,7 @@ double windowRisk(const EvalWeights &weights, BitBoard start, uint64_t stream_se
         const auto move = AI::makeMoveSimple(weights, state, dealt);
         if (move.evaluation == UINT64_MAX) { total += 1.0; break; }
         state = move.state;
-        total += risk(state, mix(stream_seed * 1000003ULL + step), probes);
+        total += risk(state, splitMix64(stream_seed * 1000003ULL + step), probes);
         if (state.isOver()) { total += 1.0; break; }
     }
     return total / horizon;
@@ -137,7 +131,7 @@ int main(int argc, char **argv) {
         std::vector<std::thread> collectors;
         for (unsigned t = 0; t < threads; ++t) {
             collectors.emplace_back([&, t] {
-                std::mt19937_64 rng(mix(seed ^ (0xC01EC7ULL + t)));
+                std::mt19937_64 rng(splitMix64(seed ^ (0xC01EC7ULL + t)));
                 std::uniform_int_distribution<int> pd(0, Piece::NUM_PIECES - 1);
                 GameState state(BitBoard::empty());
                 long seen = 0, guard = 0;
@@ -176,7 +170,7 @@ int main(int argc, char **argv) {
                 const size_t board_index = index / streams;
                 const size_t stream = index % streams;
                 const uint64_t stream_seed =
-                    mix(seed ^ (board_index * 0x9E3779B97F4A7C15ULL) ^
+                    splitMix64(seed ^ (board_index * 0x9E3779B97F4A7C15ULL) ^
                         (stream * 0x632BE59BD9B4E019ULL));
                 const double a = windowRisk(base, boards[board_index], stream_seed,
                     horizon, probes);
@@ -213,7 +207,7 @@ int main(int argc, char **argv) {
                     const size_t bi = index / streams;
                     const size_t st = index % streams;
                     levels[index] = windowRisk(base, boards[bi],
-                        mix(seed ^ (bi * 0x9E3779B97F4A7C15ULL) ^
+                        splitMix64(seed ^ (bi * 0x9E3779B97F4A7C15ULL) ^
                             (st * 0x632BE59BD9B4E019ULL)), horizon, probes);
                 }
             });

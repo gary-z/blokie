@@ -1,4 +1,5 @@
 #include "solver.h"
+#include "splitmix64.h"
 #include <algorithm>
 #include <array>
 #include <atomic>
@@ -55,13 +56,6 @@ struct GameResult {
     std::array<long double, 82> occupancy_sum_p{};
     std::array<double, 82> occupancy_seconds{};
 };
-
-uint64_t splitMix64(uint64_t value) {
-    value += 0x9e3779b97f4a7c15ULL;
-    value = (value ^ (value >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    value = (value ^ (value >> 27)) * 0x94d049bb133111ebULL;
-    return value ^ (value >> 31);
-}
 
 Piece randomPiece(std::mt19937_64& rng,
                   std::uniform_int_distribution<int>& piece_dist) {

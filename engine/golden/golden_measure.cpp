@@ -2,6 +2,7 @@
 #include "golden_common.h"
 #include "game.h"
 #include "solver.h"
+#include "splitmix64.h"
 #include "eval.h"
 #include <iostream>
 #include <iomanip>
@@ -44,13 +45,6 @@ void printUsage(const char *prog) {
               << "  --equiv E        Equivalence threshold in squares (default 0.05)\n"
               << "  --threads T      Worker threads (default hardware_concurrency)\n"
               << "  --help           Show this help\n";
-}
-
-uint64_t splitMix64(uint64_t x) {
-    x += 0x9e3779b97f4a7c15ULL;
-    x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
-    x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
-    return x ^ (x >> 31);
 }
 
 int windowLow = 3;
