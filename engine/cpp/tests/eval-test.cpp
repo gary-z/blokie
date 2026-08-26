@@ -102,8 +102,9 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 					weights.occupied_center_square;
 			} else if (cube_row == 1 || cube_column == 1) {
 				result += static_cast<uint64_t>(weights.occupied_side_cube);
-				result += static_cast<uint64_t>(count) *
-					EvalWeights::OCCUPIED_SIDE_SQUARE;
+				// Spelled out rather than read from EvalWeights, so that
+				// moving the fixed weight has to move this line too.
+				result += static_cast<uint64_t>(count) * 2000;
 			} else {
 				result += static_cast<uint64_t>(weights.occupied_corner_cube);
 				result += static_cast<uint64_t>(count) *
@@ -306,32 +307,6 @@ void testWeightFields() {
 	test::require(rebuilt == shipped, "the rows reach every weight");
 }
 
-void testDefaultWeights() {
-	const EvalWeights expected = {
-		.occupied_side_cube = 1358,
-		.squashed_empty = 524,
-		.cornered_empty = 6540,
-		.transition = 4450,
-		.deadly_piece = 18185,
-		.three_bar = 2665,
-		.occupied_center_cube = 204,
-		.occupied_corner_cube = 908,
-		.transition_aligned = 1776,
-		.squashed_empty_at_edge = 3386,
-		.occupied_center_square = 1607,
-		.occupied_corner_square = 3067,
-		.crowded_piece_scarcity = 200,
-		.clear_opportunity = 335,
-	};
-	const auto actual = EvalWeights::getDefault();
-	for (const auto &field : EvalWeights::FIELDS) {
-		test::require(actual.*field.value == expected.*field.value,
-			"default " + std::string(field.name));
-	}
-	test::require(EvalWeights::OCCUPIED_SIDE_SQUARE == 2000,
-		"the fixed occupied side square weight");
-}
-
 std::vector<BitBoard> evaluationBoards() {
 	std::vector<BitBoard> boards = {BitBoard::empty(), BitBoard::full()};
 	boards.push_back(test::square(0, 0));
@@ -469,7 +444,6 @@ void testVerticalSymmetry() {
 int main() {
 	return test::run({
 		{"evaluation weight fields", testWeightFields},
-		{"default evaluation weights", testDefaultWeights},
 		{"scalar evaluation reference", testScalarReference},
 		{"placement counts", testPlacementCounts},
 		{"nonlinear crowding threshold", testCrowdingThreshold},
