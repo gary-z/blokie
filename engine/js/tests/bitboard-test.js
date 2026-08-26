@@ -2,7 +2,7 @@
 
 // Bitboard and game-rule unit tests.
 
-import { blokie, _internals } from '../../engine/js/blokie.js';
+import { blokie, _internals } from '../blokie.js';
 
 const {
     bitboard, getEmpty, getFull, EMPTY, FULL, USED_BITS, ROW_0, TOP_LEFT_CUBE,

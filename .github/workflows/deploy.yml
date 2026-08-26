@@ -27,7 +27,11 @@ jobs:
           mkdir -p _site/engine/js _site/engine/wasm
           cp engine/js/blokie.js _site/engine/js/
           cp engine/wasm/* _site/engine/wasm/
+          # web/ goes over wholesale, which is what keeps a new asset there
+          # from needing a line here. The tests that sit beside the code they
+          # check are not part of the site, so they come back out.
           cp -r web/ _site/web/
+          rm -rf _site/web/tests
 
       # A browser only reinstalls a service worker whose bytes have changed, so
       # without this an installed app would go on serving the files it cached
@@ -44,7 +48,7 @@ jobs:
       # to cache is just as missing if it was never copied out of here, and one
       # missing file is enough to fail the install and take offline with it.
       - name: Check the site can be installed and played offline
-        run: node test/web/pwa-test.js _site
+        run: node web/tests/pwa-test.js _site
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

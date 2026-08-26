@@ -13,7 +13,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    // DOM is here for one file. test/web/storage-test.js imports
+    // DOM is here for one file. web/tests/storage-test.js imports
     // web/storage.js to round-trip the saved-game encoding, and that module
     // also reads `document.cookie` -- so the browser's globals have to be in
     // scope for it to check at all. The cost is that a test under this config
@@ -24,9 +24,13 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
+  // The tests live beside the component they check -- engine/js/tests/ next to
+  // the engine, web/tests/ next to the page -- so this names each of them
+  // rather than one tree.
   "include": [
-    "test/**/*.js",
+    "engine/js/tests/*.js",
     "engine/tools/*.js",
+    "web/tests/*.js",
     "web/icons/make-icons.js"
   ]
 }

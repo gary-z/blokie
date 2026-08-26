@@ -43,9 +43,9 @@
     "strict": true
   },
   // Named one by one rather than globbed, because what belongs here is
-  // exactly what the page loads. The Node-side tooling (test/, engine/tools/,
-  // web/icons/) is checked by tsconfig.node.json instead, against Node's
-  // globals rather than the browser's.
+  // exactly what the page loads. The Node-side code -- the tests beside each
+  // component, engine/tools/, web/icons/ -- is checked by tsconfig.node.json
+  // instead, against Node's globals rather than the browser's.
   "include": [
     "engine/js/blokie.js",
     "web/script.js",

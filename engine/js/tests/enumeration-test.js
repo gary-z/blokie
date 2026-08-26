@@ -2,14 +2,14 @@
 
 // Compare the solver with exhaustive enumeration.
 
-import { blokie, bits, init } from '../../engine/js/blokie.js';
+import { blokie, bits, init } from '../blokie.js';
 
-/** @typedef {import('../../engine/js/blokie.js').Hand} Hand */
-/** @typedef {import('../../engine/js/blokie.js').Game} Game */
-/** @typedef {import('../../engine/js/blokie.js').Move} Move */
-/** @typedef {import('../../engine/js/blokie.js').Piece} Piece */
-/** @typedef {import('../../engine/js/blokie.js').AIMove} AIMove */
-/** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
+/** @typedef {import('../blokie.js').Hand} Hand */
+/** @typedef {import('../blokie.js').Game} Game */
+/** @typedef {import('../blokie.js').Move} Move */
+/** @typedef {import('../blokie.js').Piece} Piece */
+/** @typedef {import('../blokie.js').AIMove} AIMove */
+/** @typedef {import('../blokie.js').BitBoard} BitBoard */
 
 /**
  * A board the brute force reached, and the best score it was reached with.
