@@ -5,23 +5,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { check, finish } from '../../engine/js/tests/check.js';
 
 /**
  * One entry of the manifest's `icons`, as far as this file reads it. The
  * manifest is parsed from JSON, so nothing else here knows its shape.
  * @typedef {{src: string, sizes?: string, purpose?: string}} ManifestIcon
  */
-
-let failures = 0;
-/** @type {(condition: boolean, description: string) => void} */
-function check(condition, description) {
-    if (!condition) {
-        failures++;
-        console.error("FAIL: %s", description);
-        return;
-    }
-    console.log("ok - %s", description);
-}
 
 const repo_root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const staged = process.argv[2] !== undefined;
@@ -206,8 +196,4 @@ if (ios_name !== null && manifest !== null) {
 check(/registerServiceWorker\(\)/.test(read('web/script.js')),
     'the page registers the worker');
 
-if (failures > 0) {
-    console.error("%d check(s) failed", failures);
-    process.exit(1);
-}
-console.log("All PWA checks passed.");
+finish('PWA');

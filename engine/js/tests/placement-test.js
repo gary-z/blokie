@@ -3,6 +3,8 @@
 // Drag-placement unit and fuzz tests.
 
 import { blokie, bits } from '../blokie.js';
+import { check, must, finish } from './check.js';
+import { sfc32 } from './harness.js';
 
 /** @typedef {import('../blokie.js').Game} Game */
 /** @typedef {import('../blokie.js').Piece} Piece */
@@ -14,38 +16,6 @@ import { blokie, bits } from '../blokie.js';
  * left of a piece would land.
  * @typedef {{row: number, col: number}} Corner
  */
-
-let failures = 0;
-/** @type {(condition: boolean, description: string) => void} */
-function check(condition, description) {
-    if (!condition) {
-        failures++;
-        console.error("FAIL: %s", description);
-        return;
-    }
-    console.log("ok - %s", description);
-}
-
-/**
- * A move the check below it is built on, which has to have been possible for
- * that check to mean anything -- the piece placed to make a fixture, or the
- * placement an assertion is comparing against. Throws rather than handing back
- * null, so a fixture that stopped being placeable says so here instead of
- * failing further down as a null dereference.
- *
- * What is under test is `placeNearest` finding a placement or not, and that is
- * asserted directly rather than through this.
- * @template T
- * @param {T | null} value
- * @param {string} what
- * @returns {T}
- */
-function must(value, what) {
-    if (value === null) {
-        throw new Error(`${what} should have been placeable`);
-    }
-    return value;
-}
 
 /** @type {(a: BitBoard, b: BitBoard) => boolean} */
 function sameBitboard(a, b) {
@@ -201,19 +171,6 @@ check(blokie.placeNearest(full_board, SINGLE, 4, 4, RADIUS) === null,
 
 // Boards, pieces and grips at random, checked against the placements found by
 // hand above. Seeded, so a failure here is a failure that can be looked at.
-/** @type {(a: number, b: number, c: number, d: number) => () => number} */
-function sfc32(a, b, c, d) {
-    return function () {
-        a |= 0; b |= 0; c |= 0; d |= 0;
-        const t = (a + b | 0) + d | 0;
-        d = d + 1 | 0;
-        a = b ^ b >>> 9;
-        b = c + (c << 3) | 0;
-        c = c << 21 | c >>> 11;
-        c = c + t | 0;
-        return (t >>> 0) / 4294967296;
-    };
-}
 const random = sfc32(0x9e3779b9, 0x243f6a88, 0xb7e15162, 42);
 
 let always_legal = true;
@@ -288,5 +245,4 @@ check(never_missed, "it never refused a piece there was a placement in reach for
 check(matches_exact_reading,
     "it agrees with the exact reading wherever the exact reading had an answer");
 
-console.log(failures === 0 ? "\nall checks passed" : `\n${failures} check(s) failed`);
-process.exit(failures === 0 ? 0 : 1);
+finish('placement');

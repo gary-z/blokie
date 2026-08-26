@@ -6,38 +6,11 @@
 
 import { blokie, bits } from '../../engine/js/blokie.js';
 import { encodeGameState, decodeGameState } from '../storage.js';
+import { check, must, finish } from '../../engine/js/tests/check.js';
 
 /** @typedef {import('../../engine/js/blokie.js').Hand} Hand */
 /** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
 /** @typedef {import('../storage.js').GameState} GameState */
-
-let failures = 0;
-/** @type {(condition: boolean, description: string) => void} */
-function check(condition, description) {
-    if (!condition) {
-        failures++;
-        console.error("FAIL: %s", description);
-        return;
-    }
-    console.log("ok - %s", description);
-}
-
-/**
- * A value the check below it is built on, which has to be there for that check
- * to mean anything. Throws rather than handing back null, so a fixture that
- * stopped working says so here instead of failing further down as a null
- * dereference.
- * @template T
- * @param {T | null} value
- * @param {string} what
- * @returns {T}
- */
-function must(value, what) {
-    if (value === null) {
-        throw new Error(`${what} should not have been null`);
-    }
-    return value;
-}
 
 /** @type {(a: BitBoard, b: BitBoard) => boolean} */
 function sameBitboard(a, b) {
@@ -191,8 +164,4 @@ const longest = encodeGameState({
 });
 check(longest.length < 200, `the largest possible save is small (${longest.length} bytes)`);
 
-if (failures > 0) {
-    console.error("%d check(s) failed", failures);
-    process.exit(1);
-}
-console.log("All storage checks passed.");
+finish('storage');
