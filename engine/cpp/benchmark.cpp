@@ -3,11 +3,9 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
-#include <string>
 
-// SFC32 RNG - mirrors the sfc32 implementation in engine/js/blokie.js so
-// piece sequences match between the native benchmark and the JS benchmark.
+// SFC32 RNG - mirrors the sfc32 implementation in engine/js/tests/harness.js
+// so piece sequences match between the native benchmark and the JS benchmark.
 struct Sfc32 {
     uint32_t a, b, c, d;
     Sfc32(uint32_t a, uint32_t b, uint32_t c, uint32_t d)

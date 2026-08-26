@@ -385,8 +385,6 @@ inline std::string findDefaultGoldenFile() {
         "engine/golden/golden.txt",
         "../engine/golden/golden.txt",
         "../../engine/golden/golden.txt",
-        "engine/cpp/golden.json",
-        "engine/cpp/golden.txt",
     };
     for (auto &c : candidates) {
         std::ifstream f(c);
