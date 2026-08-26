@@ -3,13 +3,10 @@
 // Compares continuous per-chain hazard estimates emitted by fitness --probe.
 // The existing compare-fitness.js remains the exact test for death counts.
 
-import { readFileSync } from 'fs';
+import { readFitnessOutput } from './fitness-output.js';
+import { mean, mulberry32, quantile, resampledMean, variance } from './stats.js';
 
-/**
- * One chain's hazard estimate, taken from the recorded column when the run
- * wrote one and reconstructed from the failure count when it did not.
- * @typedef {{seed: number, boards: number, estimate: number}} ChainEstimate
- */
+/** @typedef {import('./fitness-output.js').ChainRow} ChainRow */
 
 /**
  * One side of the comparison. `estimates` is `values` projected down to the
@@ -17,98 +14,28 @@ import { readFileSync } from 'fs';
  * because every consumer below wants that array and not the rows.
  * @typedef {object} ProbeComparison
  * @property {string} path
- * @property {ChainEstimate[]} values
+ * @property {ChainRow[]} values
  * @property {number[]} estimates
  */
 
 /** @type {(path: string) => ProbeComparison} */
 function readRun(path) {
-    let probes = 0;
-    let adaptive = false;
-    let chainMoves = 0;
-    const values = [];
-    for (const line of readFileSync(path, 'utf8').split('\n')) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('# probe ')) {
-            const match = /M=(\d+)/.exec(trimmed);
-            if (match) probes = Number(match[1]);
-            if (trimmed.startsWith('# probe adaptive ')) adaptive = true;
-            continue;
-        }
-        if (trimmed.startsWith('# options ')) {
-            const match = /chain_moves=(\d+)/.exec(trimmed);
-            if (match) chainMoves = Number(match[1]);
-            continue;
-        }
-        if (trimmed === '' || trimmed.startsWith('#')) continue;
-        const p = trimmed.split(/\s+/).map(Number);
-        if (p.length < 10 || p.some((x) => !Number.isFinite(x))) {
-            throw new Error(`${path}: malformed probe row: ${trimmed}`);
-        }
-        values.push({
-            seed: p[2],
-            boards: p[3],
-            estimate: p.length >= 12 ? p[11] / p[3]
-                : p[4] / (probes * p[3]),
-        });
-    }
-    if (probes === 0 && !adaptive) {
+    const run = readFitnessOutput(path);
+    if (run.probes === 0 && run.adaptiveLabel === null) {
         throw new Error(`${path}: no probe metadata`);
     }
-    if (chainMoves === 0) {
+    if (run.chainMoves === 0) {
         throw new Error(`${path}: probe comparison requires --chain-moves`);
     }
-    if (values.length < 2) throw new Error(`${path}: need at least two chains`);
-    if (values.some((x) => x.boards !== chainMoves)) {
+    if (run.rows.length < 2) throw new Error(`${path}: need at least two chains`);
+    if (run.rows.some((row) => row.probeBoards !== run.chainMoves)) {
         throw new Error(`${path}: chains do not all have the recorded exposure`);
     }
     return {
         path,
-        values,
-        estimates: values.map((x) => x.estimate),
+        values: run.rows,
+        estimates: run.rows.map((row) => row.estimate),
     };
-}
-
-/** @type {(xs: number[]) => number} */
-function mean(xs) {
-    return xs.reduce((a, b) => a + b, 0) / xs.length;
-}
-
-/** @type {(xs: number[]) => number} */
-function variance(xs) {
-    const m = mean(xs);
-    return xs.reduce((sum, x) => sum + (x - m) ** 2, 0) / (xs.length - 1);
-}
-
-/** @type {(seed: number) => () => number} */
-function mulberry32(seed) {
-    return function random() {
-        seed |= 0;
-        seed = seed + 0x6D2B79F5 | 0;
-        let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-}
-
-/** @type {(xs: number[], random: () => number) => number} */
-function resampledMean(xs, random) {
-    let sum = 0;
-    for (let i = 0; i < xs.length; i++) {
-        sum += xs[Math.floor(random() * xs.length)];
-    }
-    return sum / xs.length;
-}
-
-// Takes an ArrayLike rather than an array: the bootstrap sorts its resamples
-// in a Float64Array, and everything this reads is length and indexing.
-/** @type {(sorted: ArrayLike<number>, p: number) => number} */
-function quantile(sorted, p) {
-    const index = p * (sorted.length - 1);
-    const lo = Math.floor(index);
-    const hi = Math.ceil(index);
-    const fraction = index - lo;
-    return sorted[lo] * (1 - fraction) + sorted[hi] * fraction;
 }
 
 const args = process.argv.slice(2);

@@ -47,10 +47,9 @@ jobs:
 
       - name: Probe analysis tools
         run: |
-          node --check engine/tools/analyze-chain-lengths.js
-          node --check engine/tools/analyze-probes.js
-          node --check engine/tools/compare-fitness.js
-          node --check engine/tools/compare-probes.js
+          # The whole directory, so a tool added there does not also need a
+          # line here -- and neither does a module the tools share.
+          for tool in engine/tools/*.js; do node --check "$tool"; done
 
       - name: Bitboards, pieces and clearing
         run: node engine/js/tests/bitboard-test.js
