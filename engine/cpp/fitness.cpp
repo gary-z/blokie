@@ -105,7 +105,7 @@ GameResult playOneGame(uint64_t seed, const Options& opt) {
         0, Piece::NUM_PIECES - 1);
     EvalWeights weights = EvalWeights::getDefault();
     if (opt.custom_weights) {
-        weights.weights[12] = opt.crowded_scarcity_weight;
+        weights.crowded_piece_scarcity = opt.crowded_scarcity_weight;
     }
 
     GameState game(BitBoard::empty());
@@ -242,8 +242,9 @@ void usage(const char* argv0) {
         "  --probe-occupancy-table\n"
         "                    report probe risk and cost by occupied squares\n"
         "  --crowded-scarcity-weight W\n"
-        "                    use the generic evaluator with weights[12]=W;\n"
-        "                    pass 200 and 0 for a fair scarcity-term A/B test\n"
+        "                    use the generic evaluator with\n"
+        "                    crowded_piece_scarcity=W; pass 200 and 0 for a\n"
+        "                    fair scarcity-term A/B test\n"
         "\n"
         "stdout gets one line per chain with the fields used by the analysis tools.\n",
         argv0);
@@ -430,7 +431,7 @@ int main(int argc, char** argv) {
         }
     }
     if (opt.custom_weights) {
-        std::fprintf(stderr, ", generic evaluator weights[12]=%d",
+        std::fprintf(stderr, ", generic evaluator crowded_piece_scarcity=%d",
                      opt.crowded_scarcity_weight);
     }
     std::fprintf(stderr, ")...\n");

@@ -97,14 +97,17 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 				continue;
 			}
 			if (cube_row == 1 && cube_column == 1) {
-				result += static_cast<uint64_t>(weights.weights[6]);
-				result += static_cast<uint64_t>(count) * weights.weights[10];
+				result += static_cast<uint64_t>(weights.occupied_center_cube);
+				result += static_cast<uint64_t>(count) *
+					weights.occupied_center_square;
 			} else if (cube_row == 1 || cube_column == 1) {
-				result += static_cast<uint64_t>(weights.weights[0]);
-				result += static_cast<uint64_t>(count) * 2000;
+				result += static_cast<uint64_t>(weights.occupied_side_cube);
+				result += static_cast<uint64_t>(count) *
+					EvalWeights::OCCUPIED_SIDE_SQUARE;
 			} else {
-				result += static_cast<uint64_t>(weights.weights[7]);
-				result += static_cast<uint64_t>(count) * weights.weights[11];
+				result += static_cast<uint64_t>(weights.occupied_corner_cube);
+				result += static_cast<uint64_t>(count) *
+					weights.occupied_corner_square;
 			}
 		}
 	}
@@ -148,11 +151,13 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 			add_transition(right, column == 2 || column == 5);
 		}
 	}
-	result += static_cast<uint64_t>(squashed) * weights.weights[1];
-	result += static_cast<uint64_t>(squashed_at_edge) * weights.weights[9];
-	result += static_cast<uint64_t>(cornered) * weights.weights[2];
-	result += static_cast<uint64_t>(transitions) * weights.weights[3];
-	result += static_cast<uint64_t>(aligned_transitions) * weights.weights[8];
+	result += static_cast<uint64_t>(squashed) * weights.squashed_empty;
+	result += static_cast<uint64_t>(squashed_at_edge) *
+		weights.squashed_empty_at_edge;
+	result += static_cast<uint64_t>(cornered) * weights.cornered_empty;
+	result += static_cast<uint64_t>(transitions) * weights.transition;
+	result += static_cast<uint64_t>(aligned_transitions) *
+		weights.transition_aligned;
 
 	int unfillable_by_three_bar = 0;
 	for (int row = 0; row < 9; ++row) {
@@ -174,13 +179,13 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 			unfillable_by_three_bar += vertical ? 0 : 1;
 		}
 	}
-	result += static_cast<uint64_t>(unfillable_by_three_bar) * weights.weights[5];
+	result += static_cast<uint64_t>(unfillable_by_three_bar) * weights.three_bar;
 
 	int scarce_placements = 0;
 	for (const auto &shape : DEADLY_SHAPES) {
 		const int placements = countPlacements(board, shape);
 		if (placements == 0) {
-			result += static_cast<uint64_t>(weights.weights[4]);
+			result += static_cast<uint64_t>(weights.deadly_piece);
 		}
 		if (bit_board.count() > 20 && placements < 4) {
 			scarce_placements += 4 - placements;
@@ -188,7 +193,7 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 	}
 	const int crowded_blocks = std::max(0, bit_board.count() - 20);
 	result += static_cast<uint64_t>(scarce_placements) * crowded_blocks *
-		weights.weights[12];
+		weights.crowded_piece_scarcity;
 
 	if (crowded_blocks != 0) {
 		int placements = 0;
@@ -265,50 +270,66 @@ uint64_t referenceEval(BitBoard bit_board, const EvalWeights &weights) {
 				BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT / 100;
 			const int missing = std::max(0, cap - ways);
 			result += static_cast<uint64_t>(missing) * crowded_blocks *
-				weights.getClearOpportunity();
+				weights.clear_opportunity;
 		}
 	}
 	return result;
 }
 
+// Every weight set to a value only it has, so an evaluation that reaches for
+// the wrong one lands somewhere the reference will not follow.
 EvalWeights indexedWeights() {
 	EvalWeights weights;
-	for (int index = 0; index < EvalWeights::NUM_WEIGHTS; ++index) {
-		weights.weights[index] = 101 + index * 37;
+	int index = 0;
+	for (const auto &field : EvalWeights::FIELDS) {
+		weights.*field.value = 101 + index++ * 37;
 	}
 	return weights;
 }
 
-void testWeightMapping() {
-	const auto weights = indexedWeights();
-	test::require(weights.getOccupiedSideSquare() == 2000, "side square constant");
-	test::require(weights.getOccupiedSideCube() == weights.weights[0], "side cube");
-	test::require(weights.getSquashedEmpty() == weights.weights[1], "squashed");
-	test::require(weights.getCorneredEmpty() == weights.weights[2], "cornered");
-	test::require(weights.getTransition() == weights.weights[3], "transition");
-	test::require(weights.getDeadlyPiece() == weights.weights[4], "deadly");
-	test::require(weights.get3Bar() == weights.weights[5], "three bar");
-	test::require(weights.getOccupiedCenterCube() == weights.weights[6], "center cube");
-	test::require(weights.getOccupiedCornerCube() == weights.weights[7], "corner cube");
-	test::require(weights.getTransitionAligned() == weights.weights[8], "aligned");
-	test::require(weights.getSquashedEmptyAtEdge() == weights.weights[9], "edge squash");
-	test::require(weights.getOccupiedCenterSquare() == weights.weights[10], "center square");
-	test::require(weights.getOccupiedCornerSquare() == weights.weights[11], "corner square");
-	test::require(weights.getCrowdedPieceScarcity() == weights.weights[12], "crowding");
-	test::require(weights.getClearOpportunity() == weights.weights[13],
-		"clear opportunity");
+// The table is how the command-line tools reach a weight, so check that a name
+// resolves to the field it is written beside and that between them the rows
+// reach every field. The mix-ups it cannot catch -- a field with no row, two
+// rows sharing a name or a field -- fail to compile, in eval.h.
+void testWeightFields() {
+	test::require(EvalWeights::find("no_such_weight") == nullptr,
+		"a name no field has resolves to nothing");
+
+	const auto shipped = EvalWeights::getDefault();
+	EvalWeights rebuilt;
+	for (const auto &field : EvalWeights::FIELDS) {
+		const auto *found = EvalWeights::find(field.name);
+		test::require(found == &field,
+			std::string(field.name) + " resolves to its own row");
+		rebuilt.*found->value = shipped.*field.value;
+	}
+	test::require(rebuilt == shipped, "the rows reach every weight");
 }
 
 void testDefaultWeights() {
-	const std::array<int, EvalWeights::NUM_WEIGHTS> expected = {
-		1358, 524, 6540, 4450, 18185, 2665, 204,
-		908, 1776, 3386, 1607, 3067, 200, 335,
+	const EvalWeights expected = {
+		.occupied_side_cube = 1358,
+		.squashed_empty = 524,
+		.cornered_empty = 6540,
+		.transition = 4450,
+		.deadly_piece = 18185,
+		.three_bar = 2665,
+		.occupied_center_cube = 204,
+		.occupied_corner_cube = 908,
+		.transition_aligned = 1776,
+		.squashed_empty_at_edge = 3386,
+		.occupied_center_square = 1607,
+		.occupied_corner_square = 3067,
+		.crowded_piece_scarcity = 200,
+		.clear_opportunity = 335,
 	};
 	const auto actual = EvalWeights::getDefault();
-	for (int index = 0; index < EvalWeights::NUM_WEIGHTS; ++index) {
-		test::require(actual.weights[index] == expected[index],
-			"default weight " + std::to_string(index));
+	for (const auto &field : EvalWeights::FIELDS) {
+		test::require(actual.*field.value == expected.*field.value,
+			"default " + std::string(field.name));
 	}
+	test::require(EvalWeights::OCCUPIED_SIDE_SQUARE == 2000,
+		"the fixed occupied side square weight");
 }
 
 std::vector<BitBoard> evaluationBoards() {
@@ -335,9 +356,9 @@ void testScalarReference() {
 	std::vector<EvalWeights> weight_sets = {
 		EvalWeights(), EvalWeights::getDefault(), indexedWeights(),
 	};
-	for (int selected = 0; selected < EvalWeights::NUM_WEIGHTS; ++selected) {
+	for (const auto &field : EvalWeights::FIELDS) {
 		EvalWeights weights;
-		weights.weights[selected] = 1;
+		weights.*field.value = 1;
 		weight_sets.push_back(weights);
 	}
 
@@ -375,7 +396,7 @@ void testPlacementCounts() {
 
 void testCrowdingThreshold() {
 	EvalWeights with_crowding;
-	with_crowding.weights[12] = 1;
+	with_crowding.crowded_piece_scarcity = 1;
 	EvalWeights without_crowding;
 
 	// Find a deterministic 21-cell geometry that really does make at least one
@@ -447,7 +468,7 @@ void testVerticalSymmetry() {
 
 int main() {
 	return test::run({
-		{"evaluation weight mapping", testWeightMapping},
+		{"evaluation weight fields", testWeightFields},
 		{"default evaluation weights", testDefaultWeights},
 		{"scalar evaluation reference", testScalarReference},
 		{"placement counts", testPlacementCounts},

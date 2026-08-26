@@ -29,12 +29,12 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		static_cast<bool>(BitBoard::cube(0, 2) & bb) +
 		static_cast<bool>(BitBoard::cube(2, 0) & bb) +
 		static_cast<bool>(BitBoard::cube(2, 2) & bb);
-	result += static_cast<bool>(center_cube) * weights.getOccupiedCenterCube();
-	result += center_cube.count() * weights.getOccupiedCenterSquare();
-	result += occupied_side_cubes * weights.getOccupiedSideCube();
-	result += side_squares.count() * weights.getOccupiedSideSquare();
-	result += occupied_corner_cubes * weights.getOccupiedCornerCube();
-	result += corner_squares.count() * weights.getOccupiedCornerSquare();
+	result += static_cast<bool>(center_cube) * weights.occupied_center_cube;
+	result += center_cube.count() * weights.occupied_center_square;
+	result += occupied_side_cubes * weights.occupied_side_cube;
+	result += side_squares.count() * EvalWeights::OCCUPIED_SIDE_SQUARE;
+	result += occupied_corner_cubes * weights.occupied_corner_cube;
+	result += corner_squares.count() * weights.occupied_corner_square;
 	if (result >= max) {
 		return max;
 	}
@@ -48,8 +48,8 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const auto blocked_down = open - open.shiftUp();
 
 		// Each open run has two ends; count the upper and left ends and double.
-		const int transition_weight = weights.getTransition();
-		const int aligned_transition_weight = weights.getTransitionAligned();
+		const int transition_weight = weights.transition;
+		const int aligned_transition_weight = weights.transition_aligned;
 		const int base_transition_weight = std::min(transition_weight,
 			aligned_transition_weight);
 		const int all_transitions = 2 *
@@ -89,7 +89,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const auto blocked_down_right = blocked_down & blocked_right;
 		cornered_empty += (blocked_down_right -
 			(BitBoard::row(8) | BitBoard::column(8))).count();
-		result += cornered_empty * weights.getCorneredEmpty();
+		result += cornered_empty * weights.cornered_empty;
 		if (result >= max) [[likely]] {
 			return max;
 		}
@@ -103,8 +103,8 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const int squashed_empty_at_edge =
 			(horizontal_squashed & edges).count() +
 			(verticle_squashed & edges).count();
-		result += squashed_empty * weights.getSquashedEmpty() +
-			squashed_empty_at_edge * weights.getSquashedEmptyAtEdge();
+		result += squashed_empty * weights.squashed_empty +
+			squashed_empty_at_edge * weights.squashed_empty_at_edge;
 	}
 
 	if (result >= max) {
@@ -131,11 +131,11 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		auto fillable_by_horizontal_3_bar =
 		(open & open_left & open_right) | (open & open_left & open_2_left) |
 		(open & open_right & open_2_right);
-		result += (open &~ fillable_by_horizontal_3_bar).count() * weights.get3Bar();
+		result += (open &~ fillable_by_horizontal_3_bar).count() * weights.three_bar;
 
 		auto fillable_by_verticle_3_bar = (open & open_up & open_down) |
 		(open & open_up & open_2_up) | (open & open_down & open_2_down);
-		result += (open &~fillable_by_verticle_3_bar).count() * weights.get3Bar();
+		result += (open &~fillable_by_verticle_3_bar).count() * weights.three_bar;
 
 		if (result >= max) {
 			return max;
@@ -146,7 +146,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		const auto score_deadly_piece = [&](BitBoard deadly_piece_placement) {
 			const int placements = deadly_piece_placement.count();
 			if (placements == 0) {
-				result += weights.getDeadlyPiece();
+				result += weights.deadly_piece;
 			}
 			if (crowded_blocks != 0 && placements < 4) {
 				scarce_deadly_placements += 4 - placements;
@@ -185,7 +185,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 		// Scale scarce hard-piece placements by crowding.
 		if (scarce_deadly_placements != 0) {
 			result += (uint64_t)scarce_deadly_placements * crowded_blocks
-				* weights.getCrowdedPieceScarcity();
+				* weights.crowded_piece_scarcity;
 		}
 
 		// Penalize crowded boards with few pieces able to clear a line.
@@ -223,7 +223,7 @@ uint64_t GameState::simpleEvalImpl(EvalWeights weights, BitBoard bb, uint64_t ma
 					* BLOKIE_CLEAR_OPPORTUNITY_CAP_PERCENT / 100;
 				const int missing = std::max(0, cap - ways);
 				result += (uint64_t)missing * crowded_blocks
-					* weights.getClearOpportunity();
+					* weights.clear_opportunity;
 			}
 		}
 	}

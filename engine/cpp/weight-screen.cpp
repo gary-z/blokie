@@ -9,6 +9,7 @@
 #include <cstring>
 #include <random>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -46,33 +47,51 @@ double windowRisk(const EvalWeights &weights, BitBoard start, uint64_t stream_se
     return total / horizon;
 }
 
-std::vector<int> parseWeights(const char *text) {
-    std::vector<int> out;
-    const char *p = text;
-    while (*p) {
-        out.push_back((int)std::strtol(p, nullptr, 10));
-        while (*p && *p != ',') ++p;
-        if (*p == ',') ++p;
+// Weights arrive as NAME=VALUE over the ones already in hand, so a run names
+// only what it changes and a name it gets wrong is an error rather than a
+// different weight quietly taking the value.
+bool applyWeights(std::string_view text, EvalWeights &weights) {
+    while (!text.empty()) {
+        const auto comma = text.find(',');
+        const auto assignment = text.substr(0, comma);
+        text = comma == std::string_view::npos ? std::string_view()
+                                               : text.substr(comma + 1);
+        const auto equals = assignment.find('=');
+        if (equals == std::string_view::npos) {
+            std::fprintf(stderr, "weights are NAME=VALUE, not '%.*s'\n",
+                (int)assignment.size(), assignment.data());
+            return false;
+        }
+        const auto name = assignment.substr(0, equals);
+        const auto *field = EvalWeights::find(name);
+        if (field == nullptr) {
+            std::fprintf(stderr, "no weight is named '%.*s'; --help lists "
+                "the names\n", (int)name.size(), name.data());
+            return false;
+        }
+        const std::string digits(assignment.substr(equals + 1));
+        char *end = nullptr;
+        const long value = std::strtol(digits.c_str(), &end, 10);
+        if (digits.empty() || *end != 0 || value < 0 ||
+            value > EvalWeights::MAX_WEIGHT) {
+            std::fprintf(stderr, "%.*s takes a whole number from 0 to %d\n",
+                (int)name.size(), name.data(), EvalWeights::MAX_WEIGHT);
+            return false;
+        }
+        weights.*field->value = (int)value;
     }
-    return out;
-}
-
-EvalWeights fromVector(const std::vector<int> &v) {
-    EvalWeights w;
-    for (int i = 0; i < EvalWeights::NUM_WEIGHTS && i < (int)v.size(); ++i) {
-        w.weights[i] = v[i];
-    }
-    return w;
+    return true;
 }
 
 }  // namespace
 
 void printUsage(const char *program) {
     std::printf(
-        "usage: %s --candidate W0,..,W13 [options]\n\n"
-        "  --base W0,..,W13   the vector to measure against (default: the\n"
-        "                     shipped weights)\n"
-        "  --candidate ...    the vector to measure\n"
+        "usage: %s --candidate NAME=VALUE[,NAME=VALUE..] [options]\n\n"
+        "  --base ...         changes to the shipped weights to measure\n"
+        "                     against (default: the shipped weights)\n"
+        "  --candidate ...    changes to the base weights, which is what\n"
+        "                     gets measured; either may be repeated\n"
         "  --label TEXT       what to call it in the output line\n"
         "  --boards N         starting boards, spread over one game per thread\n"
         "  --streams N        piece streams per board; both sides share them\n"
@@ -83,7 +102,13 @@ void printUsage(const char *program) {
         "  --seed S           seeds boards, streams and probes\n"
         "  --threads N        worker threads\n\n"
         "A positive delta means the candidate is riskier, which is worse. The\n"
-        "standard error is clustered on the starting board.\n", program);
+        "standard error is clustered on the starting board.\n\n"
+        "The weights, and what this build ships them as:\n", program);
+    const auto shipped = EvalWeights::getDefault();
+    for (const auto &field : EvalWeights::FIELDS) {
+        std::printf("  %-24.*s %d\n", (int)field.name.size(), field.name.data(),
+            shipped.*field.value);
+    }
 }
 
 int main(int argc, char **argv) {
@@ -96,13 +121,13 @@ int main(int argc, char **argv) {
     int stride = 8;
     uint64_t seed = 777;
     unsigned threads = std::thread::hardware_concurrency();
-    std::vector<int> base_v, cand_v;
+    std::vector<std::string> base_args, candidate_args;
     std::string label = "candidate";
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
-        if (a == "--base" && i + 1 < argc) base_v = parseWeights(argv[++i]);
-        else if (a == "--candidate" && i + 1 < argc) cand_v = parseWeights(argv[++i]);
+        if (a == "--base" && i + 1 < argc) base_args.push_back(argv[++i]);
+        else if (a == "--candidate" && i + 1 < argc) candidate_args.push_back(argv[++i]);
         else if (a == "--label" && i + 1 < argc) label = argv[++i];
         else if (a == "--boards" && i + 1 < argc) boards_wanted = std::atoi(argv[++i]);
         else if (a == "--streams" && i + 1 < argc) streams = std::atoi(argv[++i]);
@@ -115,13 +140,16 @@ int main(int argc, char **argv) {
         else if (a == "--help" || a == "-h") { printUsage(argv[0]); return 0; }
         else { std::fprintf(stderr, "unknown option: %s\n", a.c_str()); return 2; }
     }
-    if (base_v.empty()) {
-        const auto d = EvalWeights::getDefault();
-        base_v.assign(d.weights, d.weights + EvalWeights::NUM_WEIGHTS);
+    EvalWeights base = EvalWeights::getDefault();
+    for (const auto &text : base_args) {
+        if (!applyWeights(text, base)) return 2;
     }
-    if (cand_v.empty()) cand_v = base_v;
-    const EvalWeights base = fromVector(base_v);
-    const EvalWeights cand = fromVector(cand_v);
+    // The candidate starts from the base, so it names the one change being
+    // screened even when the base is not the shipped set.
+    EvalWeights cand = base;
+    for (const auto &text : candidate_args) {
+        if (!applyWeights(text, cand)) return 2;
+    }
 
     // Collect reachable starting boards from independent baseline games.
     std::vector<BitBoard> boards;
