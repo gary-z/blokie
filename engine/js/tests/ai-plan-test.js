@@ -2,11 +2,11 @@
 
 // Assist fallback planning tests.
 
-import { blokie, bits, init } from '../../engine/js/blokie.js';
+import { blokie, bits, init } from '../blokie.js';
 
-/** @typedef {import('../../engine/js/blokie.js').Hand} Hand */
-/** @typedef {import('../../engine/js/blokie.js').Game} Game */
-/** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
+/** @typedef {import('../blokie.js').Hand} Hand */
+/** @typedef {import('../blokie.js').Game} Game */
+/** @typedef {import('../blokie.js').BitBoard} BitBoard */
 
 await init();
 

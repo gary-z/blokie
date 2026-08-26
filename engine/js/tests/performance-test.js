@@ -1,6 +1,6 @@
 "use strict";
 
-import { init } from '../../engine/js/blokie.js';
+import { init } from '../blokie.js';
 import { performanceSample } from './harness.js';
 import { performance } from 'perf_hooks';
 

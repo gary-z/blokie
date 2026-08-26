@@ -1,6 +1,6 @@
 "use strict";
 
-import { init } from '../../engine/js/blokie.js';
+import { init } from '../blokie.js';
 import { fitnessSample } from './harness.js';
 
 await init();

@@ -53,13 +53,13 @@ jobs:
           node --check engine/tools/compare-probes.js
 
       - name: Bitboards, pieces and clearing
-        run: node test/engine/bitboard-test.js
+        run: node engine/js/tests/bitboard-test.js
 
       - name: Placement rules
-        run: node test/engine/placement-test.js
+        run: node engine/js/tests/placement-test.js
 
       - name: Move planning
-        run: node test/engine/ai-plan-test.js
+        run: node engine/js/tests/ai-plan-test.js
 
       - name: Move search against a brute force
-        run: node test/engine/enumeration-test.js
+        run: node engine/js/tests/enumeration-test.js

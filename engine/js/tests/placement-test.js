@@ -2,12 +2,12 @@
 
 // Drag-placement unit and fuzz tests.
 
-import { blokie, bits } from '../../engine/js/blokie.js';
+import { blokie, bits } from '../blokie.js';
 
-/** @typedef {import('../../engine/js/blokie.js').Game} Game */
-/** @typedef {import('../../engine/js/blokie.js').Piece} Piece */
-/** @typedef {import('../../engine/js/blokie.js').Placement} Placement */
-/** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
+/** @typedef {import('../blokie.js').Game} Game */
+/** @typedef {import('../blokie.js').Piece} Piece */
+/** @typedef {import('../blokie.js').Placement} Placement */
+/** @typedef {import('../blokie.js').BitBoard} BitBoard */
 
 /**
  * A square of the board, as the drag reading talks about it: where the top

@@ -1,6 +1,6 @@
 "use strict";
 
-import { blokie } from '../../engine/js/blokie.js';
+import { blokie } from '../blokie.js';
 
 // JavaScript fitness and performance harnesses.
 

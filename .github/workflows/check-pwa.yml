@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Check the precache list, the manifest, and the page agree
-        run: node test/web/pwa-test.js
+        run: node web/tests/pwa-test.js
 
       - name: Check the saved-game cookie round trips
-        run: node test/web/storage-test.js
+        run: node web/tests/storage-test.js

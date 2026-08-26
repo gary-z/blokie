@@ -35,7 +35,7 @@ const SHELL = './';
 // Everything needed to play a full game with nothing behind it. The sounds are
 // in here even though they are only fetched once sound is turned on: they are
 // 68KB the once, against a player who turns sound on offline getting silence.
-// test/web/pwa-test.js checks this list against what is on disk and against
+// web/tests/pwa-test.js checks this list against what is on disk and against
 // what the workflow stages, since a single 404 fails the install as a whole
 // and takes offline down with it.
 const PRECACHE = [

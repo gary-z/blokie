@@ -5,11 +5,11 @@
 // so it is worth checking here.
 
 import { blokie, bits } from '../../engine/js/blokie.js';
-import { encodeGameState, decodeGameState } from '../../web/storage.js';
+import { encodeGameState, decodeGameState } from '../storage.js';
 
 /** @typedef {import('../../engine/js/blokie.js').Hand} Hand */
 /** @typedef {import('../../engine/js/blokie.js').BitBoard} BitBoard */
-/** @typedef {import('../../web/storage.js').GameState} GameState */
+/** @typedef {import('../storage.js').GameState} GameState */
 
 let failures = 0;
 /** @type {(condition: boolean, description: string) => void} */
