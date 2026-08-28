@@ -68,7 +68,9 @@ function getNewGameState() {
  * @property {BitBoard | null} clear_preview Squares a valid manual placement
  *   would clear.
  * @property {number} piece_in_hand_index Hand slot whose piece is out of
- *   hand: being dragged, or flying to the board (-1 = none).
+ *   hand: being dragged, or flying to the board (-1 = none). Written by
+ *   whoever lifted the piece, and put back by the same: a press that has not
+ *   become a drag has lifted nothing and does not touch it.
  */
 
 // In `state` rather than beside it so JSON.stringify change detection triggers
@@ -311,8 +313,17 @@ function beginDrag(target, clientX, clientY, touch_id) {
     // reaching for the hand, or a mouse whose release the page never heard.
     // Put that piece back before picking this one up. Nothing holds it once
     // drag_info is replaced, so what is left of it is a picture of a piece
-    // hanging over the page that no later move can clear away.
-    cancelDrag();
+    // hanging over the page that no later move can clear away. The game is not
+    // handed back to the assist on the way, since this press is taking it.
+    returnHeldPiece();
+
+    // The piece is this pointer's from the press, not from the moment the
+    // press travels far enough to be a drag. Waiting for the threshold leaves
+    // the assist playing over a hand somebody is already reaching into: it can
+    // play this very piece, and deal a new hand behind it, and what comes up a
+    // few pixels later is a picture of a piece that is already on the board.
+    // A press that never becomes a drag hands the game straight back.
+    stopAI();
 
     drag_info = {
         pieceIndex,
@@ -507,11 +518,10 @@ function handleDragMove(clientX, clientY) {
         const dy = clientY - drag_info.startY;
         if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
 
-        // Activate drag and pause AI. Stopping the assist first, since it puts
-        // down whatever piece it had in the air, and this one is taking its
-        // place.
+        // The assist was stopped by the press that started this, and cannot
+        // have started again while the piece was being held, so there is
+        // nothing here to stop: the piece just comes up.
         drag_info.active = true;
-        stopAI();
         drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
         state.piece_in_hand_index = drag_info.pieceIndex;
         // Here rather than on mousedown: a tap that never crosses the
@@ -538,12 +548,13 @@ function handleDragEnd(clientX, clientY) {
     if (!drag_info) return;
 
     if (drag_info.active) {
-        // If the assist modified the piece set while the drag was starting
-        // (between mousedown and the drag threshold), the piece we captured
-        // may no longer be in its original slot. Cancel the drag in that case.
+        // The piece has been this drag's since the press that reached for it,
+        // so nothing should have been able to take it out of the hand in
+        // between. Checked all the same, and refused the same way everything
+        // else is: playing from a slot that has moved on would put down a
+        // piece the player never picked up.
         if (state.game_state.piece_set[drag_info.pieceIndex] !== drag_info.piece) {
-            cleanupDrag();
-            onGameStateChanged();
+            cancelDrag();
             return;
         }
 
@@ -568,18 +579,32 @@ function handleDragEnd(clientX, clientY) {
 
 // Every lift that doesn't become a move ends here, whether the piece was
 // refused by the board, taken back to the hand, or taken out of it by the
-// browser. The pickup has already sounded by this point, so anything else
-// leaves it hanging, and the player took control long enough to stop the
-// assist, so it waits out the same full pacing interval a completed move gets.
-// A press that never crossed the threshold did neither and is simply dropped.
+// browser.
+//
+// The game goes back to the assist either way, since the press stopped it
+// either way. A press that had lifted the piece held the game long enough that
+// taking over the instant it lands would read as the move being snatched away,
+// so the assist waits out a full pacing interval; a press that never became a
+// drag was deliberately nothing, and the assist picks straight back up.
 function cancelDrag() {
     if (drag_info === null) return;
+    const was_active = returnHeldPiece();
+    onGameStateChanged({ after_manual_move: was_active });
+}
+
+// Puts back whatever is in the air, and says whether it had actually been
+// lifted -- which is what makes it a refusal worth sounding rather than a press
+// that never became anything. The pickup has already sounded by then, so
+// anything else leaves it hanging.
+//
+// The game is not handed on here: this is for the callers that are taking it
+// themselves, and cancelDrag above is the one that passes it back.
+function returnHeldPiece() {
+    if (drag_info === null) return false;
     const was_active = drag_info.active;
     cleanupDrag();
-    if (was_active) {
-        playSfx('reject');
-        onGameStateChanged({ after_manual_move: true });
-    }
+    if (was_active) playSfx('reject');
+    return was_active;
 }
 
 function cleanupDrag() {
@@ -587,10 +612,16 @@ function cleanupDrag() {
         drag_floating_el.remove();
         drag_floating_el = null;
     }
+    // Only a drag that went active ever took a piece out of the hand, so only
+    // that one puts it back. A press that never became a drag would otherwise
+    // drop the assist's flying piece into the hand it is still on its way out
+    // of, and the hand would show it in two places at once.
+    if (drag_info !== null && drag_info.active) {
+        state.piece_in_hand_index = -1;
+    }
     drag_info = null;
     state.drag_shadow = null;
     state.clear_preview = null;
-    state.piece_in_hand_index = -1;
 }
 
 // === End drag and drop ===
@@ -600,6 +631,13 @@ async function onNewGame() {
     // Whichever of the two started it, the menu has no more business open: the
     // board behind it is the thing to look at now.
     closeSettingsMenu();
+    // A piece still in the air was lifted out of the hand being thrown away.
+    // Put it back before the game under it is replaced, or it hangs over a
+    // board it was never lifted from and blanks a slot of the new hand.
+    // Reachable while a piece is held: a second finger finds the menu, and so
+    // does the keyboard, since the press that took the piece was swallowed and
+    // left the focus where it was.
+    returnHeldPiece();
     state.game_state = getNewGameState();
     pending_new_hand = true;
     onGameStateChanged();
@@ -785,7 +823,12 @@ function stopAI() {
     assist_hand_is_new = false;
     assist_is_starting = false;
     cleanupFlyAnim();
-    if (drag_info === null) {
+    // The index names the slot whose piece is out of the hand, and while a drag
+    // is carrying one that is the drag's to say. A press that has not become a
+    // drag has taken nothing out, so the piece the index is still talking about
+    // is the assist's -- the one this call has just taken out of the air, and
+    // which has to go back in the hand rather than leaving a hole in it.
+    if (drag_info === null || !drag_info.active) {
         state.piece_in_hand_index = -1;
     }
 }
@@ -801,7 +844,13 @@ function onGameStateChanged({ after_manual_move = false } = {}) {
     stopAI();
     refreshGameOver(state.game_state);
 
-    if (!assistIsOn() || state.game_state.game_over) {
+    // A piece in someone's hand is a move already being made, and the assist
+    // waits for it. Anything that reaches this while a piece is held would
+    // otherwise hand the game to an assist that cannot see the piece is spoken
+    // for -- switching the speed mid-drag, which a second finger or the
+    // keyboard can do, has it play that very piece out from under the pointer,
+    // all three at once at Max. Putting the piece down comes back through here.
+    if (drag_info !== null || !assistIsOn() || state.game_state.game_over) {
         return;
     }
 
