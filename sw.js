@@ -118,8 +118,8 @@ worker.addEventListener('fetch', (event) => {
     const request = event.request;
     if (request.method !== 'GET') return;
 
-    // Analytics and anything else off-site is left to the browser, which knows
-    // to let it fail quietly when there is no network.
+    // Anything off-site is left to the browser, which knows to let it fail
+    // quietly when there is no network.
     if (new URL(request.url).origin !== worker.location.origin) return;
 
     // Every address in scope is the same single page, so a navigation is
