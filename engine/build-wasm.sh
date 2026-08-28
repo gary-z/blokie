@@ -16,7 +16,12 @@ fi
 if ! command -v emcmake &> /dev/null; then
     echo "Emscripten not found, installing via emsdk (version $EMSDK_VERSION)..."
     EMSDK_DIR="/tmp/emsdk"
-    git clone https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
+    # emsdk tags a release for each compiler version it can install, so asking
+    # for the tag named by .emscripten-version pins the installer to the same
+    # commit that the version was cut from. Cloning the default branch instead
+    # would pin the compiler but not the thing that fetches it.
+    git clone --depth 1 --branch "$EMSDK_VERSION" \
+        https://github.com/emscripten-core/emsdk.git "$EMSDK_DIR"
     "$EMSDK_DIR/emsdk" install "$EMSDK_VERSION"
     "$EMSDK_DIR/emsdk" activate "$EMSDK_VERSION"
     source "$EMSDK_DIR/emsdk_env.sh"

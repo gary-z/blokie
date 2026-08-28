@@ -106,6 +106,12 @@ if(EMSCRIPTEN)
 		"SHELL:-s ENVIRONMENT='web,worker,node'"
 		"SHELL:-s ALLOW_MEMORY_GROWTH=1"
 		"SHELL:-s NO_EXIT_RUNTIME=1"
+		# The whole of what the loader accepts from its caller, which is the
+		# whole of what blokie.js's init() passes on and what
+		# blokie-solver.d.ts declares. Naming it is not only a smaller
+		# loader: wasmBinary left Emscripten's default list in 6.x, so a
+		# build that leaves the list alone quietly stops honouring it.
+		"SHELL:-s INCOMING_MODULE_JS_API=locateFile,wasmBinary"
 	)
 else()
 	# Native tools and tests.
