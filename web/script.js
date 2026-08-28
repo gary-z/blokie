@@ -93,6 +93,10 @@ let state = {
  * @property {number} startX
  * @property {number} startY
  * @property {boolean} active
+ * @property {number | null} touch_id Which finger is holding the piece, as its
+ *   touch identifier, or null when a mouse is. A touch event carries every
+ *   finger on the screen and a phone may have a pointer attached as well, so
+ *   the one holding the piece is named rather than assumed to be the only one.
  */
 
 // Drag state kept outside `state`: it holds DOM refs, which do not serialize.
@@ -136,31 +140,50 @@ document.addEventListener("DOMContentLoaded", function (event) {
     initSfx(element('sound'));
     registerServiceWorker();
 
+    // A drag is followed by whatever picked the piece up, and ignores the
+    // other kind of pointer entirely.
     document.addEventListener('mouseup', (event) => {
-        handleDragEnd(event.clientX, event.clientY);
+        if (draggingWithMouse()) {
+            handleDragEnd(event.clientX, event.clientY);
+        }
     });
+    document.addEventListener('mousemove', (event) => {
+        if (!draggingWithMouse()) return;
+        // A button let go of outside the window never comes back as a mouseup,
+        // so a move with nothing held down is where that release is noticed.
+        // Left for the next click to find, the piece would trail the cursor
+        // around the page and then land somewhere nobody dropped it.
+        if (event.buttons === 0) {
+            cancelDrag();
+            return;
+        }
+        handleDragMove(event.clientX, event.clientY);
+    });
+
     document.addEventListener('touchend', (event) => {
-        if (drag_info) {
-            const touch = event.changedTouches[0];
+        const touch = dragTouch(event.changedTouches);
+        if (touch !== null) {
             handleDragEnd(touch.clientX, touch.clientY);
         }
     });
-
-    // Document-level mouse/touch move for drag tracking
-    document.addEventListener('mousemove', (event) => {
-        if (drag_info) {
-            handleDragMove(event.clientX, event.clientY);
-        }
-    });
     document.addEventListener('touchmove', (event) => {
-        if (drag_info) {
-            const touch = event.touches[0];
-            handleDragMove(touch.clientX, touch.clientY);
-            if (drag_info.active) {
-                event.preventDefault();
-            }
+        if (drag_info === null) return;
+        const touch = dragTouch(event.touches);
+        if (touch === null) return;
+        handleDragMove(touch.clientX, touch.clientY);
+        if (drag_info.active) {
+            event.preventDefault();
         }
     }, { passive: false });
+    // A gesture the browser takes over -- a scroll it decides was meant, a
+    // swipe in from the edge of the screen, a call arriving -- ends in a
+    // touchcancel with no touchend behind it. Without this the piece is left
+    // hanging in the air, and stays there for the rest of the game.
+    document.addEventListener('touchcancel', (event) => {
+        if (dragTouch(event.changedTouches) !== null) {
+            cancelDrag();
+        }
+    });
 
     // The board itself is not interactive: pieces only land on it by drag.
     element('new-game').addEventListener('click', onNewGame);
@@ -168,28 +191,28 @@ document.addEventListener("DOMContentLoaded", function (event) {
 
     const pieces_in_hand_container = element('pieces-in-hand-container');
     // A finger and a mouse start a drag the same way; all they disagree about
-    // is where to read the coordinates from. The press is swallowed only when
+    // is where to read the coordinates from, and which of the two ends up
+    // holding the piece. The press is swallowed only when
     // one actually started, so a press on anything else in the container --
     // the gap between pieces, an empty slot -- still behaves normally.
     pieces_in_hand_container.addEventListener('touchstart', (event) => {
-        const touch = event.touches[0];
-        if (beginDrag(event.target, touch.clientX, touch.clientY)) {
+        // The finger that just landed, rather than the first one on the
+        // screen: with a piece already being dragged those are not the same,
+        // and this press belongs to the new one.
+        const touch = event.changedTouches[0];
+        if (beginDrag(event.target, touch.clientX, touch.clientY, touch.identifier)) {
             event.preventDefault();
         }
     });
     pieces_in_hand_container.addEventListener('mousedown', (event) => {
-        if (beginDrag(event.target, event.clientX, event.clientY)) {
+        if (beginDrag(event.target, event.clientX, event.clientY, null)) {
             event.preventDefault();
         }
     });
 
-    // If a native drag somehow starts, cancel it and clean up our drag state
-    document.addEventListener('dragend', () => {
-        if (drag_info) {
-            cleanupDrag();
-            onGameStateChanged();
-        }
-    });
+    // A native drag starting means the browser has taken the piece out of our
+    // hands, and nothing is going to tell us where it was let go of.
+    document.addEventListener('dragend', cancelDrag);
 
     // A hidden tab stops rendering, and with it saving, while the assist keeps
     // playing. Put the game where it actually stands before the page can go.
@@ -269,8 +292,11 @@ function initSettings() {
 //
 // Returns whether a piece was picked up, which is what says whether the press
 // was ours to swallow.
-/** @type {(target: EventTarget | null, clientX: number, clientY: number) => boolean} */
-function beginDrag(target, clientX, clientY) {
+/**
+ * @type {(target: EventTarget | null, clientX: number, clientY: number,
+ *         touch_id: number | null) => boolean}
+ */
+function beginDrag(target, clientX, clientY, touch_id) {
     if (!gameIsActive()) return false;
     const cell = /** @type {HTMLElement} */ (target);
     if (cell.nodeName !== 'TD') return false;
@@ -281,6 +307,13 @@ function beginDrag(target, clientX, clientY) {
     const piece = state.game_state.piece_set[pieceIndex];
     if (bits.isEmpty(piece)) return false;
 
+    // A press can arrive with a piece already in the air: a second finger
+    // reaching for the hand, or a mouse whose release the page never heard.
+    // Put that piece back before picking this one up. Nothing holds it once
+    // drag_info is replaced, so what is left of it is a picture of a piece
+    // hanging over the page that no later move can clear away.
+    cancelDrag();
+
     drag_info = {
         pieceIndex,
         piece,
@@ -288,8 +321,26 @@ function beginDrag(target, clientX, clientY) {
         startX: clientX,
         startY: clientY,
         active: false,
+        touch_id,
     };
     return true;
+}
+
+// Whether the piece in the air is being held by a mouse rather than a finger.
+function draggingWithMouse() {
+    return drag_info !== null && drag_info.touch_id === null;
+}
+
+// The finger holding the piece, if it is one of these. Every touch event
+// carries a whole hand of them, and the ones that are not this drag say
+// nothing about where the piece has got to.
+/** @type {(touches: TouchList) => Touch | null} */
+function dragTouch(touches) {
+    if (drag_info === null || drag_info.touch_id === null) return null;
+    for (let i = 0; i < touches.length; ++i) {
+        if (touches[i].identifier === drag_info.touch_id) return touches[i];
+    }
+    return null;
 }
 
 // The piece drawn at board scale rather than hand scale, since the board is
@@ -510,18 +561,24 @@ function handleDragEnd(clientX, clientY) {
                 return;
             }
         }
-        // Every lift that doesn't become a move ends the same way, whether the
-        // piece was refused by the board or taken back to the hand. The pickup
-        // has already sounded by this point, so anything else leaves it hanging.
+    }
+    // Refused by the board, or a tap that was never a drag at all.
+    cancelDrag();
+}
+
+// Every lift that doesn't become a move ends here, whether the piece was
+// refused by the board, taken back to the hand, or taken out of it by the
+// browser. The pickup has already sounded by this point, so anything else
+// leaves it hanging, and the player took control long enough to stop the
+// assist, so it waits out the same full pacing interval a completed move gets.
+// A press that never crossed the threshold did neither and is simply dropped.
+function cancelDrag() {
+    if (drag_info === null) return;
+    const was_active = drag_info.active;
+    cleanupDrag();
+    if (was_active) {
         playSfx('reject');
-        cleanupDrag();
-        // The player still took control long enough to stop the assist. Give
-        // them the same full pacing interval when they return the piece to
-        // the hand (or reject a drop) as when they complete a move.
         onGameStateChanged({ after_manual_move: true });
-    } else {
-        // Drag never activated - a tap on a piece does nothing.
-        cleanupDrag();
     }
 }
 
