@@ -23,7 +23,7 @@ jobs:
         compiler: [g++, clang++]
     name: Native (${{ matrix.compiler }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Configure native engine tests
         env:
@@ -39,9 +39,9 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 22
 

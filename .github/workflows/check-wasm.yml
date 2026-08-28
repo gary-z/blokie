@@ -9,14 +9,17 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Read Emscripten version
         id: emsdk
         run: echo "version=$(cat engine/.emscripten-version | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
+      # Same action as the mymindstorm/setup-emsdk this used to name: the
+      # repository moved to emscripten-core, and the releases that run on a
+      # Node the runners still start are only published from there.
       - name: Setup Emscripten
-        uses: mymindstorm/setup-emsdk@v14
+        uses: emscripten-core/setup-emsdk@v16
         with:
           version: ${{ steps.emsdk.outputs.version }}
 
