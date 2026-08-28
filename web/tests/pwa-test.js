@@ -196,4 +196,15 @@ if (ios_name !== null && manifest !== null) {
 check(/registerServiceWorker\(\)/.test(read('web/script.js')),
     'the page registers the worker');
 
+// Skipping the wait and reloading on the handover are one mechanism written
+// across two files. A worker that takes charge without the page reloading
+// leaves the script.js already running driving the engine it was not built
+// against -- and since the assist is rebuilt from ai-worker.js on every move,
+// that is a plan made by one version and resolved by another. Either half on
+// its own is worse than neither, so neither is allowed to go missing quietly.
+check(/worker\.skipWaiting\(\)/.test(sw_source),
+    'the worker takes charge without waiting for every tab to be closed');
+check(/'controllerchange'/.test(read('web/pwa.js')),
+    'and the page reloads when one does, so both halves are the same version');
+
 finish('PWA');

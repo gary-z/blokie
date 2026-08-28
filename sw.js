@@ -67,6 +67,11 @@ worker.addEventListener('install', (event) => {
         // and a worker that filled a new cache from stale copies would install
         // the version it was meant to replace.
         await cache.addAll(PRECACHE.map(path => new Request(path, { cache: 'reload' })));
+        // Take charge as soon as the new files are all in hand, instead of
+        // waiting for every tab to be closed. Last, and inside the waitUntil,
+        // so a failed addAll leaves the old worker serving a cache that is
+        // whole rather than promoting one that is missing a file.
+        await worker.skipWaiting();
     })());
 });
 
@@ -83,10 +88,18 @@ worker.addEventListener('activate', (event) => {
     })());
 });
 
-// Nothing calls skipWaiting: a new worker waits for the old app to be closed
-// rather than swapping the files under a game in progress. The cost is a
-// player kept on the previous version until they close the tab, and closing it
-// is how anyone leaves a game anyway.
+// skipWaiting is only half of it. Taking charge of a page that is already
+// running leaves the script.js loaded from the old version driving whatever
+// the new one serves, and the assist is rebuilt from ai-worker.js on every
+// move -- so the next move would be planned by one version of the engine and
+// resolved by another. web/pwa.js reloads the page to close that gap, and the
+// two belong together: skipping the wait without the reload is the one
+// arrangement that can hand a game a plan it cannot read.
+//
+// What makes a reload cheap enough to do under a game in progress is that the
+// board is in a cookie, so the game comes back on the other side of it. A save
+// the new version no longer reads is the one thing that does not survive,
+// which is what SAVE_VERSION in web/storage.js is there to catch.
 
 // `key` is what the cache is looked up under, which is not always the request
 // itself: a navigation to any address inside the scope is answered with the
