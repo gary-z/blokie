@@ -68,9 +68,11 @@ function getNewGameState() {
  * @property {BitBoard | null} clear_preview Squares a valid manual placement
  *   would clear.
  * @property {number} piece_in_hand_index Hand slot whose piece is out of
- *   hand: being dragged, or flying to the board (-1 = none). Written by
- *   whoever lifted the piece, and put back by the same: a press that has not
- *   become a drag has lifted nothing and does not touch it.
+ *   hand: being dragged, or flying to the board (-1 = none). The serializable
+ *   half of `piece_in_air` below, which holds the element that goes with it --
+ *   written where the piece is lifted and where it is put back, and nowhere
+ *   else, so a render cannot be told a slot is empty by one of them while the
+ *   other still has the piece on the page.
  */
 
 // In `state` rather than beside it so JSON.stringify change detection triggers
@@ -85,27 +87,43 @@ let state = {
 };
 
 /**
- * A drag in progress. `active` is false until the pointer has moved far enough
- * to count as a drag rather than a tap, which is what the threshold below is
- * measured against.
+ * A pointer's claim on a piece, from the press that reached for it until it is
+ * let go of. Nothing has come off the hand yet: the press becomes a lift only
+ * once it has travelled far enough to be a drag rather than a tap, which is
+ * what the threshold below is measured against. Whether it has is asked of the
+ * piece in the air rather than remembered here, so there is one answer to it.
  * @typedef {object} DragInfo
  * @property {number} pieceIndex
  * @property {Piece} piece
- * @property {PieceBounds} bounds
  * @property {number} startX
  * @property {number} startY
- * @property {boolean} active
  * @property {number | null} touch_id Which finger is holding the piece, as its
  *   touch identifier, or null when a mouse is. A touch event carries every
  *   finger on the screen and a phone may have a pointer attached as well, so
  *   the one holding the piece is named rather than assumed to be the only one.
  */
 
-// Drag state kept outside `state`: it holds DOM refs, which do not serialize.
+/**
+ * The piece that is out of the hand and not yet on the board. There is only
+ * ever one: a pointer reaching for a piece stops the assist, and the assist's
+ * piece is put back by the press that reaches past it. So a lift is one thing
+ * whoever makes it -- the same picture over the page, the same blank left in
+ * the hand -- and `holder` is what says whose it is to move and to put back.
+ * @typedef {object} PieceInAir
+ * @property {'pointer' | 'assist'} holder
+ * @property {number} index Hand slot it came out of.
+ * @property {Piece} piece
+ * @property {PieceBounds} bounds
+ * @property {HTMLElement} el The picture of it over the page.
+ */
+
+// Both kept outside `state`: they hold DOM refs, which do not serialize.
+// state.piece_in_hand_index is the part of the one below a render can read,
+// and is written only where the piece is lifted and put back.
 /** @type {DragInfo | null} */
 let drag_info = null;
-/** @type {HTMLElement | null} */
-let drag_floating_el = null;
+/** @type {PieceInAir | null} */
+let piece_in_air = null;
 
 // Rendering is scheduled before the saved game is read back, so nothing is
 // written until it has been: a frame drawn in between would otherwise save the
@@ -173,7 +191,7 @@ document.addEventListener("DOMContentLoaded", function (event) {
         const touch = dragTouch(event.touches);
         if (touch === null) return;
         handleDragMove(touch.clientX, touch.clientY);
-        if (drag_info.active) {
+        if (isHeldBy('pointer')) {
             event.preventDefault();
         }
     }, { passive: false });
@@ -328,10 +346,8 @@ function beginDrag(target, clientX, clientY, touch_id) {
     drag_info = {
         pieceIndex,
         piece,
-        bounds: bits.bounds(piece),
         startX: clientX,
         startY: clientY,
-        active: false,
         touch_id,
     };
     return true;
@@ -390,6 +406,52 @@ function createFloatingPiece(piece, bounds) {
     el.appendChild(table);
     document.body.appendChild(el);
     return el;
+}
+
+// A piece comes off the hand: the slot it came from goes blank, and a picture
+// of it appears over the page at board scale for whoever lifted it to move.
+// The pickup sounds here rather than at either caller, since this is the moment
+// the piece leaves the hand for both of them.
+/** @type {(holder: 'pointer' | 'assist', index: number, piece: Piece) => void} */
+function liftPiece(holder, index, piece) {
+    dropPiece();  // never two in the air, whatever was holding the last one
+    const bounds = bits.bounds(piece);
+    piece_in_air = {
+        holder: holder,
+        index: index,
+        piece: piece,
+        bounds: bounds,
+        el: createFloatingPiece(piece, bounds),
+    };
+    state.piece_in_hand_index = index;
+    playSfx('pickup');
+}
+
+// And goes back. Every end of a lift comes through here -- placed, refused, or
+// a flight cut short -- so the picture on the page and the blank in the hand
+// are never left disagreeing about whether a piece is in the air at all.
+function dropPiece() {
+    if (piece_in_air === null) return;
+    piece_in_air.el.remove();
+    piece_in_air = null;
+    state.piece_in_hand_index = -1;
+}
+
+// Whether the piece in the air is this one's to move and to put back. Asked
+// of the piece itself, rather than worked out from what the other one happens
+// to have going on: one of them taking a piece off the page that the other is
+// carrying is the whole of what goes wrong when two things reach for one
+// piece, and every way into it started with a guess about the other's state.
+/** @type {(holder: 'pointer' | 'assist') => boolean} */
+function isHeldBy(holder) {
+    return piece_in_air !== null && piece_in_air.holder === holder;
+}
+
+// Whether a pointer is on a piece at all -- pressing it, or carrying it. A
+// piece somebody is reaching for is a move already being made, and the assist
+// waits for it rather than playing over the top.
+function pointerHasAPiece() {
+    return drag_info !== null;
 }
 
 // The board on screen, and the size of one of its squares. Read fresh every
@@ -513,41 +575,42 @@ function calcClearPreview(piece, placement) {
 function handleDragMove(clientX, clientY) {
     if (!drag_info) return;
 
-    if (!drag_info.active) {
+    if (!isHeldBy('pointer')) {
         const dx = clientX - drag_info.startX;
         const dy = clientY - drag_info.startY;
         if (dx * dx + dy * dy < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
 
         // The assist was stopped by the press that started this, and cannot
-        // have started again while the piece was being held, so there is
-        // nothing here to stop: the piece just comes up.
-        drag_info.active = true;
-        drag_floating_el = createFloatingPiece(drag_info.piece, drag_info.bounds);
-        state.piece_in_hand_index = drag_info.pieceIndex;
-        // Here rather than on mousedown: a tap that never crosses the
-        // threshold is deliberately nothing, and should sound like nothing.
-        playSfx('pickup');
+        // have started again while that press was down, so there is nothing
+        // here to stop: the piece just comes off the hand. Lifted here
+        // rather than on the press: a press that never crosses the threshold is
+        // deliberately nothing, and takes nothing out of the hand to show for
+        // it -- which is also why it makes no sound.
+        liftPiece('pointer', drag_info.pieceIndex, drag_info.piece);
     }
 
-    // Created the moment the drag went active, either just above or on an
-    // earlier move; an inactive drag has already returned by here.
-    if (drag_floating_el === null) return;
+    // Lifted either just above or on an earlier move; a press that has not
+    // crossed the threshold has already returned by here.
+    if (piece_in_air === null) return;
+    const held = piece_in_air;
 
-    updateFloatingPosition(drag_floating_el, clientX, clientY, drag_info.bounds);
+    updateFloatingPosition(held.el, clientX, clientY, held.bounds);
 
-    const shadow = calcShadowPlacement(clientX, clientY, drag_info.piece, drag_info.bounds);
+    // Read off the piece that is actually in the air, so what the shadow
+    // promises is what is being carried over it.
+    const shadow = calcShadowPlacement(clientX, clientY, held.piece, held.bounds);
     state.drag_shadow = shadow === null ? null : shadow.placement;
     state.clear_preview = shadow === null
         ? null
-        : calcClearPreview(drag_info.piece, shadow.placement);
-    drag_floating_el.classList.toggle('clear-preview', state.clear_preview !== null);
+        : calcClearPreview(held.piece, shadow.placement);
+    held.el.classList.toggle('clear-preview', state.clear_preview !== null);
 }
 
 /** @type {(clientX: number, clientY: number) => void} */
 function handleDragEnd(clientX, clientY) {
     if (!drag_info) return;
 
-    if (drag_info.active) {
+    if (isHeldBy('pointer')) {
         // The piece has been this drag's since the press that reached for it,
         // so nothing should have been able to take it out of the hand in
         // between. Checked all the same, and refused the same way everything
@@ -566,8 +629,12 @@ function handleDragEnd(clientX, clientY) {
         if (state.drag_shadow) {
             const result = blokie.place(state.game_state.game, state.drag_shadow);
             if (result) {
-                commitMove(drag_info.pieceIndex, result);
+                // Put down, then played, which is the order the assist's piece
+                // lands in too: the piece is off the page before the board,
+                // the hand and the score move on underneath it.
+                const index = drag_info.pieceIndex;
                 cleanupDrag();
+                commitMove(index, result);
                 onGameStateChanged({ after_manual_move: true });
                 return;
             }
@@ -582,14 +649,14 @@ function handleDragEnd(clientX, clientY) {
 // browser.
 //
 // The game goes back to the assist either way, since the press stopped it
-// either way. A press that had lifted the piece held the game long enough that
+// either way. A press that had lifted a piece held the game long enough that
 // taking over the instant it lands would read as the move being snatched away,
 // so the assist waits out a full pacing interval; a press that never became a
 // drag was deliberately nothing, and the assist picks straight back up.
 function cancelDrag() {
     if (drag_info === null) return;
-    const was_active = returnHeldPiece();
-    onGameStateChanged({ after_manual_move: was_active });
+    const was_lifted = returnHeldPiece();
+    onGameStateChanged({ after_manual_move: was_lifted });
 }
 
 // Puts back whatever is in the air, and says whether it had actually been
@@ -601,24 +668,17 @@ function cancelDrag() {
 // themselves, and cancelDrag above is the one that passes it back.
 function returnHeldPiece() {
     if (drag_info === null) return false;
-    const was_active = drag_info.active;
+    const was_lifted = isHeldBy('pointer');
     cleanupDrag();
-    if (was_active) playSfx('reject');
-    return was_active;
+    if (was_lifted) playSfx('reject');
+    return was_lifted;
 }
 
 function cleanupDrag() {
-    if (drag_floating_el) {
-        drag_floating_el.remove();
-        drag_floating_el = null;
-    }
-    // Only a drag that went active ever took a piece out of the hand, so only
-    // that one puts it back. A press that never became a drag would otherwise
-    // drop the assist's flying piece into the hand it is still on its way out
-    // of, and the hand would show it in two places at once.
-    if (drag_info !== null && drag_info.active) {
-        state.piece_in_hand_index = -1;
-    }
+    // The pointer's own piece and no other: a press that took nothing out of
+    // the hand has nothing to put back, and the assist's piece is not this
+    // one's to take off the page.
+    if (isHeldBy('pointer')) dropPiece();
     drag_info = null;
     state.drag_shadow = null;
     state.clear_preview = null;
@@ -822,15 +882,11 @@ function stopAI() {
     assist_plan = [];
     assist_hand_is_new = false;
     assist_is_starting = false;
-    cleanupFlyAnim();
-    // The index names the slot whose piece is out of the hand, and while a drag
-    // is carrying one that is the drag's to say. A press that has not become a
-    // drag has taken nothing out, so the piece the index is still talking about
-    // is the assist's -- the one this call has just taken out of the air, and
-    // which has to go back in the hand rather than leaving a hole in it.
-    if (drag_info === null || !drag_info.active) {
-        state.piece_in_hand_index = -1;
-    }
+    // The assist's piece goes back in the hand: the flight it was halfway
+    // through is not going to finish. A piece a pointer is carrying is not this
+    // one's to take off the page, and asking whose it is -- rather than
+    // whether a drag happens to exist -- is what keeps the two apart.
+    if (isHeldBy('assist')) dropPiece();
 }
 
 // Called whenever the game moves on: a placement, a new game, or a change to
@@ -844,13 +900,12 @@ function onGameStateChanged({ after_manual_move = false } = {}) {
     stopAI();
     refreshGameOver(state.game_state);
 
-    // A piece in someone's hand is a move already being made, and the assist
-    // waits for it. Anything that reaches this while a piece is held would
-    // otherwise hand the game to an assist that cannot see the piece is spoken
-    // for -- switching the speed mid-drag, which a second finger or the
-    // keyboard can do, has it play that very piece out from under the pointer,
-    // all three at once at Max. Putting the piece down comes back through here.
-    if (drag_info !== null || !assistIsOn() || state.game_state.game_over) {
+    // Anything that reaches this while a pointer is on a piece would otherwise
+    // hand the game to an assist that cannot see the piece is spoken for --
+    // switching the speed mid-drag, which a second finger or the keyboard can
+    // do, has it play that very piece out from under the pointer, all three at
+    // once at Max. Putting the piece down comes back through here.
+    if (pointerHasAPiece() || !assistIsOn() || state.game_state.game_over) {
         return;
     }
 
@@ -893,6 +948,13 @@ function continueAssist() {
     // and the next one is asked for immediately. Pacing it with timers instead
     // would only be slower than the search it is already waiting on: browsers
     // clamp nested zero-delay timeouts to 4ms.
+    //
+    // Nothing is lifted here, which is the one thing this does differently from
+    // every other way a piece reaches the board: a move that is never drawn in
+    // the air has no need of a picture over the page or a blank in the hand,
+    // and at this speed neither would last a frame. The pieces go straight from
+    // the hand to the board, so there is no piece in the air for anything to
+    // take, and no lift for a pointer to race.
     if (!assistShowsMoves()) {
         while (assist_plan.length > 0 && !state.game_state.game_over) {
             const planned = assist_plan.shift();
@@ -958,13 +1020,11 @@ function playNextAssistMove() {
         return;
     }
 
-    playSfx('pickup');
-    state.piece_in_hand_index = move.piece_index;
-    _fly_anim = startFlyAnimation(move.piece_index, move.piece, move.result.placement);
+    liftPiece('assist', move.piece_index, move.piece);
+    flyPieceToBoard(move.result.placement);
     assist_fly_timer = setTimeout(() => {
         assist_fly_timer = null;
-        cleanupFlyAnim();
-        state.piece_in_hand_index = -1;
+        dropPiece();
         commitMove(move.piece_index, move.result);
         continueAssist();
     }, FLY_ANIM_MS);
@@ -973,19 +1033,17 @@ function playNextAssistMove() {
 
 let last_rendered_state_json = '';
 
-// The assist's piece on its way from the hand to the board. Started and taken
-// down by the assist driver above; nothing here decides when a move happens.
-/** @type {{el: HTMLElement} | null} */
-let _fly_anim = null;
 const FLY_ANIM_MS = 300;
 
-/**
- * @type {(pieceIndex: number, piece: Piece, placement: Placement)
- *     => {el: HTMLElement}}
- */
-function startFlyAnimation(pieceIndex, piece, placement) {
-    const bounds = bits.bounds(piece);
-    const el = createFloatingPiece(piece, bounds);
+// The assist's piece crosses from the hand to the board. It is already in the
+// air by here, lifted the same way a pointer lifts one, so this only says where
+// it is going and how long it takes -- and the landing is the assist driver's,
+// not this one's. A pointer's piece goes wherever the pointer does instead,
+// which is the only thing the two carries do differently.
+/** @type {(placement: Placement) => void} */
+function flyPieceToBoard(placement) {
+    if (piece_in_air === null) return;
+    const { index: pieceIndex, bounds, el } = piece_in_air;
 
     // Source: center of the in-hand slot
     const handTable = element('piece-in-hand-' + pieceIndex);
@@ -1014,15 +1072,6 @@ function startFlyAnimation(pieceIndex, piece, placement) {
     el.style.left = targetX + 'px';
     el.style.top = targetY + 'px';
     el.style.opacity = '1';
-
-    return { el };
-}
-
-function cleanupFlyAnim() {
-    if (_fly_anim) {
-        _fly_anim.el.remove();
-        _fly_anim = null;
-    }
 }
 
 // === Score card ===
