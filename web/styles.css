@@ -47,7 +47,7 @@
     border-radius: 8px;
     box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
     color: rgb(54, 112, 232);
-    font-family: roboto;
+    font-family: var(--ui-font);
     font-weight: bold;
     font-size: min(5vw, 3.3vh);
     line-height: 1;
@@ -88,6 +88,18 @@ body {
     flex-direction: column;
     justify-content: center;
     justify-content: safe center;
+}
+
+/* The game asks for Roboto, which is the system font on Android and
+   ChromeOS and is installed on none of iOS, macOS, or Windows. Named on
+   its own it is not a stack but a single guess, so everywhere it loses
+   that guess the text fell back to the browser's default -- a serif, on
+   the platforms that are most of the desktop. system-ui picks up whatever
+   the platform dresses its own UI in, which on Android is Roboto again,
+   so the fallback only comes up where the first name was never going to
+   be found. Roboto stays first: where it is there, nothing changes. */
+:root {
+    --ui-font: roboto, system-ui, sans-serif;
 }
 
 /* Size the whole game from the same constrained column. In particular,
@@ -135,7 +147,7 @@ body {
 
 #score {
     text-align: center;
-    font-family: roboto;
+    font-family: var(--ui-font);
     font-size: var(--score-size);
     line-height: var(--score-line);
     font-weight: bold;
@@ -271,7 +283,7 @@ table.pieces-in-hand tr td.has-piece {
     box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
     padding: min(4vw, 2.7vh) min(6vw, 4vh);
     text-align: center;
-    font-family: roboto;
+    font-family: var(--ui-font);
 }
 
 #game-over-card h2 {
@@ -297,7 +309,7 @@ table.pieces-in-hand tr td.has-piece {
     border-radius: 6px;
     color: white;
     cursor: pointer;
-    font-family: roboto;
+    font-family: var(--ui-font);
     font-size: min(4.5vw, 3vh);
     font-weight: bold;
     padding: min(2.4vw, 1.6vh) min(6vw, 4vh);
@@ -345,7 +357,7 @@ body.game-over #pieces-in-hand-container {
        control stays about a block tall whichever axis is binding. */
     padding: min(2vw, 1.33vh) min(3vw, 2vh);
     cursor: pointer;
-    font-family: 'sparkle', roboto;
+    font-family: 'sparkle', var(--ui-font);
     font-size: min(4.5vw, 3vh);
     font-weight: bold;
     transition: background 0.15s, border-color 0.15s, color 0.15s;
@@ -372,7 +384,7 @@ body.game-over #pieces-in-hand-container {
     position: fixed;
     top: env(safe-area-inset-top, 0px);
     right: env(safe-area-inset-right, 0px);
-    font-family: roboto;
+    font-family: var(--ui-font);
     /* Above the page, below the piece being dragged. */
     z-index: 10;
 }
